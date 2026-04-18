@@ -38,7 +38,7 @@
   const layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
 
   const UMAP_URL =
-  "https://umap.openstreetmap.fr/en/map/bunmahon-cgu-access-points_1221574/geojson?format=geojson";
+  "https://umap.openstreetmap.fr/en/map/bunmahon-cgu-access-points_1221574/geojson?download";
 
   fetch(UMAP_URL, { mode: "cors" })
   .then(r => r.json())
