@@ -40,51 +40,54 @@
   const UMAP_URL =
   "https://umap.openstreetmap.fr/en/map/bunmahon-cgu-access-points_1221574/geojson?format=geojson";
 
-  fetch(UMAP_URL)
-    .then(r => r.json())
-    .then(data => {
-      const groups = {};
+  fetch(UMAP_URL, { mode: "cors" })
+  .then(r => r.json())
+  .then(data => {
+    console.log("Loaded uMap data:", data); // Debug line
 
-      function getGroupName(feature) {
+    const groups = {};
+
+    function getGroupName(feature) {
+      const p = feature.properties || {};
+      if (p._umap_options?.name) return p._umap_options.name;
+      if (p.name) return p.name;
+      return "Layer";
+    }
+
+    const geojson = L.geoJSON(data, {
+      pointToLayer: (feature, latlng) => {
         const p = feature.properties || {};
-        if (p._umap_options?.name) return p._umap_options.name;
-        if (p.name) return p.name;
-        return "Layer";
-      }
+        const color = p._umap_options?.color || "red";
 
-      const geojson = L.geoJSON(data, {
-        pointToLayer: (feature, latlng) => {
-          const p = feature.properties || {};
-          const color = p._umap_options?.color || "red";
+        return L.circleMarker(latlng, {
+          radius: 7,
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.9,
+          weight: 2
+        });
+      },
+      onEachFeature: (feature, layer) => {
+        const groupName = getGroupName(feature);
 
-          return L.circleMarker(latlng, {
-            radius: 7,
-            color: color,
-            fillColor: color,
-            fillOpacity: 0.9,
-            weight: 2
-          });
-        },
-        onEachFeature: (feature, layer) => {
-          const groupName = getGroupName(feature);
-
-          if (!groups[groupName]) {
-            groups[groupName] = L.layerGroup().addTo(map);
-            layerControl.addOverlay(groups[groupName], groupName);
-          }
-
-          groups[groupName].addLayer(layer);
-
-          const p = feature.properties || {};
-          const title = p.name || p.title || "";
-          const desc = p.description || "";
-          const html = `<strong>${title}</strong><br>${desc}`;
-          if (title || desc) layer.bindPopup(html);
+        if (!groups[groupName]) {
+          groups[groupName] = L.layerGroup().addTo(map);
+          layerControl.addOverlay(groups[groupName], groupName);
         }
-      });
 
-      map.fitBounds(geojson.getBounds(), { padding: [20, 20] });
+        groups[groupName].addLayer(layer);
+
+        const p = feature.properties || {};
+        const title = p.name || p.title || "";
+        const desc = p.description || "";
+        const html = `<strong>${title}</strong><br>${desc}`;
+        if (title || desc) layer.bindPopup(html);
+      }
     });
+
+    map.fitBounds(geojson.getBounds(), { padding: [20, 20] });
+  })
+  .catch(err => console.error("uMap load error:", err));
 
   const locateControl = L.control({ position: "topleft" });
 
