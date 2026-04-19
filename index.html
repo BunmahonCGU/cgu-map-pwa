@@ -1,134 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Bunmahon CGU Access Points</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bunmahon CGU Access Map</title>
 
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="manifest" href="manifest.json" />
+    <!-- Leaflet CSS -->
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""
+    />
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-  <style>
-    html, body { margin: 0; padding: 0; height: 100%; }
-    #map { height: 100%; }
-
-    .locate-btn {
-      background: #fff;
-      border: 2px solid #666;
-      border-radius: 4px;
-      padding: 6px;
-      cursor: pointer;
-      font-size: 18px;
-    }
-  </style>
-</head>
-<body>
-<div id="map"></div>
-
-<script>
-  const map = L.map('map').setView([52.15, -7.35], 13);
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
-
-  const layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
-
-  const UMAP_URL =
-  "https://umap.openstreetmap.fr/en/map/1393176/geojson";
-
-
-  fetch(UMAP_URL, { mode: "cors" })
-  .then(r => r.json())
-  .then(data => {
-    console.log("Loaded uMap data:", data); // Debug line
-
-    const groups = {};
-
-    function getGroupName(feature) {
-      const p = feature.properties || {};
-      if (p._umap_options?.name) return p._umap_options.name;
-      if (p.name) return p.name;
-      return "Layer";
-    }
-
-    const geojson = L.geoJSON(data, {
-      pointToLayer: (feature, latlng) => {
-        const p = feature.properties || {};
-        const color = p._umap_options?.color || "red";
-
-        return L.circleMarker(latlng, {
-          radius: 7,
-          color: color,
-          fillColor: color,
-          fillOpacity: 0.9,
-          weight: 2
-        });
-      },
-      onEachFeature: (feature, layer) => {
-        const groupName = getGroupName(feature);
-
-        if (!groups[groupName]) {
-          groups[groupName] = L.layerGroup().addTo(map);
-          layerControl.addOverlay(groups[groupName], groupName);
+    <!-- App Styles -->
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
         }
 
-        groups[groupName].addLayer(layer);
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
 
-        const p = feature.properties || {};
-        const title = p.name || p.title || "";
-        const desc = p.description || "";
-        const html = `<strong>${title}</strong><br>${desc}`;
-        if (title || desc) layer.bindPopup(html);
-      }
-    });
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
 
-    map.fitBounds(geojson.getBounds(), { padding: [20, 20] });
-  })
-  .catch(err => console.error("uMap load error:", err));
+</head>
+<body>
 
-  const locateControl = L.control({ position: "topleft" });
+    <!-- Map Container -->
+    <div id="map"></div>
 
-  locateControl.onAdd = function () {
-    const btn = L.DomUtil.create("button", "locate-btn");
-    btn.innerHTML = "📍";
-    btn.title = "Track my location";
+    <!-- Leaflet JS -->
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-o9N1j7kGStbE8V1Cw540Z8JfT0zatoHtr1f0zE2r3yU="
+        crossorigin="">
+    </script>
 
-    btn.onclick = function () {
-      map.locate({
-        setView: true,
-        watch: true,
-        enableHighAccuracy: true,
-        maxZoom: 17
-      });
-    };
+    <!-- Register Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js');
+        }
+    </script>
 
-    return btn;
-  };
+    <!-- ⭐ THIS is the missing line — now included -->
+    <script src="js/map.js"></script>
 
-  locateControl.addTo(map);
-
-  let userMarker;
-
-  map.on("locationfound", function (e) {
-    if (!userMarker) {
-      userMarker = L.marker(e.latlng).addTo(map);
-    } else {
-      userMarker.setLatLng(e.latlng);
-    }
-  });
-
-  map.on("locationerror", function () {
-    alert("Unable to access your location");
-  });
-
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js");
-  }
-</script>
-<script src="js/map.js"></script>
 </body>
 </html>
