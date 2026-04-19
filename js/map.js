@@ -31,19 +31,14 @@ async function initMap() {
     L.geoJSON(geojson, {
         pointToLayer: function (feature, latlng) {
             const opts = feature.properties._umap_options || {};
-            let iconUrl = opts.iconUrl;
+           // Always use a standard marker
+const icon = L.icon({
+    iconUrl: "https://unpkg.com/leaflet/dist/images/marker-icon.png",
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34]
+});
 
-            // Default icon if none provided
-            if (!iconUrl || iconUrl === "Y") {
-                iconUrl = "https://umap.openstreetmap.fr/static/img/marker.png";
-            }
-
-            const icon = L.icon({
-                iconUrl: iconUrl,
-                iconSize: [32, 32],
-                iconAnchor: [16, 32],
-                popupAnchor: [0, -32]
-            });
 
             return L.marker(latlng, { icon: icon });
         },
