@@ -34,11 +34,12 @@ function formatUmapPopup(raw) {
     txt.innerHTML = out;
     out = txt.value;
 
-   // 2) Convert uMap {{image}} syntax into <img> tags
+   // 2) Convert uMap {{image}} syntax into <img> tags (robust)
 out = out.replace(
-    /\{\{(https?:\/\/[^\}]+)\}\}/gi,
+    /\{\{(https?:\/\/.*?)\}\}/gi,
     '<img src="$1" style="max-width:100%; margin-top:6px;"/>'
 );
+
 
     // 3) Remove Markdown image syntax ![alt](url)
     out = out.replace(/!\[[^\]]*\]\([^)]+\)/g, "");
