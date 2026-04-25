@@ -38,7 +38,7 @@ function formatUmapPopup(raw) {
     out = out.replace(/\{\{https?:\/\/[^\}]+\}\}/gi, "");
 
     // 3) Remove Markdown image syntax ![alt](url)
-    out = out.replace(/!\[[^\]]*\]\([^)]+\)/g, "");
+    //out = out.replace(/!\[[^\]]*\]\([^)]+\)/g, "");
 
     // 4) Remove escaped <img> tags
     out = out.replace(/<img[^>]*>/gi, "");
