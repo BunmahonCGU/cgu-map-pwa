@@ -26,23 +26,27 @@ function getFeaturePrefixFromName(name) {
 
 // uMap-style popup formatter: bold, line breaks, links, images
 function formatUmapPopup(raw) {
+
     if (!raw) return "";
 
     let out = raw;
 
-    // 1) Decode HTML entities from uMap export
+    // 1) Decode HTML entities
     const txt = document.createElement("textarea");
     txt.innerHTML = out;
     out = txt.value;
 
-    // 2) Convert real line breaks and "##"
+    // ⭐ NEW: Remove escaped <img> tags from uMap export
+    out = out.replace(/<img[^>]*>/gi, "");
+
+    // 2) Convert real line breaks + ##
     out = out.replace(/\n/g, "<br/>");
     out = out.replace(/##/g, "<br/>");
 
-    // 3) Bold: **text**
+    // 3) Bold
     out = out.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
-    // 4) Convert image URLs FIRST and shield them
+    // 4) Shield image URLs
     const imageMap = {};
     let imageIndex = 0;
 
@@ -53,17 +57,17 @@ function formatUmapPopup(raw) {
             imageMap[key] =
                 `<img src="${match}" style="max-width:100%; margin-top:6px;"/>`;
             imageIndex++;
-            return key; // placeholder
+            return key;
         }
     );
 
-    // 5) Auto-link remaining URLs (images are shielded)
+    // 5) Auto-link remaining URLs
     out = out.replace(
         /(https?:\/\/[^\s<]+)/g,
         '<a href="$1" target="_blank">$1</a>'
     );
 
-    // 6) Restore image placeholders
+    // 6) Restore images
     Object.keys(imageMap).forEach(key => {
         out = out.replace(key, imageMap[key]);
     });
