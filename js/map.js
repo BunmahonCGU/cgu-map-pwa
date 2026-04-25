@@ -170,48 +170,75 @@ async function initMap() {
         // --------------------------------------------------------
         // Popups (full HTML support)
         // --------------------------------------------------------
-        onEachFeature: (feature, layer) => {
+onEachFeature: (feature, layer) => {
     if (feature.properties && feature.properties.description) {
         let popup = feature.properties.description;
 
-        // Replace {lat}, {lng}, {lon}
-        if (feature.geometry && feature.geometry.coordinates) {
+        // Replace {lat}, {lng}, {lon} ONLY for Point features
+        if (feature.geometry && feature.geometry.type === "Point") {
             const [lon, lat] = feature.geometry.coordinates;
-            popup = popup.replaceAll("{lat}", lat).replaceAll("{lng}", lon).replaceAll("{lon}", lon);
+            popup = popup
+                .replaceAll("{lat}", lat)
+                .replaceAll("{lng}", lon)
+                .replaceAll("{lon}", lon);
         }
 
-        // Replace {Measure} for LineString
+        // Replace {Measure} for LineString (no plugin needed)
         if (popup.includes("{Measure}") && feature.geometry.type === "LineString") {
-            const coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
-            const lengthMeters = L.GeometryUtil.length(coords);
-            const lengthRounded = Math.round(lengthMeters);
-            popup = popup.replace("{Measure}", lengthRounded + " m");
+            const coords = feature.geometry.coordinates; // [[lon,lat], [lon,lat], ...]
+            if (Array.isArray(coords) && coords.length > 1) {
+                // Convert to Leaflet LatLngs
+                const latlngs = coords.map(c => L.latLng(c[1], c[0]));
+
+                // Simple haversine distance in meters
+                const R = 6371000;
+                function segmentDistance(a, b) {
+                    const rad = Math.PI / 180;
+                    const dLat = (b.lat - a.lat) * rad;
+                    const dLon = (b.lng - a.lng) * rad;
+                    const lat1 = a.lat * rad;
+                    const lat2 = b.lat * rad;
+                    const sinDLat = Math.sin(dLat / 2);
+                    const sinDLon = Math.sin(dLon / 2);
+                    const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon;
+                    return 2 * R * Math.asin(Math.sqrt(h));
+                }
+
+                let lengthMeters = 0;
+                for (let i = 0; i < latlngs.length - 1; i++) {
+                    lengthMeters += segmentDistance(latlngs[i], latlngs[i + 1]);
+                }
+
+                const lengthRounded = Math.round(lengthMeters);
+                popup = popup.replace("{Measure}", lengthRounded + " m");
+            }
         }
-// Replace {Elevation}
-if (popup.includes("{Elevation}") || popup.includes("{elevation}") || popup.includes("{ele}")) {
-    let elevation = null;
 
-    // 1) Check GeoJSON coordinate triplet
-    if (feature.geometry && feature.geometry.coordinates) {
-        const coords = feature.geometry.coordinates;
-        if (Array.isArray(coords) && coords.length >= 3 && typeof coords[2] === "number") {
-            elevation = coords[2];
+        // Replace {Elevation}
+        if (popup.includes("{Elevation}") || popup.includes("{elevation}") || popup.includes("{ele}")) {
+            let elevation = null;
+
+            // 1) Check GeoJSON coordinate triplet
+            if (feature.geometry && feature.geometry.type === "Point") {
+                const coords = feature.geometry.coordinates;
+                if (coords.length >= 3 && typeof coords[2] === "number") {
+                    elevation = coords[2];
+                }
+            }
+
+            // 2) Check properties
+            const props = feature.properties || {};
+            if (elevation === null && typeof props.ele === "number") elevation = props.ele;
+            if (elevation === null && typeof props.elevation === "number") elevation = props.elevation;
+
+            // 3) Format elevation
+            const elevationText = elevation !== null ? elevation + " m" : "N/A";
+
+            popup = popup
+                .replaceAll("{Elevation}", elevationText)
+                .replaceAll("{elevation}", elevationText)
+                .replaceAll("{ele}", elevationText);
         }
-    }
-
-    // 2) Check properties
-    const props = feature.properties || {};
-    if (elevation === null && typeof props.ele === "number") elevation = props.ele;
-    if (elevation === null && typeof props.elevation === "number") elevation = props.elevation;
-
-    // 3) Format elevation
-    const elevationText = elevation !== null ? elevation + " m" : "N/A";
-
-    popup = popup
-        .replaceAll("{Elevation}", elevationText)
-        .replaceAll("{elevation}", elevationText)
-        .replaceAll("{ele}", elevationText);
-}
 
         layer.bindPopup(popup, { maxWidth: 400, className: "custom-popup" });
     }
@@ -223,7 +250,6 @@ if (popup.includes("{Elevation}") || popup.includes("{elevation}") || popup.incl
         if (layerGroups[prefix]) layerGroups[prefix].addLayer(layer);
     }
 }
-
     });
 
     // --------------------------------------------------------
