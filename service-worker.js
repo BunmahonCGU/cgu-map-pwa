@@ -1,3 +1,6 @@
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", () => self.clients.claim());
+
 const CACHE_NAME = "bunmahon-cgu-v1";
 const ASSETS = [
   "./",
