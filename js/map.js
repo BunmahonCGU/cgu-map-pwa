@@ -7,8 +7,8 @@ function getFeatureLabel(feature) {
     const props = feature.properties || {};
 
     // 1) iconURL (new uMap stores "icon symbol" here)
-    if (props._umap_options && props._umap_options.iconURL) {
-        return props._umap_options.iconURL;
+    if (props._umap_options && props._umap_options.iconUrl) {
+        return props._umap_options.iconUrl;
     }
 
     // 2) fallback: properties.label
