@@ -2,6 +2,9 @@
 // Bunmahon CGU Access Map – Full Feature Version (FINAL)
 // ------------------------------------------------------------
 
+// Disable Leaflet HTML sanitization so <img> tags are not stripped
+L.Popup.prototype.options.sanitize = false;
+
 // Extract label safely (iconUrl → label → name)
 function getFeatureLabel(feature) {
     const props = feature.properties || {};
