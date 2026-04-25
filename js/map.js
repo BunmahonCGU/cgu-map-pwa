@@ -36,20 +36,32 @@ function formatUmapPopup(raw) {
     txt.innerHTML = out;
     out = txt.value;
 
-    // 2) Remove escaped <img> tags
+    // ⭐ Remove uMap {{image}} syntax
+    out = out.replace(/\{\{https?:\/\/[^\}]+\}\}/gi, "");
+
+    // ⭐ Remove Markdown image syntax ![alt](url)
+    out = out.replace(/!
+
+\[[^\]
+
+]*\]
+
+\([^)]+\)/g, "");
+
+    // Remove escaped <img> tags
     out = out.replace(/<img[^>]*>/gi, "");
 
-    // ⭐ NEW: Remove stray > left behind by uMap export
+    // Remove stray >
     out = out.replace(/>\s*(?=<|$)/g, "");
 
-    // 3) Convert real line breaks + ##
+    // Convert real line breaks + ##
     out = out.replace(/\n/g, "<br/>");
     out = out.replace(/##/g, "<br/>");
 
-    // 4) Bold
+    // Bold
     out = out.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
-    // 5) Shield image URLs
+    // Shield image URLs
     const imageMap = {};
     let imageIndex = 0;
 
@@ -64,13 +76,13 @@ function formatUmapPopup(raw) {
         }
     );
 
-    // 6) Auto-link remaining URLs
+    // Auto-link remaining URLs
     out = out.replace(
         /(https?:\/\/[^\s<]+)/g,
         '<a href="$1" target="_blank">$1</a>'
     );
 
-    // 7) Restore images
+    // Restore images
     Object.keys(imageMap).forEach(key => {
         out = out.replace(key, imageMap[key]);
     });
