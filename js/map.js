@@ -17,33 +17,32 @@ function getFeatureLabel(feature) {
     // 3) fallback: name
     return props.name || "";
 }
-function formatUmapPopup(raw) {
 
+// Extract prefix safely: leading letters only (e.g. WAP4a → WAP, WR22b → WR)
+function getFeaturePrefixFromName(name) {
+    const match = (name || "").match(/^[A-Za-z]+/);
+    return match ? match[0] : "";
+}
+
+// uMap-style popup formatter: bold, line breaks, links, images
+function formatUmapPopup(raw) {
     if (!raw) return "";
 
     let out = raw;
 
-    // ------------------------------------------------------------
     // 1) Decode HTML entities from uMap export
-    // ------------------------------------------------------------
     const txt = document.createElement("textarea");
     txt.innerHTML = out;
     out = txt.value;
 
-    // ------------------------------------------------------------
     // 2) Convert real line breaks and "##"
-    // ------------------------------------------------------------
     out = out.replace(/\n/g, "<br/>");
     out = out.replace(/##/g, "<br/>");
 
-    // ------------------------------------------------------------
     // 3) Bold: **text**
-    // ------------------------------------------------------------
     out = out.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
-    // ------------------------------------------------------------
-    // 4) Convert image URLs FIRST and SHIELD them
-    // ------------------------------------------------------------
+    // 4) Convert image URLs FIRST and shield them
     const imageMap = {};
     let imageIndex = 0;
 
@@ -54,33 +53,22 @@ function formatUmapPopup(raw) {
             imageMap[key] =
                 `<img src="${match}" style="max-width:100%; margin-top:6px;"/>`;
             imageIndex++;
-            return key; // temporarily replace with placeholder
+            return key; // placeholder
         }
     );
 
-    // ------------------------------------------------------------
     // 5) Auto-link remaining URLs (images are shielded)
-    // ------------------------------------------------------------
     out = out.replace(
         /(https?:\/\/[^\s<]+)/g,
         '<a href="$1" target="_blank">$1</a>'
     );
 
-    // ------------------------------------------------------------
     // 6) Restore image placeholders
-    // ------------------------------------------------------------
     Object.keys(imageMap).forEach(key => {
         out = out.replace(key, imageMap[key]);
     });
 
     return out;
-}
-
-
-// Extract prefix safely: leading letters only (e.g. WAP4a → WAP, WR22b → WR)
-function getFeaturePrefixFromName(name) {
-    const match = (name || "").match(/^[A-Za-z]+/);
-    return match ? match[0] : "";
 }
 
 // ------------------------------------------------------------
@@ -247,9 +235,7 @@ async function initMap() {
                         .replaceAll("{lon}", lon);
                 }
 
-                // ----------------------------------------------------
                 // LENGTH / DISTANCE SUPPORT (LineString)
-                // ----------------------------------------------------
                 if (feature.geometry.type === "LineString") {
 
                     // Detect ANY of: {Measure}, {Length}, {Distance} (case-insensitive)
@@ -289,9 +275,7 @@ async function initMap() {
                     }
                 }
 
-                // ----------------------------------------------------
                 // AREA SUPPORT (Polygon)
-                // ----------------------------------------------------
                 if (feature.geometry.type === "Polygon" && /\{area\}/i.test(popup)) {
 
                     const rings = feature.geometry.coordinates[0]; // outer ring [[lon,lat],...]
