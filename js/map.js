@@ -2,7 +2,7 @@ const iconBase = "https://umap.openstreetmap.fr/static/img/markers/";
 
 const iconMap = {
     // Cliff Walks
-    "CWA": iconBase + "stile.png",          // white stile icon
+    "CWA": iconBase + "monument.png",          // white stile icon
     "CAP": iconBase + "circle-white.png",   // white circle
 
     // Lake Access Points
