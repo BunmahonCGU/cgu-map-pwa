@@ -2,11 +2,11 @@
 // Bunmahon CGU Access Map – Full Feature Version
 // ------------------------------------------------------------
 
-// Extract label safely (iconURL → label → name)
+// Extract label safely (iconUrl → label → name)
 function getFeatureLabel(feature) {
     const props = feature.properties || {};
 
-    // 1) iconURL (new uMap stores "icon symbol" here)
+    // 1) iconUrl (new uMap stores "icon symbol" here)
     if (props._umap_options && props._umap_options.iconUrl) {
         return props._umap_options.iconUrl;
     }
@@ -16,6 +16,12 @@ function getFeatureLabel(feature) {
 
     // 3) fallback: name
     return props.name || "";
+}
+
+// Extract prefix safely: leading letters only (e.g. WAP4a → WAP, WR22b → WR)
+function getFeaturePrefixFromName(name) {
+    const match = (name || "").match(/^[A-Za-z]+/);
+    return match ? match[0] : "";
 }
 
 // ------------------------------------------------------------
@@ -53,7 +59,7 @@ function makeSvgIcon(shape, color, label) {
 // Icon definitions by prefix
 // ------------------------------------------------------------
 const iconMap = {
-    CWA: { shape: "monument", color: "white" },
+    CWA: { shape: "monument",  color: "white" },
     LA:  { shape: "circle-pin", color: "orange" },
     D:   { shape: "defib-pin",  color: "red" },
     WAP: { shape: "circle-pin", color: "blue" },
@@ -91,7 +97,6 @@ const layerGroups = {
     // East Access Points
     EAP: L.layerGroup()
 };
-
 
 // ------------------------------------------------------------
 // Load uMap JSON (local PWA copy)
@@ -138,7 +143,7 @@ async function initMap() {
         // --------------------------------------------------------
         style: feature => {
             const name = feature.properties.name || "";
-            const prefix = name.replace(/[0-9]/g, "");
+            const prefix = getFeaturePrefixFromName(name);
 
             if (feature.geometry.type === "LineString") {
                 if (prefix === "WR")  return { color: "blue",   weight: 4 };
@@ -156,7 +161,7 @@ async function initMap() {
             if (feature.geometry.type !== "Point") return;
 
             const name = feature.properties.name || "";
-            const prefix = name.replace(/[0-9]/g, "");
+            const prefix = getFeaturePrefixFromName(name);
             const label = getFeatureLabel(feature);
 
             const iconDef = iconMap[prefix] || { shape: "circle-pin", color: "blue" };
@@ -170,138 +175,137 @@ async function initMap() {
         // --------------------------------------------------------
         // Popups (full HTML support)
         // --------------------------------------------------------
-onEachFeature: (feature, layer) => {
-    if (feature.properties && feature.properties.description) {
-        let popup = feature.properties.description;
+        onEachFeature: (feature, layer) => {
+            if (feature.properties && feature.properties.description) {
+                let popup = feature.properties.description;
 
-        // Replace {lat}, {lng}, {lon} ONLY for Point features
-        if (feature.geometry && feature.geometry.type === "Point") {
-            const [lon, lat] = feature.geometry.coordinates;
-            popup = popup
-                .replaceAll("{lat}", lat)
-                .replaceAll("{lng}", lon)
-                .replaceAll("{lon}", lon);
-        }
-
-// ------------------------------------------------------------
-// LENGTH / DISTANCE SUPPORT (LineString)
-// ------------------------------------------------------------
-if (feature.geometry.type === "LineString") {
-
-    // Detect ANY of: {Measure}, {Length}, {Distance} (case-insensitive)
-    if (/\{(measure|length|distance)\}/i.test(popup)) {
-
-        const coords = feature.geometry.coordinates; // [[lon,lat], [lon,lat], ...]
-
-        if (Array.isArray(coords) && coords.length > 1) {
-
-            // Convert to Leaflet LatLngs
-            const latlngs = coords.map(c => L.latLng(c[1], c[0]));
-
-            // Haversine distance
-            const R = 6371000;
-            function segmentDistance(a, b) {
-                const rad = Math.PI / 180;
-                const dLat = (b.lat - a.lat) * rad;
-                const dLon = (b.lng - a.lng) * rad;
-                const lat1 = a.lat * rad;
-                const lat2 = b.lat * rad;
-                const sinDLat = Math.sin(dLat / 2);
-                const sinDLon = Math.sin(dLon / 2);
-                const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon;
-                return 2 * R * Math.asin(Math.sqrt(h));
-            }
-
-            let lengthMeters = 0;
-            for (let i = 0; i < latlngs.length - 1; i++) {
-                lengthMeters += segmentDistance(latlngs[i], latlngs[i + 1]);
-            }
-
-            const lengthRounded = Math.round(lengthMeters);
-
-            // Replace ALL variants
-            popup = popup.replace(/\{(measure|length|distance)\}/gi, lengthRounded + " m");
-        }
-    }
-}
-
-// ------------------------------------------------------------
-// AREA SUPPORT (Polygon)
-// ------------------------------------------------------------
-if (feature.geometry.type === "Polygon" && /\{area\}/i.test(popup)) {
-
-    const rings = feature.geometry.coordinates[0]; // outer ring [[lon,lat],...]
-    if (Array.isArray(rings) && rings.length > 2) {
-
-        // Shoelace formula on spherical earth approximation
-        const R = 6371000;
-        function toRad(d) { return d * Math.PI / 180; }
-
-        let area = 0;
-        for (let i = 0; i < rings.length - 1; i++) {
-            const [lon1, lat1] = rings[i];
-            const [lon2, lat2] = rings[i + 1];
-            area += toRad(lon2 - lon1) * (2 + Math.sin(toRad(lat1)) + Math.sin(toRad(lat2)));
-        }
-        area = Math.abs(area * R * R / 2);
-
-        const areaRounded = Math.round(area);
-
-        popup = popup.replace(/\{area\}/gi, areaRounded + " m²");
-    }
-}
-
-
-        // Replace {Elevation}
-        if (popup.includes("{Elevation}") || popup.includes("{elevation}") || popup.includes("{ele}")) {
-            let elevation = null;
-
-            // 1) Check GeoJSON coordinate triplet
-            if (feature.geometry && feature.geometry.type === "Point") {
-                const coords = feature.geometry.coordinates;
-                if (coords.length >= 3 && typeof coords[2] === "number") {
-                    elevation = coords[2];
+                // Replace {lat}, {lng}, {lon} ONLY for Point features
+                if (feature.geometry && feature.geometry.type === "Point") {
+                    const [lon, lat] = feature.geometry.coordinates;
+                    popup = popup
+                        .replaceAll("{lat}", lat)
+                        .replaceAll("{lng}", lon)
+                        .replaceAll("{lon}", lon);
                 }
+
+                // ----------------------------------------------------
+                // LENGTH / DISTANCE SUPPORT (LineString)
+                // ----------------------------------------------------
+                if (feature.geometry.type === "LineString") {
+
+                    // Detect ANY of: {Measure}, {Length}, {Distance} (case-insensitive)
+                    if (/\{(measure|length|distance)\}/i.test(popup)) {
+
+                        const coords = feature.geometry.coordinates; // [[lon,lat], [lon,lat], ...]
+
+                        if (Array.isArray(coords) && coords.length > 1) {
+
+                            // Convert to Leaflet LatLngs
+                            const latlngs = coords.map(c => L.latLng(c[1], c[0]));
+
+                            // Haversine distance
+                            const R = 6371000;
+                            function segmentDistance(a, b) {
+                                const rad = Math.PI / 180;
+                                const dLat = (b.lat - a.lat) * rad;
+                                const dLon = (b.lng - a.lng) * rad;
+                                const lat1 = a.lat * rad;
+                                const lat2 = b.lat * rad;
+                                const sinDLat = Math.sin(dLat / 2);
+                                const sinDLon = Math.sin(dLon / 2);
+                                const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon;
+                                return 2 * R * Math.asin(Math.sqrt(h));
+                            }
+
+                            let lengthMeters = 0;
+                            for (let i = 0; i < latlngs.length - 1; i++) {
+                                lengthMeters += segmentDistance(latlngs[i], latlngs[i + 1]);
+                            }
+
+                            const lengthRounded = Math.round(lengthMeters);
+
+                            // Replace ALL variants
+                            popup = popup.replace(/\{(measure|length|distance)\}/gi, lengthRounded + " m");
+                        }
+                    }
+                }
+
+                // ----------------------------------------------------
+                // AREA SUPPORT (Polygon)
+                // ----------------------------------------------------
+                if (feature.geometry.type === "Polygon" && /\{area\}/i.test(popup)) {
+
+                    const rings = feature.geometry.coordinates[0]; // outer ring [[lon,lat],...]
+                    if (Array.isArray(rings) && rings.length > 2) {
+
+                        // Shoelace formula on spherical earth approximation
+                        const R = 6371000;
+                        function toRad(d) { return d * Math.PI / 180; }
+
+                        let area = 0;
+                        for (let i = 0; i < rings.length - 1; i++) {
+                            const [lon1, lat1] = rings[i];
+                            const [lon2, lat2] = rings[i + 1];
+                            area += toRad(lon2 - lon1) * (2 + Math.sin(toRad(lat1)) + Math.sin(toRad(lat2)));
+                        }
+                        area = Math.abs(area * R * R / 2);
+
+                        const areaRounded = Math.round(area);
+
+                        popup = popup.replace(/\{area\}/gi, areaRounded + " m²");
+                    }
+                }
+
+                // Replace {Elevation}
+                if (popup.includes("{Elevation}") || popup.includes("{elevation}") || popup.includes("{ele}")) {
+                    let elevation = null;
+
+                    // 1) Check GeoJSON coordinate triplet
+                    if (feature.geometry && feature.geometry.type === "Point") {
+                        const coords = feature.geometry.coordinates;
+                        if (coords.length >= 3 && typeof coords[2] === "number") {
+                            elevation = coords[2];
+                        }
+                    }
+
+                    // 2) Check properties
+                    const props = feature.properties || {};
+                    if (elevation === null && typeof props.ele === "number") elevation = props.ele;
+                    if (elevation === null && typeof props.elevation === "number") elevation = props.elevation;
+
+                    // 3) Format elevation
+                    const elevationText = elevation !== null ? elevation + " m" : "N/A";
+
+                    popup = popup
+                        .replaceAll("{Elevation}", elevationText)
+                        .replaceAll("{elevation}", elevationText)
+                        .replaceAll("{ele}", elevationText);
+                }
+
+                layer.bindPopup(popup, { maxWidth: 400, className: "custom-popup" });
             }
 
-            // 2) Check properties
-            const props = feature.properties || {};
-            if (elevation === null && typeof props.ele === "number") elevation = props.ele;
-            if (elevation === null && typeof props.elevation === "number") elevation = props.elevation;
-
-            // 3) Format elevation
-            const elevationText = elevation !== null ? elevation + " m" : "N/A";
-
-            popup = popup
-                .replaceAll("{Elevation}", elevationText)
-                .replaceAll("{elevation}", elevationText)
-                .replaceAll("{ele}", elevationText);
+            // Add polylines to layer groups
+            if (feature.geometry.type === "LineString") {
+                const name = feature.properties.name || "";
+                const prefix = getFeaturePrefixFromName(name);
+                if (layerGroups[prefix]) layerGroups[prefix].addLayer(layer);
+            }
         }
-
-        layer.bindPopup(popup, { maxWidth: 400, className: "custom-popup" });
-    }
-
-    // Add polylines to layer groups
-    if (feature.geometry.type === "LineString") {
-        const name = feature.properties.name || "";
-        const prefix = name.replace(/[0-9]/g, "");
-        if (layerGroups[prefix]) layerGroups[prefix].addLayer(layer);
-    }
-}
     });
 
     // --------------------------------------------------------
     // Layer toggle control
     // --------------------------------------------------------
-L.control.layers(null, {
-    "Cliff Walks": L.layerGroup([layerGroups.CWA, layerGroups.CAP]),
-    "Lake Access": L.layerGroup([layerGroups.LR, layerGroups.LA]),
-    "Defibrillators": layerGroups.D,
-    "West Roads": L.layerGroup([layerGroups.WR, layerGroups.WJ]),
-    "West Access Points": layerGroups.WAP,
-    "East Roads": L.layerGroup([layerGroups.ER, layerGroups.EJ]),
-    "East Access Points": layerGroups.EAP
-}).addTo(map);
+    L.control.layers(null, {
+        "Cliff Walks": L.layerGroup([layerGroups.CWA, layerGroups.CAP]),
+        "Lake Access": L.layerGroup([layerGroups.LR, layerGroups.LA]),
+        "Defibrillators": layerGroups.D,
+        "West Roads": L.layerGroup([layerGroups.WR, layerGroups.WJ]),
+        "West Access Points": layerGroups.WAP,
+        "East Roads": L.layerGroup([layerGroups.ER, layerGroups.EJ]),
+        "East Access Points": layerGroups.EAP
+    }).addTo(map);
 }
 
 initMap();
