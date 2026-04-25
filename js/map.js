@@ -30,9 +30,9 @@ function formatUmapPopup(raw) {
     let out = raw;
 
     // 1) Decode HTML entities
-    const txt = document.createElement("textarea");
-    txt.innerHTML = out;
-    out = txt.value;
+    //const txt = document.createElement("textarea");
+   // txt.innerHTML = out;
+   // out = txt.value;
 
 // 2) Convert uMap {{image}} syntax into <img> tags (handles all variants)
 out = out.replace(
