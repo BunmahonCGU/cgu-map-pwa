@@ -1,34 +1,32 @@
 // ------------------------------------------------------------
-// Bunmahon CGU Access Map – Full Feature Version
+// Bunmahon CGU Access Map – Full Feature Version (FINAL)
 // ------------------------------------------------------------
 
 // Extract label safely (iconUrl → label → name)
 function getFeatureLabel(feature) {
     const props = feature.properties || {};
 
-    // 1) iconUrl (new uMap stores "icon symbol" here)
     if (props._umap_options && props._umap_options.iconUrl) {
         return props._umap_options.iconUrl;
     }
 
-    // 2) fallback: properties.label
     if (props.label) return props.label;
 
-    // 3) fallback: name
     return props.name || "";
 }
 
-// Extract prefix safely: leading letters only (e.g. WAP4a → WAP, WR22b → WR)
+// Extract prefix safely: leading letters only (e.g. WAP4a → WAP)
 function getFeaturePrefixFromName(name) {
     const match = (name || "").match(/^[A-Za-z]+/);
     return match ? match[0] : "";
 }
 
-// uMap-style popup formatter: bold, line breaks, links, images
+// ------------------------------------------------------------
+// uMap-style popup formatter (FINAL)
+// ------------------------------------------------------------
 function formatUmapPopup(raw) {
 
     if (!raw) return "";
-
     let out = raw;
 
     // 1) Decode HTML entities
@@ -36,10 +34,10 @@ function formatUmapPopup(raw) {
     txt.innerHTML = out;
     out = txt.value;
 
-    // ⭐ Remove uMap {{image}} syntax
+    // 2) Remove uMap {{image}} syntax
     out = out.replace(/\{\{https?:\/\/[^\}]+\}\}/gi, "");
 
-    // ⭐ Remove Markdown image syntax ![alt](url)
+    // 3) Remove Markdown image syntax ![alt](url)
     out = out.replace(/!
 
 \[[^\]
@@ -48,20 +46,20 @@ function formatUmapPopup(raw) {
 
 \([^)]+\)/g, "");
 
-    // Remove escaped <img> tags
+    // 4) Remove escaped <img> tags
     out = out.replace(/<img[^>]*>/gi, "");
 
-    // Remove stray >
+    // 5) Remove stray > left behind by uMap export
     out = out.replace(/>\s*(?=<|$)/g, "");
 
-    // Convert real line breaks + ##
+    // 6) Convert real line breaks + ##
     out = out.replace(/\n/g, "<br/>");
     out = out.replace(/##/g, "<br/>");
 
-    // Bold
+    // 7) Bold
     out = out.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
-    // Shield image URLs
+    // 8) Shield image URLs
     const imageMap = {};
     let imageIndex = 0;
 
@@ -76,13 +74,13 @@ function formatUmapPopup(raw) {
         }
     );
 
-    // Auto-link remaining URLs
+    // 9) Auto-link remaining URLs
     out = out.replace(
         /(https?:\/\/[^\s<]+)/g,
         '<a href="$1" target="_blank">$1</a>'
     );
 
-    // Restore images
+    // 10) Restore images
     Object.keys(imageMap).forEach(key => {
         out = out.replace(key, imageMap[key]);
     });
@@ -138,29 +136,16 @@ const iconMap = {
 // Layer groups (toggleable)
 // ------------------------------------------------------------
 const layerGroups = {
-    // Cliff Walks
     CWA: L.layerGroup(),
     CAP: L.layerGroup(),
-
-    // Lake Access
     LR: L.layerGroup(),
     LA: L.layerGroup(),
-
-    // Defibrillator
     D: L.layerGroup(),
-
-    // West Roads
     WR: L.layerGroup(),
     WJ: L.layerGroup(),
-
-    // West Access Points
     WAP: L.layerGroup(),
-
-    // East Roads
     ER: L.layerGroup(),
     EJ: L.layerGroup(),
-
-    // East Access Points
     EAP: L.layerGroup()
 };
 
@@ -180,7 +165,6 @@ async function loadUmapFile(url) {
 async function initMap() {
     const map = L.map("map").setView([52.1031, -7.3498], 10);
 
-    // Base layers
     const osm = L.tileLayer('//{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
         maxZoom: 20,
         attribution: '© OpenStreetMap contributors'
@@ -191,7 +175,6 @@ async function initMap() {
         { maxZoom: 20, attribution: 'Tiles © Esri' }
     );
 
-    // Automatic basemap switching
     map.on("zoomend", () => {
         const z = map.getZoom();
         if (z >= 16) {
@@ -204,9 +187,7 @@ async function initMap() {
     const geojson = await loadUmapFile("data/bunmahon-latest.umap");
 
     L.geoJSON(geojson, {
-        // --------------------------------------------------------
-        // Polyline styling (never labeled)
-        // --------------------------------------------------------
+
         style: feature => {
             const name = feature.properties.name || "";
             const prefix = getFeaturePrefixFromName(name);
@@ -220,9 +201,6 @@ async function initMap() {
             return {};
         },
 
-        // --------------------------------------------------------
-        // Point features → custom icons
-        // --------------------------------------------------------
         pointToLayer: (feature, latlng) => {
             if (feature.geometry.type !== "Point") return;
 
@@ -238,14 +216,11 @@ async function initMap() {
             return marker;
         },
 
-        // --------------------------------------------------------
-        // Popups (full HTML support)
-        // --------------------------------------------------------
         onEachFeature: (feature, layer) => {
+
             if (feature.properties && feature.properties.description) {
                 let popup = formatUmapPopup(feature.properties.description);
 
-                // Replace {lat}, {lng}, {lon} ONLY for Point features
                 if (feature.geometry && feature.geometry.type === "Point") {
                     const [lon, lat] = feature.geometry.coordinates;
                     popup = popup
@@ -254,20 +229,16 @@ async function initMap() {
                         .replaceAll("{lon}", lon);
                 }
 
-                // LENGTH / DISTANCE SUPPORT (LineString)
                 if (feature.geometry.type === "LineString") {
 
-                    // Detect ANY of: {Measure}, {Length}, {Distance} (case-insensitive)
                     if (/\{(measure|length|distance)\}/i.test(popup)) {
 
-                        const coords = feature.geometry.coordinates; // [[lon,lat], [lon,lat], ...]
+                        const coords = feature.geometry.coordinates;
 
                         if (Array.isArray(coords) && coords.length > 1) {
 
-                            // Convert to Leaflet LatLngs
                             const latlngs = coords.map(c => L.latLng(c[1], c[0]));
 
-                            // Haversine distance
                             const R = 6371000;
                             function segmentDistance(a, b) {
                                 const rad = Math.PI / 180;
@@ -288,19 +259,16 @@ async function initMap() {
 
                             const lengthRounded = Math.round(lengthMeters);
 
-                            // Replace ALL variants
                             popup = popup.replace(/\{(measure|length|distance)\}/gi, lengthRounded + " m");
                         }
                     }
                 }
 
-                // AREA SUPPORT (Polygon)
                 if (feature.geometry.type === "Polygon" && /\{area\}/i.test(popup)) {
 
-                    const rings = feature.geometry.coordinates[0]; // outer ring [[lon,lat],...]
+                    const rings = feature.geometry.coordinates[0];
                     if (Array.isArray(rings) && rings.length > 2) {
 
-                        // Shoelace formula on spherical earth approximation
                         const R = 6371000;
                         function toRad(d) { return d * Math.PI / 180; }
 
@@ -318,11 +286,9 @@ async function initMap() {
                     }
                 }
 
-                // Replace {Elevation}
                 if (popup.includes("{Elevation}") || popup.includes("{elevation}") || popup.includes("{ele}")) {
                     let elevation = null;
 
-                    // 1) Check GeoJSON coordinate triplet
                     if (feature.geometry && feature.geometry.type === "Point") {
                         const coords = feature.geometry.coordinates;
                         if (coords.length >= 3 && typeof coords[2] === "number") {
@@ -330,12 +296,10 @@ async function initMap() {
                         }
                     }
 
-                    // 2) Check properties
                     const props = feature.properties || {};
                     if (elevation === null && typeof props.ele === "number") elevation = props.ele;
                     if (elevation === null && typeof props.elevation === "number") elevation = props.elevation;
 
-                    // 3) Format elevation
                     const elevationText = elevation !== null ? elevation + " m" : "N/A";
 
                     popup = popup
@@ -347,7 +311,6 @@ async function initMap() {
                 layer.bindPopup(popup, { maxWidth: 400, className: "custom-popup" });
             }
 
-            // Add polylines to layer groups
             if (feature.geometry.type === "LineString") {
                 const name = feature.properties.name || "";
                 const prefix = getFeaturePrefixFromName(name);
@@ -356,9 +319,6 @@ async function initMap() {
         }
     });
 
-    // --------------------------------------------------------
-    // Layer toggle control
-    // --------------------------------------------------------
     L.control.layers(null, {
         "Cliff Walks": L.layerGroup([layerGroups.CWA, layerGroups.CAP]),
         "Lake Access": L.layerGroup([layerGroups.LR, layerGroups.LA]),
@@ -373,7 +333,7 @@ async function initMap() {
 initMap();
 
 // ------------------------------------------------------------
-// Optional: Auto-download latest .umap file (disabled by default)
+// Optional: Auto-download latest .umap file
 // ------------------------------------------------------------
 async function autoDownloadUmap() {
     const url = "https://umap.openstreetmap.fr/en/map/1393298/export/?format=umap";
