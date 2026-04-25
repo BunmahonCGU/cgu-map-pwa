@@ -183,36 +183,74 @@ onEachFeature: (feature, layer) => {
                 .replaceAll("{lon}", lon);
         }
 
-        // Replace {Measure} for LineString (no plugin needed)
-        if (popup.includes("{Measure}") && feature.geometry.type === "LineString") {
-            const coords = feature.geometry.coordinates; // [[lon,lat], [lon,lat], ...]
-            if (Array.isArray(coords) && coords.length > 1) {
-                // Convert to Leaflet LatLngs
-                const latlngs = coords.map(c => L.latLng(c[1], c[0]));
+// ------------------------------------------------------------
+// LENGTH / DISTANCE SUPPORT (LineString)
+// ------------------------------------------------------------
+if (feature.geometry.type === "LineString") {
 
-                // Simple haversine distance in meters
-                const R = 6371000;
-                function segmentDistance(a, b) {
-                    const rad = Math.PI / 180;
-                    const dLat = (b.lat - a.lat) * rad;
-                    const dLon = (b.lng - a.lng) * rad;
-                    const lat1 = a.lat * rad;
-                    const lat2 = b.lat * rad;
-                    const sinDLat = Math.sin(dLat / 2);
-                    const sinDLon = Math.sin(dLon / 2);
-                    const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon;
-                    return 2 * R * Math.asin(Math.sqrt(h));
-                }
+    // Detect ANY of: {Measure}, {Length}, {Distance} (case-insensitive)
+    if (/\{(measure|length|distance)\}/i.test(popup)) {
 
-                let lengthMeters = 0;
-                for (let i = 0; i < latlngs.length - 1; i++) {
-                    lengthMeters += segmentDistance(latlngs[i], latlngs[i + 1]);
-                }
+        const coords = feature.geometry.coordinates; // [[lon,lat], [lon,lat], ...]
 
-                const lengthRounded = Math.round(lengthMeters);
-                popup = popup.replace("{Measure}", lengthRounded + " m");
+        if (Array.isArray(coords) && coords.length > 1) {
+
+            // Convert to Leaflet LatLngs
+            const latlngs = coords.map(c => L.latLng(c[1], c[0]));
+
+            // Haversine distance
+            const R = 6371000;
+            function segmentDistance(a, b) {
+                const rad = Math.PI / 180;
+                const dLat = (b.lat - a.lat) * rad;
+                const dLon = (b.lng - a.lng) * rad;
+                const lat1 = a.lat * rad;
+                const lat2 = b.lat * rad;
+                const sinDLat = Math.sin(dLat / 2);
+                const sinDLon = Math.sin(dLon / 2);
+                const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon;
+                return 2 * R * Math.asin(Math.sqrt(h));
             }
+
+            let lengthMeters = 0;
+            for (let i = 0; i < latlngs.length - 1; i++) {
+                lengthMeters += segmentDistance(latlngs[i], latlngs[i + 1]);
+            }
+
+            const lengthRounded = Math.round(lengthMeters);
+
+            // Replace ALL variants
+            popup = popup.replace(/\{(measure|length|distance)\}/gi, lengthRounded + " m");
         }
+    }
+}
+
+// ------------------------------------------------------------
+// AREA SUPPORT (Polygon)
+// ------------------------------------------------------------
+if (feature.geometry.type === "Polygon" && /\{area\}/i.test(popup)) {
+
+    const rings = feature.geometry.coordinates[0]; // outer ring [[lon,lat],...]
+    if (Array.isArray(rings) && rings.length > 2) {
+
+        // Shoelace formula on spherical earth approximation
+        const R = 6371000;
+        function toRad(d) { return d * Math.PI / 180; }
+
+        let area = 0;
+        for (let i = 0; i < rings.length - 1; i++) {
+            const [lon1, lat1] = rings[i];
+            const [lon2, lat2] = rings[i + 1];
+            area += toRad(lon2 - lon1) * (2 + Math.sin(toRad(lat1)) + Math.sin(toRad(lat2)));
+        }
+        area = Math.abs(area * R * R / 2);
+
+        const areaRounded = Math.round(area);
+
+        popup = popup.replace(/\{area\}/gi, areaRounded + " m²");
+    }
+}
+
 
         // Replace {Elevation}
         if (popup.includes("{Elevation}") || popup.includes("{elevation}") || popup.includes("{ele}")) {
