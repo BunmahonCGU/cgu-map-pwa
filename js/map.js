@@ -17,30 +17,54 @@ function getFeatureLabel(feature) {
     // 3) fallback: name
     return props.name || "";
 }
-function formatUmapPopup(html) {
+function formatUmapPopup(raw) {
 
-    let out = html;
+    if (!raw) return "";
 
-    // Bold: **text**
-    out = out.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    let out = raw;
 
-    // Line breaks: ##
+    // ------------------------------------------------------------
+    // 1) Decode HTML entities from uMap export
+    // ------------------------------------------------------------
+    const txt = document.createElement("textarea");
+    txt.innerHTML = out;
+    out = txt.value;
+
+    // ------------------------------------------------------------
+    // 2) Convert real line breaks to <br/>
+    // ------------------------------------------------------------
+    out = out.replace(/\n/g, "<br/>");
+
+    // ------------------------------------------------------------
+    // 3) Convert uMap "##" line breaks
+    // ------------------------------------------------------------
     out = out.replace(/##/g, "<br/>");
 
-    // Auto-link URLs
+    // ------------------------------------------------------------
+    // 4) Bold: **text**
+    // ------------------------------------------------------------
+    out = out.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+    // ------------------------------------------------------------
+    // 5) Auto-image for .jpg/.png/.gif URLs
+    //    (only if not already inside <img>)
+    // ------------------------------------------------------------
     out = out.replace(
-        /(https?:\/\/[^\s<]+)/g,
-        '<a href="$1" target="_blank">$1</a>'
+        /(?<!["'=])(https?:\/\/[^\s<]+?\.(jpg|jpeg|png|gif))/gi,
+        '<img src="$1" style="max-width:100%; margin-top:6px;"/>'
     );
 
-    // Auto-image for .jpg/.png/.gif URLs
+    // ------------------------------------------------------------
+    // 6) Auto-link URLs (skip ones already converted to <img>)
+    // ------------------------------------------------------------
     out = out.replace(
-        /(https?:\/\/[^\s<]+\.(jpg|jpeg|png|gif))/gi,
-        '<img src="$1" style="max-width:100%; margin-top:6px;"/>'
+        /(?<!src=")(https?:\/\/[^\s<]+)/g,
+        '<a href="$1" target="_blank">$1</a>'
     );
 
     return out;
 }
+
 
 // Extract prefix safely: leading letters only (e.g. WAP4a → WAP, WR22b → WR)
 function getFeaturePrefixFromName(name) {
@@ -201,8 +225,7 @@ async function initMap() {
         // --------------------------------------------------------
         onEachFeature: (feature, layer) => {
             if (feature.properties && feature.properties.description) {
-                let popup = feature.properties.description;
-                popup = formatUmapPopup(popup);
+                let popup = formatUmapPopup(feature.properties.description);
 
                 // Replace {lat}, {lng}, {lon} ONLY for Point features
                 if (feature.geometry && feature.geometry.type === "Point") {
