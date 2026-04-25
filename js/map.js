@@ -17,6 +17,30 @@ function getFeatureLabel(feature) {
     // 3) fallback: name
     return props.name || "";
 }
+function formatUmapPopup(html) {
+
+    let out = html;
+
+    // Bold: **text**
+    out = out.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+    // Line breaks: ##
+    out = out.replace(/##/g, "<br/>");
+
+    // Auto-link URLs
+    out = out.replace(
+        /(https?:\/\/[^\s<]+)/g,
+        '<a href="$1" target="_blank">$1</a>'
+    );
+
+    // Auto-image for .jpg/.png/.gif URLs
+    out = out.replace(
+        /(https?:\/\/[^\s<]+\.(jpg|jpeg|png|gif))/gi,
+        '<img src="$1" style="max-width:100%; margin-top:6px;"/>'
+    );
+
+    return out;
+}
 
 // Extract prefix safely: leading letters only (e.g. WAP4a → WAP, WR22b → WR)
 function getFeaturePrefixFromName(name) {
@@ -178,6 +202,7 @@ async function initMap() {
         onEachFeature: (feature, layer) => {
             if (feature.properties && feature.properties.description) {
                 let popup = feature.properties.description;
+                popup = formatUmapPopup(popup);
 
                 // Replace {lat}, {lng}, {lon} ONLY for Point features
                 if (feature.geometry && feature.geometry.type === "Point") {
