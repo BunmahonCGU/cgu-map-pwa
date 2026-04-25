@@ -171,24 +171,59 @@ async function initMap() {
         // Popups (full HTML support)
         // --------------------------------------------------------
         onEachFeature: (feature, layer) => {
-            if (feature.properties && feature.properties.description) {
-                let popup = feature.properties.description;
+    if (feature.properties && feature.properties.description) {
+        let popup = feature.properties.description;
 
-                if (feature.geometry && feature.geometry.coordinates) {
-                    const [lon, lat] = feature.geometry.coordinates;
-                    popup = popup.replaceAll("{lat}", lat).replaceAll("{lng}", lon).replaceAll("{lon}", lon);
-                }
-
-                layer.bindPopup(popup, { maxWidth: 400, className: "custom-popup" });
-            }
-
-            // Add polylines to layer groups
-            if (feature.geometry.type === "LineString") {
-                const name = feature.properties.name || "";
-                const prefix = name.replace(/[0-9]/g, "");
-                if (layerGroups[prefix]) layerGroups[prefix].addLayer(layer);
-            }
+        // Replace {lat}, {lng}, {lon}
+        if (feature.geometry && feature.geometry.coordinates) {
+            const [lon, lat] = feature.geometry.coordinates;
+            popup = popup.replaceAll("{lat}", lat).replaceAll("{lng}", lon).replaceAll("{lon}", lon);
         }
+
+        // Replace {Measure} for LineString
+        if (popup.includes("{Measure}") && feature.geometry.type === "LineString") {
+            const coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
+            const lengthMeters = L.GeometryUtil.length(coords);
+            const lengthRounded = Math.round(lengthMeters);
+            popup = popup.replace("{Measure}", lengthRounded + " m");
+        }
+// Replace {Elevation}
+if (popup.includes("{Elevation}") || popup.includes("{elevation}") || popup.includes("{ele}")) {
+    let elevation = null;
+
+    // 1) Check GeoJSON coordinate triplet
+    if (feature.geometry && feature.geometry.coordinates) {
+        const coords = feature.geometry.coordinates;
+        if (Array.isArray(coords) && coords.length >= 3 && typeof coords[2] === "number") {
+            elevation = coords[2];
+        }
+    }
+
+    // 2) Check properties
+    const props = feature.properties || {};
+    if (elevation === null && typeof props.ele === "number") elevation = props.ele;
+    if (elevation === null && typeof props.elevation === "number") elevation = props.elevation;
+
+    // 3) Format elevation
+    const elevationText = elevation !== null ? elevation + " m" : "N/A";
+
+    popup = popup
+        .replaceAll("{Elevation}", elevationText)
+        .replaceAll("{elevation}", elevationText)
+        .replaceAll("{ele}", elevationText);
+}
+
+        layer.bindPopup(popup, { maxWidth: 400, className: "custom-popup" });
+    }
+
+    // Add polylines to layer groups
+    if (feature.geometry.type === "LineString") {
+        const name = feature.properties.name || "";
+        const prefix = name.replace(/[0-9]/g, "");
+        if (layerGroups[prefix]) layerGroups[prefix].addLayer(layer);
+    }
+}
+
     });
 
     // --------------------------------------------------------
