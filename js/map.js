@@ -40,8 +40,9 @@ function formatUmapPopup(raw) {
     // 3) Remove Markdown image syntax ![alt](url)
     out = out.replace(/!\[[^\]]*\]\([^)]+\)/g, "");
 
-    // 4) Remove escaped <img> tags
-    out = out.replace(/<img[^>]*>/gi, "");
+    // 4) Remove *escaped* <img> tags only (e.g. &lt;img ... &gt;)
+out = out.replace(/&lt;img[^&]*&gt;/gi, "");
+
 
     // 5) Remove stray > left behind by uMap export
     out = out.replace(/>\s*(?=<|$)/g, "");
