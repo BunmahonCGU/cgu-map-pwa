@@ -31,39 +31,51 @@ function formatUmapPopup(raw) {
     out = txt.value;
 
     // ------------------------------------------------------------
-    // 2) Convert real line breaks to <br/>
+    // 2) Convert real line breaks and "##"
     // ------------------------------------------------------------
     out = out.replace(/\n/g, "<br/>");
-
-    // ------------------------------------------------------------
-    // 3) Convert uMap "##" line breaks
-    // ------------------------------------------------------------
     out = out.replace(/##/g, "<br/>");
 
     // ------------------------------------------------------------
-    // 4) Bold: **text**
+    // 3) Bold: **text**
     // ------------------------------------------------------------
     out = out.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
     // ------------------------------------------------------------
-    // 5) Auto-image for .jpg/.png/.gif URLs
-    //    IMPORTANT: capture URL but DO NOT allow link wrapper
+    // 4) Convert image URLs FIRST and SHIELD them
     // ------------------------------------------------------------
+    const imageMap = {};
+    let imageIndex = 0;
+
     out = out.replace(
-        /(^|[^"'=])(https?:\/\/[^\s<]+?\.(jpg|jpeg|png|gif))/gi,
-        '$1<img src="$2" style="max-width:100%; margin-top:6px;"/>'
+        /(https?:\/\/[^\s<]+?\.(jpg|jpeg|png|gif))/gi,
+        (match) => {
+            const key = `__IMG${imageIndex}__`;
+            imageMap[key] =
+                `<img src="${match}" style="max-width:100%; margin-top:6px;"/>`;
+            imageIndex++;
+            return key; // temporarily replace with placeholder
+        }
     );
 
     // ------------------------------------------------------------
-    // 6) Auto-link URLs (skip ones already inside <img>)
+    // 5) Auto-link remaining URLs (images are shielded)
     // ------------------------------------------------------------
     out = out.replace(
-        /(?<!src=")(https?:\/\/[^\s<]+)/g,
+        /(https?:\/\/[^\s<]+)/g,
         '<a href="$1" target="_blank">$1</a>'
     );
 
+    // ------------------------------------------------------------
+    // 6) Restore image placeholders
+    // ------------------------------------------------------------
+    Object.keys(imageMap).forEach(key => {
+        out = out.replace(key, imageMap[key]);
+    });
+
     return out;
 }
+
 
 // Extract prefix safely: leading letters only (e.g. WAP4a → WAP, WR22b → WR)
 function getFeaturePrefixFromName(name) {
