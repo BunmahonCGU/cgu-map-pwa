@@ -47,15 +47,15 @@ function formatUmapPopup(raw) {
 
     // ------------------------------------------------------------
     // 5) Auto-image for .jpg/.png/.gif URLs
-    //    (only if not already inside <img>)
+    //    IMPORTANT: capture URL but DO NOT allow link wrapper
     // ------------------------------------------------------------
     out = out.replace(
-        /(?<!["'=])(https?:\/\/[^\s<]+?\.(jpg|jpeg|png|gif))/gi,
-        '<img src="$1" style="max-width:100%; margin-top:6px;"/>'
+        /(^|[^"'=])(https?:\/\/[^\s<]+?\.(jpg|jpeg|png|gif))/gi,
+        '$1<img src="$2" style="max-width:100%; margin-top:6px;"/>'
     );
 
     // ------------------------------------------------------------
-    // 6) Auto-link URLs (skip ones already converted to <img>)
+    // 6) Auto-link URLs (skip ones already inside <img>)
     // ------------------------------------------------------------
     out = out.replace(
         /(?<!src=")(https?:\/\/[^\s<]+)/g,
@@ -64,7 +64,6 @@ function formatUmapPopup(raw) {
 
     return out;
 }
-
 
 // Extract prefix safely: leading letters only (e.g. WAP4a → WAP, WR22b → WR)
 function getFeaturePrefixFromName(name) {
