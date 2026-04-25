@@ -1,41 +1,54 @@
-// Compact SVG icon factory (no whitespace/newlines)
-function makeSvgIcon(shape, color) {
+// SVG icon factory with pin shapes and labels
+function makeSvgIcon(shape, color, label) {
     let svg = "";
 
-    if (shape === "circle") {
-        svg = '<svg width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="10" fill="' + color + '" stroke="black" stroke-width="2"/></svg>';
+    if (shape === "circle-pin") {
+        svg = '<svg width="32" height="32" viewBox="0 0 32 32">'
+            + '<path d="M16 2 C9 2 4 7 4 14 C4 22 16 30 16 30 C16 30 28 22 28 14 C28 7 23 2 16 2 Z" fill="' + color + '" stroke="black" stroke-width="2"/>'
+            + '<text x="16" y="16" text-anchor="middle" font-size="9" fill="white" font-family="sans-serif">' + label + '</text>'
+            + '</svg>';
     }
 
-    if (shape === "square") {
-        svg = '<svg width="32" height="32" viewBox="0 0 32 32"><rect x="6" y="6" width="20" height="20" fill="' + color + '" stroke="black" stroke-width="2"/></svg>';
+    if (shape === "square-pin") {
+        svg = '<svg width="32" height="32" viewBox="0 0 32 32">'
+            + '<rect x="8" y="4" width="16" height="14" fill="' + color + '" stroke="black" stroke-width="2"/>'
+            + '<path d="M16 30 L8 18 L24 18 Z" fill="' + color + '" stroke="black" stroke-width="2"/>'
+            + '<text x="16" y="14" text-anchor="middle" font-size="9" fill="white" font-family="sans-serif">' + label + '</text>'
+            + '</svg>';
+    }
+
+    if (shape === "defib-pin") {
+        svg = '<svg width="32" height="32" viewBox="0 0 32 32">'
+            + '<path d="M16 2 C9 2 4 7 4 14 C4 22 16 30 16 30 C16 30 28 22 28 14 C28 7 23 2 16 2 Z" fill="' + color + '" stroke="black" stroke-width="2"/>'
+            + '<path d="M10 18l3-5 2 4 2-3 5 4" stroke="white" stroke-width="2" fill="none"/>'
+            + '<text x="16" y="16" text-anchor="middle" font-size="9" fill="white" font-family="sans-serif">' + label + '</text>'
+            + '</svg>';
     }
 
     if (shape === "monument") {
-        svg = '<svg width="32" height="32" viewBox="0 0 32 32"><path d="M10 26h12v-2H10zm2-4h8V8h-8z" fill="' + color + '" stroke="black" stroke-width="2"/></svg>';
-    }
-
-    if (shape === "defib") {
-        svg = '<svg width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="10" fill="' + color + '" stroke="black" stroke-width="2"/><path d="M10 18l4-6 2 4 2-2 4 4" stroke="white" stroke-width="3" fill="none"/></svg>';
+        svg = '<svg width="32" height="32" viewBox="0 0 32 32">'
+            + '<path d="M10 26h12v-2H10zm2-4h8V8h-8z" fill="' + color + '" stroke="black" stroke-width="2"/>'
+            + '</svg>';
     }
 
     return L.divIcon({
         html: svg,
         className: "",
         iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        popupAnchor: [0, -32]
+        iconAnchor: [16, 30],
+        popupAnchor: [0, -30]
     });
 }
 
-// Icon definitions for point features
+// Icon definitions by prefix (point features)
 const iconMap = {
-    "CWA": { shape: "monument", color: "white" },
-    "LA":  { shape: "circle",   color: "orange" },
-    "D":   { shape: "defib",    color: "red" },
-    "WAP": { shape: "circle",   color: "blue" },
-    "WJ":  { shape: "square",   color: "blue" },
-    "EAP": { shape: "circle",   color: "pink" },
-    "EJ":  { shape: "square",   color: "pink" }
+    "CWA": { shape: "monument",   color: "white"  },
+    "LA":  { shape: "circle-pin", color: "orange" },
+    "D":   { shape: "defib-pin",  color: "red"    },
+    "WAP": { shape: "circle-pin", color: "blue"   },
+    "WJ":  { shape: "square-pin", color: "blue"   },
+    "EAP": { shape: "circle-pin", color: "pink"   },
+    "EJ":  { shape: "square-pin", color: "pink"   }
 };
 
 // Load uMap JSON
@@ -69,9 +82,9 @@ async function initMap() {
             const prefix = name.replace(/[0-9]/g, "");
 
             if (feature.geometry.type === "LineString") {
-                if (prefix === "WR") return { color: "blue", weight: 4 };
-                if (prefix === "ER") return { color: "pink", weight: 4 };
-                if (prefix === "LR") return { color: "orange", weight: 4 };
+                if (prefix === "WR")  return { color: "blue",  weight: 4 };
+                if (prefix === "ER")  return { color: "pink",  weight: 4 };
+                if (prefix === "LR")  return { color: "orange",weight: 4 };
                 if (prefix === "CAP") return { color: "white", weight: 4 };
             }
 
@@ -84,8 +97,8 @@ async function initMap() {
             const name = feature.properties.name || "";
             const prefix = name.replace(/[0-9]/g, "");
 
-            const iconDef = iconMap[prefix] || { shape: "circle", color: "blue" };
-            const icon = makeSvgIcon(iconDef.shape, iconDef.color);
+            const iconDef = iconMap[prefix] || { shape: "circle-pin", color: "blue" };
+            const icon = makeSvgIcon(iconDef.shape, iconDef.color, name);
 
             return L.marker(latlng, { icon: icon });
         },
