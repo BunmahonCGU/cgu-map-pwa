@@ -1,4 +1,4 @@
-const iconBase = "const iconBase = "https://umap.openstreetmap.fr/static/img/umap/markers/";
+const iconBase = "https://umap.openstreetmap.fr/static/img/umap/markers/";
 
 const iconMap = {
     // Cliff Walks
