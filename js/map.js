@@ -66,18 +66,32 @@ const iconMap = {
 // Layer groups (toggleable)
 // ------------------------------------------------------------
 const layerGroups = {
-    WAP: L.layerGroup(),
-    WJ:  L.layerGroup(),
-    EAP: L.layerGroup(),
-    EJ:  L.layerGroup(),
-    LA:  L.layerGroup(),
-    D:   L.layerGroup(),
+    // Cliff Walks
     CWA: L.layerGroup(),
     CAP: L.layerGroup(),
-    WR:  L.layerGroup(),
-    ER:  L.layerGroup(),
-    LR:  L.layerGroup()
+
+    // Lake Access
+    LR: L.layerGroup(),
+    LA: L.layerGroup(),
+
+    // Defibrillator
+    D: L.layerGroup(),
+
+    // West Roads
+    WR: L.layerGroup(),
+    WJ: L.layerGroup(),
+
+    // West Access Points
+    WAP: L.layerGroup(),
+
+    // East Roads
+    ER: L.layerGroup(),
+    EJ: L.layerGroup(),
+
+    // East Access Points
+    EAP: L.layerGroup()
 };
+
 
 // ------------------------------------------------------------
 // Load uMap JSON (local PWA copy)
@@ -180,19 +194,15 @@ async function initMap() {
     // --------------------------------------------------------
     // Layer toggle control
     // --------------------------------------------------------
-    L.control.layers(null, {
-        "Water Access Points": layerGroups.WAP,
-        "Water Jetties": layerGroups.WJ,
-        "Emergency Access Points": layerGroups.EAP,
-        "Emergency Jetties": layerGroups.EJ,
-        "Lookout Areas": layerGroups.LA,
-        "Defibrillators": layerGroups.D,
-        "CWA": layerGroups.CWA,
-        "CAP Routes": layerGroups.CAP,
-        "WR Routes": layerGroups.WR,
-        "ER Routes": layerGroups.ER,
-        "LR Routes": layerGroups.LR
-    }).addTo(map);
+L.control.layers(null, {
+    "Cliff Walks": L.layerGroup([layerGroups.CWA, layerGroups.CAP]),
+    "Lake Access": L.layerGroup([layerGroups.LR, layerGroups.LA]),
+    "Defibrillators": layerGroups.D,
+    "West Roads": L.layerGroup([layerGroups.WR, layerGroups.WJ]),
+    "West Access Points": layerGroups.WAP,
+    "East Roads": L.layerGroup([layerGroups.ER, layerGroups.EJ]),
+    "East Access Points": layerGroups.EAP
+}).addTo(map);
 }
 
 initMap();
