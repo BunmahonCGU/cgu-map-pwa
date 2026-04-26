@@ -28,6 +28,7 @@ function getFeaturePrefixFromName(name) {
 // uMap-style popup formatter (FINAL)
 // ------------------------------------------------------------
 function formatUmapPopup(raw) {
+console.log("RAW POPUP INPUT >>>", JSON.stringify(raw));
 
     if (!raw) return "";
     let out = raw;
