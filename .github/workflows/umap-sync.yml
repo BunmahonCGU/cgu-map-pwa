@@ -18,7 +18,7 @@ jobs:
 
       - name: Download latest uMap export
         run: |
-          curl -L "https://umap.openstreetmap.fr/en/map/bunmahon-cgu-access-points_1393298/export/?format=umap" \
+          curl -L "https://umap.openstreetmap.fr/en/map/bunmahon-cgu-access-points_1393298/export/umap" \
             -o latest.umap
 
       - name: Compare with existing file
