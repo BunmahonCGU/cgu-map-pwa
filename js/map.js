@@ -31,6 +31,8 @@ function formatUmapPopup(raw) {
 console.log("RAW POPUP INPUT >>>", JSON.stringify(raw));
 
     if (!raw) return "";
+    raw = raw.replace(/^"(.*)"$/s, "$1");
+
     let out = raw;
 
     // 1) Decode HTML entities
