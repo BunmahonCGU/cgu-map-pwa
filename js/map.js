@@ -196,10 +196,11 @@ map.on("locationfound", (e) => {
     if (!userMarker) {
         userMarker = L.marker(e.latlng, {
             icon: L.icon({
-                iconUrl: "img/blue-dot.png",
-                iconSize: [18, 18],
-                iconAnchor: [9, 9]
+            iconUrl: "https://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png",
+            iconSize: [18, 18],
+            iconAnchor: [9, 9]
             })
+
         }).addTo(map);
     } else {
         userMarker.setLatLng(e.latlng);
