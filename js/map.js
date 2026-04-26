@@ -6,8 +6,8 @@ let tracking = true;
 let lastLocation = null;
 const userIcon = L.divIcon({
     className: "user-location-icon",
-    iconSize: [28, 28],   // size of the dot
-    iconAnchor: [14, 14]  // center the dot on the location
+    iconSize: [36, 36],   // size of the dot
+    iconAnchor: [18, 18]  // center the dot on the location
 });
 
 // Disable Leaflet HTML sanitization so <img> tags are not stripped
