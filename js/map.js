@@ -82,11 +82,12 @@ out = out.replace(/&lt;img[^&]*&gt;/gi, "");
 //);
 
 
-    // 9) Auto-link remaining URLs
-    out = out.replace(
-        /(https?:\/\/[^\s<]+)/g,
-        '<a href="$1" target="_blank">$1</a>'
-    );
+    // 9) Auto-link remaining URLs, but skip URLs already inside HTML tags
+out = out.replace(
+    /(?<!["'=])(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank">$1</a>'
+);
+
 
     // 10) Restore images
   //  Object.keys(imageMap).forEach(key => {
