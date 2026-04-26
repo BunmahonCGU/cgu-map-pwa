@@ -160,7 +160,7 @@ map.locate({
 });
 // Cache the control button once Leaflet inserts it
 setTimeout(() => {
-    const locateBtn = document.querySelector('.leaflet-control-locate');
+    const locateBtn = document.querySelector('.gps-button');
 
     if (!locateBtn) return;
 
