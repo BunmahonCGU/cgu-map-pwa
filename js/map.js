@@ -69,20 +69,18 @@ out = out.replace(/&lt;img[^&]*&gt;/gi, "");
     // 7) Bold
     out = out.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
-    // 8) Shield image URLs
-    const imageMap = {};
-    let imageIndex = 0;
+    // 8) Shield image URLs — but skip URLs already inside <img ...>
+out = out.replace(
+    /(?<!img src=")(https?:\/\/[^\s<]+?\.(jpg|jpeg|png|gif))/gi,
+    (match) => {
+        const key = `__IMG${imageIndex}__`;
+        imageMap[key] =
+            `<img src="${match}" style="max-width:100%; margin-top:6px;"/>`;
+        imageIndex++;
+        return key;
+    }
+);
 
-    out = out.replace(
-        /(https?:\/\/[^\s<]+?\.(jpg|jpeg|png|gif))/gi,
-        (match) => {
-            const key = `__IMG${imageIndex}__`;
-            imageMap[key] =
-                `<img src="${match}" style="max-width:100%; margin-top:6px;"/>`;
-            imageIndex++;
-            return key;
-        }
-    );
 
     // 9) Auto-link remaining URLs
     out = out.replace(
