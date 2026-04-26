@@ -253,7 +253,7 @@ map.on("dragstart", () => {
 
     const geojson = await loadUmapFile("data/bunmahon-latest.umap");
 
-    L.geoJSON(geojson, {
+    window.umapLayer = L.geoJSON(geojson, {
 
         style: feature => {
             const name = feature.properties.name || "";
@@ -401,7 +401,7 @@ map.on("dragstart", () => {
                 if (layerGroups[prefix]) layerGroups[prefix].addLayer(layer);
             }
         }
-    });
+    }).addTo(map);
 
     L.control.layers(null, {
         "Cliff Walks": L.layerGroup([layerGroups.CWA, layerGroups.CAP]),
