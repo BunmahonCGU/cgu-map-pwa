@@ -191,39 +191,40 @@ map.on("locationfound", (e) => {
     lastLocation = e.latlng;
 
     if (!tracking) return;
+
     // Create or update user marker
     if (!userMarker) {
-        userMarker = L.circleMarker(latlng, {
-            radius: 8,
-            fillColor: "#2A93EE",
-            color: "#ffffff",
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 1
+        userMarker = L.marker(e.latlng, {
+            icon: L.icon({
+                iconUrl: "img/blue-dot.png",
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            })
         }).addTo(map);
     } else {
-        userMarker.setLatLng(latlng);
+        userMarker.setLatLng(e.latlng);
     }
 
     // Create or update accuracy circle
     if (!accuracyCircle) {
-        accuracyCircle = L.circle(latlng, {
+        accuracyCircle = L.circle(e.latlng, {
             radius: e.accuracy,
-            color: "#2A93EE",
-            fillColor: "#2A93EE",
+            color: "#136AEC",
+            fillColor: "#136AEC",
             fillOpacity: 0.15,
-            weight: 1
+            weight: 2
         }).addTo(map);
     } else {
-        accuracyCircle.setLatLng(latlng);
+        accuracyCircle.setLatLng(e.latlng);
         accuracyCircle.setRadius(e.accuracy);
     }
 
-    // Auto-follow user unless manually overridden
+    // Follow mode
     if (followMode) {
-        map.setView(latlng, map.getZoom(), { animate: true });
+        map.setView(e.latlng, map.getZoom());
     }
 });
+
 
 // Stop following if user manually pans
 map.on("dragstart", () => {
