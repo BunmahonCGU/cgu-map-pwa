@@ -2,6 +2,9 @@
 // Bunmahon CGU Access Map – Full Feature Version (FINAL)
 // ------------------------------------------------------------
 
+let tracking = true;
+let lastLocation = null;
+
 // Disable Leaflet HTML sanitization so <img> tags are not stripped
 L.Popup.prototype.options.sanitize = false;
 
@@ -35,65 +38,31 @@ console.log("RAW POPUP INPUT >>>", JSON.stringify(raw));
 
     let out = raw;
 
-    // 1) Decode HTML entities
-    //const txt = document.createElement("textarea");
-   // txt.innerHTML = out;
-   // out = txt.value;
-
-// 2) Convert uMap {{image}} syntax into <img> tags (handles all variants)
+    // 1) Convert uMap {{image}} syntax into <img> tags (handles all variants)
 out = out.replace(
     /\{\{\s*(https?:\/\/[^}\s]+)\s*\}\}/gi,
     '<img src="$1" style="max-width:100%; margin-top:6px;"/>'
 );
 
 
-    // 3) Remove Markdown image syntax ![alt](url)
+    // 2) Remove Markdown image syntax ![alt](url)
     out = out.replace(/!\[[^\]]*\]\([^)]+\)/g, "");
 
-    // 4) Remove *escaped* <img> tags only (e.g. &lt;img ... &gt;)
+    // 3) Remove *escaped* <img> tags only (e.g. &lt;img ... &gt;)
 out = out.replace(/&lt;img[^&]*&gt;/gi, "");
 
-    // 4b) Allow real <img> tags from uMap (strip only dangerous attributes)
-//out = out.replace(/<img[^>]*src="([^"]+)"[^>]*>/gi,
-//    '<img src="$1" style="max-width:100%; margin-top:6px;"/>'
-//);
-
-
-    // 5) Remove stray > left behind by uMap export
-    //out = out.replace(/>\s*(?=<|$)/g, "");
-
-    // 6) Convert real line breaks + ##
+    // 4) Convert real line breaks + ##
     out = out.replace(/\n/g, "<br/>");
     out = out.replace(/##/g, "<br/>");
 
-    // 7) Bold
+    // 5) Bold
     out = out.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
-    // 8) Shield image URLs — but skip URLs already inside <img ...>
-//out = out.replace(
-//    /(?<!img src=")(https?:\/\/[^\s<]+?\.(jpg|jpeg|png|gif))/gi,
-//    (match) => {
-//        const key = `__IMG${imageIndex}__`;
-//        imageMap[key] =
-//            `<img src="${match}" style="max-width:100%; margin-top:6px;"/>`;
-//        imageIndex++;
-//        return key;
-//    }
-//);
-
-
-    // 9) Auto-link remaining URLs, but skip URLs already inside HTML tags
+    // 6) Auto-link remaining URLs, but skip URLs already inside HTML tags
 out = out.replace(
     /(?<!["'=])(https?:\/\/[^\s<]+)/g,
     '<a href="$1" target="_blank">$1</a>'
 );
-
-
-    // 10) Restore images
-  //  Object.keys(imageMap).forEach(key => {
-    //    out = out.replace(key, imageMap[key]);
-   // });
-
     return out;
 }
 
@@ -189,10 +158,39 @@ map.locate({
     maximumAge: 1000,
     timeout: 10000
 });
+// Cache the control button once Leaflet inserts it
+setTimeout(() => {
+    const locateBtn = document.querySelector('.leaflet-control-locate');
+
+    if (!locateBtn) return;
+
+    locateBtn.addEventListener('click', () => {
+        tracking = !tracking;
+
+        if (tracking) {
+            // Restart continuous tracking
+            map.locate({ watch: true, enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
+            followMode = true;
+
+            // Recenter immediately if we have a last known location
+            if (lastLocation) {
+                map.setView(lastLocation, map.getZoom());
+            }
+
+            locateBtn.classList.add('locate-active');
+        } else {
+            // Stop tracking
+            map.stopLocate();
+            followMode = false;
+            locateBtn.classList.remove('locate-active');
+        }
+    });
+}, 300);
 
 map.on("locationfound", (e) => {
-    const latlng = e.latlng;
+    lastLocation = e.latlng;
 
+    if (!tracking) return;
     // Create or update user marker
     if (!userMarker) {
         userMarker = L.circleMarker(latlng, {
