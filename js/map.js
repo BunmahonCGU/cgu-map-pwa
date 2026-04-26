@@ -456,6 +456,11 @@ navigator.serviceWorker.addEventListener("message", e => {
   }
 });
 
+    document.getElementById("refreshMapBtn")
+  .addEventListener("click", () => {
+    refreshUmapLayer();
+  });
+
 }
 initMap();
 
