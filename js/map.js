@@ -4,6 +4,11 @@
 
 let tracking = true;
 let lastLocation = null;
+const userIcon = L.divIcon({
+    className: "user-location-icon",
+    iconSize: [28, 28],   // size of the dot
+    iconAnchor: [14, 14]  // center the dot on the location
+});
 
 // Disable Leaflet HTML sanitization so <img> tags are not stripped
 L.Popup.prototype.options.sanitize = false;
@@ -194,17 +199,10 @@ map.on("locationfound", (e) => {
 
     // Create or update user marker
     if (!userMarker) {
-        userMarker = L.marker(e.latlng, {
-            icon: L.icon({
-            iconUrl: "https://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png",
-            iconSize: [18, 18],
-            iconAnchor: [9, 9]
-            })
-
-        }).addTo(map);
-    } else {
-        userMarker.setLatLng(e.latlng);
-    }
+    userMarker = L.marker(e.latlng, { icon: userIcon }).addTo(map);
+} else {
+    userMarker.setLatLng(e.latlng);
+}
 
     // Create or update accuracy circle
     if (!accuracyCircle) {
