@@ -437,6 +437,25 @@ gpsButton.onAdd = function () {
 };
 
 gpsButton.addTo(map);
+
+    function refreshUmapLayer() {
+  if (window.umapLayer) {
+    map.removeLayer(window.umapLayer);
+  }
+  fetch("data/bunmahon-latest.umap?cachebust=" + Date.now())
+    .then(r => r.json())
+    .then(j => {
+      window.umapLayer = L.geoJson(j).addTo(map);
+    });
+}
+
+    // Listen for service worker update messages
+navigator.serviceWorker.addEventListener("message", e => {
+  if (e.data?.type === "umap-updated") {
+    refreshUmapLayer();
+  }
+});
+
 }
 initMap();
 
