@@ -412,7 +412,7 @@ map.on("dragstart", () => {
         "East Roads": L.layerGroup([layerGroups.ER, layerGroups.EJ]),
         "East Access Points": layerGroups.EAP
     }).addTo(map);
-}
+
 // ------------------------------------------------------------
 // Add GPS button (bottom-right)
 // ------------------------------------------------------------
@@ -437,7 +437,7 @@ gpsButton.onAdd = function () {
 };
 
 gpsButton.addTo(map);
-
+}
 initMap();
 
 // ------------------------------------------------------------
