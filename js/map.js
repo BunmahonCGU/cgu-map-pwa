@@ -333,7 +333,9 @@ async function initMap() {
                         .replaceAll("{ele}", elevationText);
                 }
 
+                console.log("FINAL POPUP HTML >>>", popup);
                 layer.bindPopup(popup, { maxWidth: 400, className: "custom-popup" });
+
             }
 
             if (feature.geometry.type === "LineString") {
