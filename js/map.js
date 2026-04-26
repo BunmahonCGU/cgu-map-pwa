@@ -51,9 +51,9 @@ out = out.replace(
 out = out.replace(/&lt;img[^&]*&gt;/gi, "");
 
     // 4b) Allow real <img> tags from uMap (strip only dangerous attributes)
-out = out.replace(/<img[^>]*src="([^"]+)"[^>]*>/gi,
-    '<img src="$1" style="max-width:100%; margin-top:6px;"/>'
-);
+//out = out.replace(/<img[^>]*src="([^"]+)"[^>]*>/gi,
+//    '<img src="$1" style="max-width:100%; margin-top:6px;"/>'
+//);
 
 
     // 5) Remove stray > left behind by uMap export
