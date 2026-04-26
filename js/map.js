@@ -57,7 +57,7 @@ out = out.replace(/<img[^>]*src="([^"]+)"[^>]*>/gi,
 
 
     // 5) Remove stray > left behind by uMap export
-    out = out.replace(/>\s*(?=<|$)/g, "");
+    //out = out.replace(/>\s*(?=<|$)/g, "");
 
     // 6) Convert real line breaks + ##
     out = out.replace(/\n/g, "<br/>");
