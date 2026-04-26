@@ -226,9 +226,24 @@ async function initMap() {
 
         onEachFeature: (feature, layer) => {
 
-            if (feature.properties && feature.properties.description) {
-                let popup = formatUmapPopup(feature.properties.description);
+           // if (feature.properties && feature.properties.description) {
+            //    let popup = formatUmapPopup(feature.properties.description);
 
+          if (feature.properties) {
+            const props = feature.properties;
+
+            const raw =
+            props.description ||
+            props.popupContent ||
+            (props._umap_options && props._umap_options.description) ||
+            (props._umap_options && props._umap_options.popupContent) ||
+            "";
+
+        console.log("RAW POPUP INPUT >>>", JSON.stringify(raw));
+
+        let popup = formatUmapPopup(raw);
+
+                    
                 if (feature.geometry && feature.geometry.type === "Point") {
                     const [lon, lat] = feature.geometry.coordinates;
                     popup = popup
