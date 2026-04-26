@@ -159,11 +159,60 @@ const layerGroups = {
 };
 
 // ------------------------------------------------------------
-// GPS Tracking Layers
+// Enable GPS tracking
 // ------------------------------------------------------------
 let userMarker = null;
 let accuracyCircle = null;
 let followMode = true;
+
+map.locate({
+    watch: true,
+    enableHighAccuracy: true,
+    maximumAge: 1000,
+    timeout: 10000
+});
+
+map.on("locationfound", (e) => {
+    const latlng = e.latlng;
+
+    // Create or update user marker
+    if (!userMarker) {
+        userMarker = L.circleMarker(latlng, {
+            radius: 8,
+            fillColor: "#2A93EE",
+            color: "#ffffff",
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 1
+        }).addTo(map);
+    } else {
+        userMarker.setLatLng(latlng);
+    }
+
+    // Create or update accuracy circle
+    if (!accuracyCircle) {
+        accuracyCircle = L.circle(latlng, {
+            radius: e.accuracy,
+            color: "#2A93EE",
+            fillColor: "#2A93EE",
+            fillOpacity: 0.15,
+            weight: 1
+        }).addTo(map);
+    } else {
+        accuracyCircle.setLatLng(latlng);
+        accuracyCircle.setRadius(e.accuracy);
+    }
+
+    // Auto-follow user unless manually overridden
+    if (followMode) {
+        map.setView(latlng, map.getZoom(), { animate: true });
+    }
+});
+
+// Stop following if user manually pans
+map.on("dragstart", () => {
+    followMode = false;
+});
 
 
 // ------------------------------------------------------------
