@@ -159,6 +159,14 @@ const layerGroups = {
 };
 
 // ------------------------------------------------------------
+// GPS Tracking Layers
+// ------------------------------------------------------------
+let userMarker = null;
+let accuracyCircle = null;
+let followMode = true;
+
+
+// ------------------------------------------------------------
 // Load uMap JSON (local PWA copy)
 // ------------------------------------------------------------
 async function loadUmapFile(url) {
@@ -173,6 +181,57 @@ async function loadUmapFile(url) {
 // ------------------------------------------------------------
 async function initMap() {
     const map = L.map("map").setView([52.1031, -7.3498], 10);
+// ------------------------------------------------------------
+// Enable GPS tracking
+// ------------------------------------------------------------
+map.locate({
+    watch: true,
+    enableHighAccuracy: true,
+    maximumAge: 1000,
+    timeout: 10000
+});
+
+map.on("locationfound", (e) => {
+    const latlng = e.latlng;
+
+    // Create or update user marker
+    if (!userMarker) {
+        userMarker = L.circleMarker(latlng, {
+            radius: 8,
+            fillColor: "#2A93EE",
+            color: "#ffffff",
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 1
+        }).addTo(map);
+    } else {
+        userMarker.setLatLng(latlng);
+    }
+
+    // Create or update accuracy circle
+    if (!accuracyCircle) {
+        accuracyCircle = L.circle(latlng, {
+            radius: e.accuracy,
+            color: "#2A93EE",
+            fillColor: "#2A93EE",
+            fillOpacity: 0.15,
+            weight: 1
+        }).addTo(map);
+    } else {
+        accuracyCircle.setLatLng(latlng);
+        accuracyCircle.setRadius(e.accuracy);
+    }
+
+    // Auto-follow user unless manually overridden
+    if (followMode) {
+        map.setView(latlng, map.getZoom(), { animate: true });
+    }
+});
+
+// Stop following if user manually pans
+map.on("dragstart", () => {
+    followMode = false;
+});
 
     const osm = L.tileLayer('//{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
         maxZoom: 20,
@@ -355,6 +414,30 @@ async function initMap() {
         "East Access Points": layerGroups.EAP
     }).addTo(map);
 }
+// ------------------------------------------------------------
+// Add GPS button (bottom-right)
+// ------------------------------------------------------------
+const gpsButton = L.control({ position: "bottomright" });
+
+gpsButton.onAdd = function () {
+    const div = L.DomUtil.create("div", "gps-button");
+    div.innerHTML = "📍";
+    div.style.cursor = "pointer";
+    div.style.fontSize = "28px";
+    div.style.background = "white";
+    div.style.padding = "6px 10px";
+    div.style.borderRadius = "6px";
+    div.style.boxShadow = "0 1px 4px rgba(0,0,0,0.4)";
+
+    div.onclick = () => {
+        followMode = true;
+        map.locate({ setView: true, maxZoom: 17 });
+    };
+
+    return div;
+};
+
+gpsButton.addTo(map);
 
 initMap();
 
