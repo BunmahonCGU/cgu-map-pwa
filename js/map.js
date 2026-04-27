@@ -318,15 +318,22 @@ async function loadUmapFile(url) {
 // ------------------------------------------------------------
 async function initMap() {
     map = L.map("map").setView([52.1031, -7.3498], 10);
-
-    // ------------------------------------------------------------
-    // Build the Leaflet layer control from your groups
+    
+    // 1. Load the uMap file
+    const geojson = await loadUmapFile("data/bunmahon-latest.umap");
+    
+    // 2. Build the GeoJSON layer (this populates layerGroups)
+    window.umapLayer = L.geoJSON(geojson, geojsonOptions);
+    // DO NOT addTo(map) — layers should start OFF
+    
+    // 3. Now that layerGroups are populated, build the layer control
     const overlays = {};
     for (const key in layerGroups) {
         overlays[key] = layerGroups[key];
     }
     
     L.control.layers(null, overlays, { collapsed: false }).addTo(map);
+
     // ------------------------------------------------------------
     
 // ------------------------------------------------------------
