@@ -251,8 +251,8 @@ map.on("dragstart", () => {
         }
     });
 
-    //const geojson = await loadUmapFile("data/bunmahon-latest.umap");
-    const geojson = await loadUmapFile("data/map.geojson");
+    const geojson = await loadUmapFile("data/bunmahon-latest.umap");
+    //const geojson = await loadUmapFile("data/map.geojson");
 
     window.umapLayer = L.geoJSON(geojson, {
 
@@ -472,10 +472,10 @@ initMap();
 // ------------------------------------------------------------
 // Optional: Auto-download latest .umap file
 // ------------------------------------------------------------
-async function autoDownloadUmap() {
-    const url = "https://umap.openstreetmap.fr/en/map/1393298/export/?format=umap";
-    const response = await fetch(url);
-    return await response.blob();
+//async function autoDownloadUmap() {
+  //  const url = "https://umap.openstreetmap.fr/en/map/1393298/export/?format=umap";
+  //  const response = await fetch(url);
+  //  return await response.blob();
 }
 // ------------------------------------------------------------
 // Alerts: load alerts.json and show latest update
