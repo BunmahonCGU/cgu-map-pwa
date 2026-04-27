@@ -497,3 +497,50 @@ async function autoDownloadUmap() {
     const response = await fetch(url);
     return await response.blob();
 }
+
+const ADMIN_PIN = "9112"; // only you know this
+const ALERT_ENDPOINT = "https://YOUR_ENDPOINT_URL/post-alert";
+const ALERT_SHARED_SECRET = "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"; // must match server env
+
+document.getElementById("admin-open").onclick = () => {
+    const pin = prompt("Enter admin PIN");
+    if (pin === ADMIN_PIN) {
+        document.getElementById("admin-panel").classList.toggle("hidden");
+    } else {
+        alert("Incorrect PIN");
+    }
+};
+
+document.getElementById("admin-submit").onclick = async () => {
+    const title = document.getElementById("admin-title").value.trim();
+    const message = document.getElementById("admin-message").value.trim();
+
+    if (!title || !message) {
+        alert("Title and message required");
+        return;
+    }
+
+    try {
+        const res = await fetch(ALERT_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                secret: ALERT_SHARED_SECRET,
+                title,
+                message
+            })
+        });
+
+        if (!res.ok) {
+            alert("Failed to post update");
+            return;
+        }
+
+        alert("Update posted");
+        document.getElementById("admin-title").value = "";
+        document.getElementById("admin-message").value = "";
+    } catch (e) {
+        console.error(e);
+        alert("Network error");
+    }
+};
