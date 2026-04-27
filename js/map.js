@@ -102,6 +102,16 @@ function makeSvgIcon(shape, color, label) {
         popupAnchor: [0, -38]
     });
 }
+// ------------------------------------------------------------
+// Fix error on admin button
+// ------------------------------------------------------------
+
+const adminBtn = document.getElementById("adminButton");
+if (adminBtn) {
+    adminBtn.onclick = () => {
+        document.getElementById("adminPanel").classList.toggle("open");
+    };
+}
 
 // ------------------------------------------------------------
 // Icon definitions by prefix
