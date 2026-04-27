@@ -8,25 +8,34 @@ jobs:
   update-alerts:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Update alerts.json
         run: |
           FILE=data/alerts.json
           TITLE="${{ github.event.client_payload.title }}"
           MESSAGE="${{ github.event.client_payload.message }}"
-          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          TIMESTAMP="${{ github.event.client_payload.timestamp }}"
 
-          # Append new entry
-          jq ". += [{\"title\": \"$TITLE\", \"message\": \"$MESSAGE\", \"timestamp\": \"$TIMESTAMP\"}]" $FILE > tmp.json
-          mv tmp.json $FILE
+          if [ ! -f "$FILE" ]; then
+            echo "[]" > "$FILE"
+          fi
+
+          jq ". += [{\"title\": \"$TITLE\", \"message\": \"$MESSAGE\", \"timestamp\": \"$TIMESTAMP\"}]" "$FILE" > tmp.json
+          mv tmp.json "$FILE"
 
       - name: Commit changes
         run: |
           git config user.name "PWA Bot"
           git config user.email "bot@example.com"
           git add data/alerts.json
-          git commit -m "New alert posted"
+          git commit -m "New alert posted" || echo "No changes to commit"
           git push
