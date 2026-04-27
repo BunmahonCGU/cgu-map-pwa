@@ -115,146 +115,11 @@ const iconMap = {
     EAP: { shape: "circle-pin", color: "pink" },
     EJ:  { shape: "square-pin", color: "pink" }
 };
-
 // ------------------------------------------------------------
-// Layer groups (toggleable)
+// Fix feature options for use in refresh.
 // ------------------------------------------------------------
-const layerGroups = {
-    CWA: L.layerGroup(),
-    CAP: L.layerGroup(),
-    LR: L.layerGroup(),
-    LA: L.layerGroup(),
-    D: L.layerGroup(),
-    WR: L.layerGroup(),
-    WJ: L.layerGroup(),
-    WAP: L.layerGroup(),
-    ER: L.layerGroup(),
-    EJ: L.layerGroup(),
-    EAP: L.layerGroup()
-};
 
-// ------------------------------------------------------------
-// Enable GPS tracking
-// ------------------------------------------------------------
-let userMarker = null;
-let accuracyCircle = null;
-let followMode = true;
-
-// ------------------------------------------------------------
-// Load uMap JSON (local PWA copy)
-// ------------------------------------------------------------
-async function loadUmapFile(url) {
-    const response = await fetch(url);
-    const umap = await response.json();
-    const allFeatures = umap.layers.flatMap(layer => layer.features);
-    return { type: "FeatureCollection", features: allFeatures };
-}
-
-// ------------------------------------------------------------
-// Map initialisation
-// ------------------------------------------------------------
-async function initMap() {
-    map = L.map("map").setView([52.1031, -7.3498], 10);
-// ------------------------------------------------------------
-// Enable GPS tracking
-// ------------------------------------------------------------
-    
-    map.locate({
-    watch: true,
-    enableHighAccuracy: true,
-    maximumAge: 1000,
-    timeout: 10000
-});
-// Cache the control button once Leaflet inserts it
-setTimeout(() => {
-    const locateBtn = document.querySelector('.gps-button');
-
-    if (!locateBtn) return;
-
-    locateBtn.addEventListener('click', () => {
-        tracking = !tracking;
-
-        if (tracking) {
-            // Restart continuous tracking
-            map.locate({ watch: true, enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
-            followMode = true;
-
-            // Recenter immediately if we have a last known location
-            if (lastLocation) {
-                map.setView(lastLocation, map.getZoom());
-            }
-
-            locateBtn.classList.add('locate-active');
-        } else {
-            // Stop tracking
-            map.stopLocate();
-            followMode = false;
-            locateBtn.classList.remove('locate-active');
-        }
-    });
-}, 300);
-
-map.on("locationfound", (e) => {
-    lastLocation = e.latlng;
-
-    if (!tracking) return;
-
-    // Create or update user marker
-    if (!userMarker) {
-    userMarker = L.marker(e.latlng, { icon: userIcon }).addTo(map);
-} else {
-    userMarker.setLatLng(e.latlng);
-}
-
-    // Create or update accuracy circle
-    if (!accuracyCircle) {
-        accuracyCircle = L.circle(e.latlng, {
-            radius: e.accuracy,
-            color: "#136AEC",
-            fillColor: "#136AEC",
-            fillOpacity: 0.15,
-            weight: 2
-        }).addTo(map);
-    } else {
-        accuracyCircle.setLatLng(e.latlng);
-        accuracyCircle.setRadius(e.accuracy);
-    }
-
-    // Follow mode
-    if (followMode) {
-        map.setView(e.latlng, map.getZoom());
-    }
-});
-
-
-// Stop following if user manually pans
-map.on("dragstart", () => {
-    followMode = false;
-});
-
-    const osm = L.tileLayer('//{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-        maxZoom: 20,
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    const sat = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        { maxZoom: 20, attribution: 'Tiles © Esri' }
-    );
-
-    map.on("zoomend", () => {
-        const z = map.getZoom();
-        if (z >= 16) {
-            if (!map.hasLayer(sat)) { map.removeLayer(osm); map.addLayer(sat); }
-        } else {
-            if (!map.hasLayer(osm)) { map.removeLayer(sat); map.addLayer(osm); }
-        }
-    });
-
-    const geojson = await loadUmapFile("data/bunmahon-latest.umap");
-    //const geojson = await loadUmapFile("data/map.geojson");
-
-    window.umapLayer = L.geoJSON(geojson, {
+const geojsonOptions = {
 
         style: feature => {
             const name = feature.properties.name || "";
@@ -402,7 +267,147 @@ map.on("dragstart", () => {
                 if (layerGroups[prefix]) layerGroups[prefix].addLayer(layer);
             }
         }
+    };
+
+// ------------------------------------------------------------
+// Layer groups (toggleable)
+// ------------------------------------------------------------
+const layerGroups = {
+    CWA: L.layerGroup(),
+    CAP: L.layerGroup(),
+    LR: L.layerGroup(),
+    LA: L.layerGroup(),
+    D: L.layerGroup(),
+    WR: L.layerGroup(),
+    WJ: L.layerGroup(),
+    WAP: L.layerGroup(),
+    ER: L.layerGroup(),
+    EJ: L.layerGroup(),
+    EAP: L.layerGroup()
+};
+
+// ------------------------------------------------------------
+// Enable GPS tracking
+// ------------------------------------------------------------
+let userMarker = null;
+let accuracyCircle = null;
+let followMode = true;
+
+// ------------------------------------------------------------
+// Load uMap JSON (local PWA copy)
+// ------------------------------------------------------------
+async function loadUmapFile(url) {
+    const response = await fetch(url);
+    const umap = await response.json();
+    const allFeatures = umap.layers.flatMap(layer => layer.features);
+    return { type: "FeatureCollection", features: allFeatures };
+}
+
+// ------------------------------------------------------------
+// Map initialisation
+// ------------------------------------------------------------
+async function initMap() {
+    map = L.map("map").setView([52.1031, -7.3498], 10);
+// ------------------------------------------------------------
+// Enable GPS tracking
+// ------------------------------------------------------------
+    
+    map.locate({
+    watch: true,
+    enableHighAccuracy: true,
+    maximumAge: 1000,
+    timeout: 10000
+});
+// Cache the control button once Leaflet inserts it
+setTimeout(() => {
+    const locateBtn = document.querySelector('.gps-button');
+
+    if (!locateBtn) return;
+
+    locateBtn.addEventListener('click', () => {
+        tracking = !tracking;
+
+        if (tracking) {
+            // Restart continuous tracking
+            map.locate({ watch: true, enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
+            followMode = true;
+
+            // Recenter immediately if we have a last known location
+            if (lastLocation) {
+                map.setView(lastLocation, map.getZoom());
+            }
+
+            locateBtn.classList.add('locate-active');
+        } else {
+            // Stop tracking
+            map.stopLocate();
+            followMode = false;
+            locateBtn.classList.remove('locate-active');
+        }
+    });
+}, 300);
+
+map.on("locationfound", (e) => {
+    lastLocation = e.latlng;
+
+    if (!tracking) return;
+
+    // Create or update user marker
+    if (!userMarker) {
+    userMarker = L.marker(e.latlng, { icon: userIcon }).addTo(map);
+} else {
+    userMarker.setLatLng(e.latlng);
+}
+
+    // Create or update accuracy circle
+    if (!accuracyCircle) {
+        accuracyCircle = L.circle(e.latlng, {
+            radius: e.accuracy,
+            color: "#136AEC",
+            fillColor: "#136AEC",
+            fillOpacity: 0.15,
+            weight: 2
+        }).addTo(map);
+    } else {
+        accuracyCircle.setLatLng(e.latlng);
+        accuracyCircle.setRadius(e.accuracy);
+    }
+
+    // Follow mode
+    if (followMode) {
+        map.setView(e.latlng, map.getZoom());
+    }
+});
+
+
+// Stop following if user manually pans
+map.on("dragstart", () => {
+    followMode = false;
+});
+
+    const osm = L.tileLayer('//{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+        maxZoom: 20,
+        attribution: '© OpenStreetMap contributors'
     }).addTo(map);
+
+    const sat = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { maxZoom: 20, attribution: 'Tiles © Esri' }
+    );
+
+    map.on("zoomend", () => {
+        const z = map.getZoom();
+        if (z >= 16) {
+            if (!map.hasLayer(sat)) { map.removeLayer(osm); map.addLayer(sat); }
+        } else {
+            if (!map.hasLayer(osm)) { map.removeLayer(sat); map.addLayer(osm); }
+        }
+    });
+
+    const geojson = await loadUmapFile("data/bunmahon-latest.umap");
+    //const geojson = await loadUmapFile("data/map.geojson");
+
+    window.umapLayer = L.geoJSON(geojson,geojsonOptions ).addTo(map);
 
     L.control.layers(null, {
         "Cliff Walks": L.layerGroup([layerGroups.CWA, layerGroups.CAP]),
@@ -446,7 +451,7 @@ gpsButton.addTo(map);
 
   const geojson = await loadUmapFile("data/bunmahon-latest.umap?cachebust=" + Date.now());
 
-  window.umapLayer = L.geoJSON(geojson).addTo(map);
+  window.umapLayer = L.geoJSON(geojson,geojsonOptions).addTo(map);
 }
 
     // Listen for service worker update messages
