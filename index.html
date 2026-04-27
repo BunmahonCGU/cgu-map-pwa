@@ -79,9 +79,7 @@
 }
 
     </style>
-
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
+    
 <style>
 .leaflet-control-locate.locate-active {
     background: #0078ff !important;
@@ -107,27 +105,7 @@
         }
     </script>
 
-   
-
-    <script>
-async function sendUpdate() {
-  const message = document.getElementById("adminMessage").value;
-  const pin = document.getElementById("adminPin").value;
-
-  const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/update", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, pin })
-  });
-
-  const data = await res.json();
-  document.getElementById("adminStatus").innerText =
-    data.status === "ok" ? "Update posted!" : "Error: " + (data.error || "Unknown error");
-}
-</script>
-
-    
-<button id="refreshMapBtn" style="
+    <button id="refreshMapBtn" style="
   position: fixed;
   bottom: 20px;
   left: 20px;
@@ -142,7 +120,7 @@ async function sendUpdate() {
 ">
   Refresh Map Data
 </button>
-<button id="admin-open" class="admin-btn">Admin</button>
+<button id="admin-open" class="admin-button">Admin</button>
 
 <div id="admin-panel" class="hidden" style="padding: 10px; background: #f3f3f3; margin-top: 10px;">
   <h3>Post Update</h3>
