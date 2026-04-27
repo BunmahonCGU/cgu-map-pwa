@@ -4,6 +4,7 @@
 
 let tracking = true;
 let lastLocation = null;
+let map;
 const userIcon = L.divIcon({
     className: "user-location-icon",
     iconSize: [28, 28],   // size of the dot
@@ -153,36 +154,10 @@ async function loadUmapFile(url) {
 // Map initialisation
 // ------------------------------------------------------------
 async function initMap() {
-    const map = L.map("map").setView([52.1031, -7.3498], 10);
+    map = L.map("map").setView([52.1031, -7.3498], 10);
 // ------------------------------------------------------------
 // Enable GPS tracking
 // ------------------------------------------------------------
-document.getElementById("admin-open").onclick = () => {
-    const pin = prompt("Enter admin PIN");
-    if (pin === "9112") {
-        document.getElementById("admin-panel").classList.remove("hidden");
-    }
-};
-
-document.getElementById("admin-submit").onclick = async () => {
-    const title = document.getElementById("admin-title").value;
-    const message = document.getElementById("admin-message").value;
-
-    await fetch("https://api.github.com/repos/YOUR_USER/YOUR_REPO/dispatches", {
-        method: "POST",
-        headers: {
-            "Accept": "application/vnd.github+json",
-            "Authorization": "Bearer YOUR_GITHUB_ACTIONS_TOKEN",
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            event_type: "post_alert",
-            client_payload: { title, message }
-        })
-    });
-
-    alert("Update posted");
-};
     
     map.locate({
     watch: true,
@@ -483,10 +458,12 @@ navigator.serviceWorker.addEventListener("message", e => {
 
     refreshAlerts();
 
-    document.getElementById("refreshMapBtn")
+document.getElementById("refreshMapBtn")
   .addEventListener("click", () => {
     refreshUmapLayer();
+    refreshAlerts();
   });
+
 
 }
 initMap();
@@ -499,50 +476,102 @@ async function autoDownloadUmap() {
     const response = await fetch(url);
     return await response.blob();
 }
+// ------------------------------------------------------------
+// Alerts: load alerts.json and show latest update
+// ------------------------------------------------------------
 
-const ADMIN_PIN = "9112"; // only you know this
-const ALERT_ENDPOINT = "https://YOUR_ENDPOINT_URL/post-alert";
-const ALERT_SHARED_SECRET = "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"; // must match server env
+async function loadAlerts() {
+  try {
+    const url = "https://raw.githubusercontent.com/BunmahonCGU/cgu-map-pwa/main/data/alerts.json?cb=" + Date.now();
+    const res = await fetch(url, { cache: "no-store" });
+
+    if (!res.ok) {
+      console.warn("Failed to load alerts.json:", res.status);
+      return;
+    }
+
+    const json = await res.json();
+    if (json.updates && json.updates.length > 0) {
+      showLatestAlert(json.updates[0]);
+    }
+  } catch (err) {
+    console.error("Error loading alerts:", err);
+  }
+}
+
+function showLatestAlert(alert) {
+  if (!alert || !alert.message || !map) return;
+
+  const html = `
+    <div style="font-size:14px; line-height:1.4;">
+      <strong>Latest Update:</strong><br>
+      ${alert.message}<br>
+      <small style="color:#666;">${new Date(alert.timestamp).toLocaleString()}</small>
+    </div>
+  `;
+
+  L.popup()
+    .setLatLng(map.getCenter())
+    .setContent(html)
+    .openOn(map);
+}
+
+function refreshAlerts() {
+  loadAlerts();
+}
+
+// ------------------------------------------------------------
+// Admin panel → Cloudflare Worker → GitHub alerts.json
+// ------------------------------------------------------------
+
+const ALERT_ENDPOINT = "https://shiny-math-8471.bunmahoncgu.workers.dev/update";
+let adminPin = null;
 
 document.getElementById("admin-open").onclick = () => {
-    const pin = prompt("Enter admin PIN");
-    if (pin === ADMIN_PIN) {
-        document.getElementById("admin-panel").classList.toggle("hidden");
-    } else {
-        alert("Incorrect PIN");
-    }
+  const pin = prompt("Enter admin PIN");
+  if (pin && pin.trim()) {
+    adminPin = pin.trim();
+    document.getElementById("admin-panel").classList.toggle("hidden");
+  } else {
+    alert("PIN required");
+  }
 };
 
 document.getElementById("admin-submit").onclick = async () => {
-    const title = document.getElementById("admin-title").value.trim();
-    const message = document.getElementById("admin-message").value.trim();
+  const title = document.getElementById("admin-title").value.trim();
+  const message = document.getElementById("admin-message").value.trim();
 
-    if (!title || !message) {
-        alert("Title and message required");
-        return;
+  if (!adminPin) {
+    alert("PIN not set. Use the Admin button first.");
+    return;
+  }
+  if (!title || !message) {
+    alert("Title and message required");
+    return;
+  }
+
+  const combinedMessage = `${title}: ${message}`;
+
+  try {
+    const res = await fetch(ALERT_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: combinedMessage, pin: adminPin })
+    });
+
+    const data = await res.json();
+
+    if (data.status !== "ok") {
+      alert("Failed to post update: " + (data.error || "Unknown error"));
+      return;
     }
 
-    try {
-        const res = await fetch(ALERT_ENDPOINT, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                secret: ALERT_SHARED_SECRET,
-                title,
-                message
-            })
-        });
-
-        if (!res.ok) {
-            alert("Failed to post update");
-            return;
-        }
-
-        alert("Update posted");
-        document.getElementById("admin-title").value = "";
-        document.getElementById("admin-message").value = "";
-    } catch (e) {
-        console.error(e);
-        alert("Network error");
-    }
+    alert("Update posted");
+    document.getElementById("admin-title").value = "";
+    document.getElementById("admin-message").value = "";
+  } catch (e) {
+    console.error(e);
+    alert("Network error");
+  }
 };
+
