@@ -455,7 +455,10 @@ gpsButton.onAdd = function () {
 gpsButton.addTo(map);
 
     async function refreshUmapLayer() {
-  if (window.umapLayer) {
+  for (const key in layerGroups) {
+        layerGroups[key].clearLayers();
+    }
+        if (window.umapLayer) {
     map.removeLayer(window.umapLayer);
   }
 
