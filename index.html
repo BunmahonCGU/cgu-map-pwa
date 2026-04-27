@@ -35,9 +35,16 @@
             height: 100%;
         }
 
-        #admin-panel {
+  .admin-button {
   position: absolute;
   bottom: 10px;
+  right: 10px;
+  z-index: 9999;
+}
+
+#admin-panel {
+  position: absolute;
+  bottom: 50px;
   left: 10px;
   right: 10px;
   background: white;
@@ -46,7 +53,30 @@
   box-shadow: 0 2px 6px rgba(0,0,0,0.3);
   z-index: 9999;
 }
-.hidden { display: none; }
+
+#admin-panel input,
+#admin-panel textarea {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+#alerts-panel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  max-height: 40%;
+  overflow-y: auto;
+  background: rgba(255,255,255,0.95);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  z-index: 9998;
+}
+
+.hidden {
+  display: none;
+}
 
     </style>
 
@@ -91,14 +121,20 @@
 ">
   Refresh Map Data
 </button>
-<button id="admin-open">Admin</button>
+<button id="admin-open" class="admin-button">Admin</button>
 
 <div id="admin-panel" class="hidden">
-  <h3>Post Update</h3>
+  <h3>Post update</h3>
   <input id="admin-title" placeholder="Title">
   <textarea id="admin-message" placeholder="Message"></textarea>
   <button id="admin-submit">Submit</button>
 </div>
+
+<div id="alerts-panel" class="hidden">
+  <h3>Updates</h3>
+  <ul id="alerts-list"></ul>
+</div>
+
 
 </body>
 </html>
