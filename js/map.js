@@ -481,6 +481,8 @@ navigator.serviceWorker.addEventListener("message", e => {
   }
 });
 
+    refreshAlerts();
+
     document.getElementById("refreshMapBtn")
   .addEventListener("click", () => {
     refreshUmapLayer();
