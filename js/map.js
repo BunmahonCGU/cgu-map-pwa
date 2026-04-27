@@ -318,6 +318,17 @@ async function loadUmapFile(url) {
 // ------------------------------------------------------------
 async function initMap() {
     map = L.map("map").setView([52.1031, -7.3498], 10);
+
+    // ------------------------------------------------------------
+    // Build the Leaflet layer control from your groups
+    const overlays = {};
+    for (const key in layerGroups) {
+        overlays[key] = layerGroups[key];
+    }
+    
+    L.control.layers(null, overlays, { collapsed: false }).addTo(map);
+    // ------------------------------------------------------------
+    
 // ------------------------------------------------------------
 // Enable GPS tracking
 // ------------------------------------------------------------
