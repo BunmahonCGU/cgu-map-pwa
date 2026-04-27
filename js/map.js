@@ -157,7 +157,34 @@ async function initMap() {
 // ------------------------------------------------------------
 // Enable GPS tracking
 // ------------------------------------------------------------
-map.locate({
+document.getElementById("admin-open").onclick = () => {
+    const pin = prompt("Enter admin PIN");
+    if (pin === "9112") {
+        document.getElementById("admin-panel").classList.remove("hidden");
+    }
+};
+
+document.getElementById("admin-submit").onclick = async () => {
+    const title = document.getElementById("admin-title").value;
+    const message = document.getElementById("admin-message").value;
+
+    await fetch("https://api.github.com/repos/YOUR_USER/YOUR_REPO/dispatches", {
+        method: "POST",
+        headers: {
+            "Accept": "application/vnd.github+json",
+            "Authorization": "Bearer YOUR_GITHUB_ACTIONS_TOKEN",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            event_type: "post_alert",
+            client_payload: { title, message }
+        })
+    });
+
+    alert("Update posted");
+};
+    
+    map.locate({
     watch: true,
     enableHighAccuracy: true,
     maximumAge: 1000,
