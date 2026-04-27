@@ -93,18 +93,7 @@
     <!-- Map Container -->
     <div id="map"></div>
 
-    <!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-     <script src="js/map.js?v=3"></script>
-    
-    <!-- Register Service Worker -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('service-worker.js');
-        }
-    </script>
-
+   
     <button id="refreshMapBtn" style="
   position: fixed;
   bottom: 20px;
@@ -143,6 +132,19 @@
   <h3>Updates</h3>
   <ul id="alerts-list"></ul>
 </div>
+ <!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+     <script src="js/map.js?v=3"></script>
+    
+    <!-- Register Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js');
+        }
+    </script>
+
+    
 </body>
 
     
