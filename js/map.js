@@ -439,15 +439,14 @@ gpsButton.onAdd = function () {
 
 gpsButton.addTo(map);
 
-    function refreshUmapLayer() {
+    async function refreshUmapLayer() {
   if (window.umapLayer) {
     map.removeLayer(window.umapLayer);
   }
-  fetch("data/bunmahon-latest.umap?cachebust=" + Date.now())
-    .then(r => r.json())
-    .then(j => {
-      window.umapLayer = L.geoJson(j).addTo(map);
-    });
+
+  const geojson = await loadUmapFile("data/bunmahon-latest.umap?cachebust=" + Date.now());
+
+  window.umapLayer = L.geoJSON(geojson).addTo(map);
 }
 
     // Listen for service worker update messages
