@@ -106,6 +106,25 @@
     </script>
 
     <script src="js/map.js?v=3"></script>
+
+    <script>
+async function sendUpdate() {
+  const message = document.getElementById("adminMessage").value;
+  const pin = document.getElementById("adminPin").value;
+
+  const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, pin })
+  });
+
+  const data = await res.json();
+  document.getElementById("adminStatus").innerText =
+    data.status === "ok" ? "Update posted!" : "Error: " + (data.error || "Unknown error");
+}
+</script>
+
+    
 <button id="refreshMapBtn" style="
   position: fixed;
   bottom: 20px;
@@ -123,18 +142,20 @@
 </button>
 <button id="admin-open" class="admin-button">Admin</button>
 
-<div id="admin-panel" class="hidden">
-  <h3>Post update</h3>
-  <input id="admin-title" placeholder="Title">
-  <textarea id="admin-message" placeholder="Message"></textarea>
-  <button id="admin-submit">Submit</button>
+<div id="admin-panel" style="padding: 10px; background: #f3f3f3;">
+  <h3>Admin Update</h3>
+  <textarea id="adminMessage" placeholder="Enter update..." style="width:100%; height:80px;"></textarea>
+  <input id="adminPin" type="password" placeholder="PIN" style="width:100%; margin-top:5px;">
+  <button onclick="sendUpdate()" style="margin-top:10px; width:100%;">Post Update</button>
+  <div id="adminStatus" style="margin-top:10px; color:#333;"></div>
 </div>
+
 
 <div id="alerts-panel" class="hidden">
   <h3>Updates</h3>
   <ul id="alerts-list"></ul>
 </div>
-
-
 </body>
+
+    
 </html>
