@@ -476,7 +476,7 @@ initMap();
   //  const url = "https://umap.openstreetmap.fr/en/map/1393298/export/?format=umap";
   //  const response = await fetch(url);
   //  return await response.blob();
-}
+//}
 // ------------------------------------------------------------
 // Alerts: load alerts.json and show latest update
 // ------------------------------------------------------------
