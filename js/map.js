@@ -469,15 +469,7 @@ map.on("dragstart", () => {
 
     window.umapLayer = L.geoJSON(geojson,geojsonOptions );//.addTo(map);
 
-    L.control.layers(null, {
-        "Cliff Walks": L.layerGroup([layerGroups.CWA, layerGroups.CAP]),
-        "Lake Access": L.layerGroup([layerGroups.LR, layerGroups.LA]),
-        "Defibrillators": layerGroups.D,
-        "West Roads": L.layerGroup([layerGroups.WR, layerGroups.WJ]),
-        "West Access Points": layerGroups.WAP,
-        "East Roads": L.layerGroup([layerGroups.ER, layerGroups.EJ]),
-        "East Access Points": layerGroups.EAP
-    }).addTo(map);
+   
 
 // ------------------------------------------------------------
 // Add GPS button (bottom-right)
