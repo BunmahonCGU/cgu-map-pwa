@@ -482,7 +482,7 @@ gpsButton.addTo(map);
         
           const newData  = await loadUmapFile("data/bunmahon-latest.umap?cachebust=" + Date.now());
         
-          window.umapLayer = L.geoJSON(newData,geojsonOptions).addTo(map);
+          window.umapLayer = L.geoJSON(newData,geojsonOptions);//.addTo(map);
         }
         
             // Listen for service worker update messages
