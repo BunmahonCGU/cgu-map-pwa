@@ -59,7 +59,12 @@
   width: 100%;
   margin-bottom: 8px;
 }
-
+/* Admin panel mobile fix */
+@media (max-width: 600px) {
+  #admin-panel {
+    bottom: 120px;
+  }
+}
 #alerts-panel {
   position: absolute;
   top: 110px;          /* below layer control */
@@ -77,7 +82,7 @@
 
 @media (max-width: 600px) {
   #alerts-panel {
-    top: 120px;
+    top: 140px;
     left: 10px;
     right: 10px;
     max-width: none;
@@ -139,19 +144,20 @@
   word-wrap: break-word;
   overflow-wrap: break-word;
 }
- </style>  
+.leaflet-control {
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+}
+
+</style>  
 <style>
 .leaflet-control-locate.locate-active {
     background: #0078ff !important;
     color: white !important;
 }
 </style>
-    <style>
-    .leaflet-control {
-        opacity: 1 !important;
-        visibility: visible !important;
-    }
-    </style>
+  
 </head>
 <body>
 
@@ -229,6 +235,11 @@
             navigator.serviceWorker.register('service-worker.js');
         }
     </script>
+<script>
+navigator.serviceWorker.addEventListener("controllerchange", () => {
+    window.location.reload();
+});
+</script>
 
     
 </body>
