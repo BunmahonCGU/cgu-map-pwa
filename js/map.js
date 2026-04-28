@@ -639,6 +639,7 @@ document.getElementById("admin-open").onclick = () => {
   } else {
     alert("PIN required");
   }
+    checkTokenStatus();
 };
 
 document.getElementById("admin-submit").onclick = async () => {
