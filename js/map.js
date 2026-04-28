@@ -652,6 +652,9 @@ async function initMap() {
 map.on("popupopen", function (e) {
     const popupEl = e.popup._container;
 
+    // -------------------------------
+    // Swipe‑down‑to‑close
+    // -------------------------------
     let startY = null;
     let isDragging = false;
 
@@ -666,7 +669,6 @@ map.on("popupopen", function (e) {
         const currentY = ev.touches[0].clientY;
         const diff = currentY - startY;
 
-        // User swiped down at least 40px
         if (diff > 40) {
             map.closePopup();
             isDragging = false;
@@ -676,6 +678,21 @@ map.on("popupopen", function (e) {
     popupEl.addEventListener("touchend", function () {
         isDragging = false;
     });
+
+
+    // -------------------------------
+    // Tap‑outside‑to‑close
+    // -------------------------------
+    function handleOutsideTap(ev) {
+        if (!popupEl.contains(ev.target)) {
+            map.closePopup();
+            document.removeEventListener("touchstart", handleOutsideTap);
+            document.removeEventListener("mousedown", handleOutsideTap);
+        }
+    }
+
+    document.addEventListener("touchstart", handleOutsideTap);
+    document.addEventListener("mousedown", handleOutsideTap);
 });
 
 }
