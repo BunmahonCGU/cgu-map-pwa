@@ -717,8 +717,8 @@ async function refreshAlerts() {
 
         // newest first
         const recent = updates
-            .filter(a => a.timestamp >= cutoff)
-            .sort((a, b) => b.timestamp - a.timestamp);
+            .filter(a => new Date(a.timestamp).getTime() >= cutoff)
+            .sort((a, b) => b.timestamp - a.timestamp)
 
         const list = document.getElementById("alerts-list");
         list.innerHTML = "";
