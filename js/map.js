@@ -377,6 +377,21 @@ async function loadUmapFile(url) {
     };
 }
 
+const alertsToggle = L.control({ position: "topright" });
+
+alertsToggle.onAdd = function () {
+    const div = L.DomUtil.create("div", "leaflet-control-layers");
+    div.style.padding = "6px";
+    div.style.cursor = "pointer";
+    div.innerHTML = `<label><input type="checkbox" id="alerts-toggle"> Show Updates</label>`;
+    return div;
+};
+
+alertsToggle.addTo(map);
+
+document.getElementById("alerts-toggle").addEventListener("change", (e) => {
+    document.getElementById("alerts-panel").classList.toggle("hidden", !e.target.checked);
+});
 
 // ------------------------------------------------------------
 // Map initialisation
@@ -417,6 +432,25 @@ for (const [displayName, codes] of Object.entries(layerDisplayNames)) {
 }
 
 L.control.layers(null, overlays, { collapsed: true }).addTo(map);
+map.whenReady(() => {
+    const layerList = document.querySelector(".leaflet-control-layers-list");
+
+    if (layerList) {
+        const toggleContainer = document.createElement("div");
+        toggleContainer.style.marginTop = "10px";
+        toggleContainer.innerHTML = `
+            <label style="cursor:pointer;">
+                <input type="checkbox" id="alerts-toggle">
+                Show Updates
+            </label>
+        `;
+        layerList.appendChild(toggleContainer);
+
+        document.getElementById("alerts-toggle").addEventListener("change", (e) => {
+            document.getElementById("alerts-panel").classList.toggle("hidden", !e.target.checked);
+        });
+    }
+});
 
     // Add all overlay groups to the map initially
 //Object.values(overlays).forEach(group => group.addTo(map));
@@ -608,7 +642,7 @@ async function loadAlerts() {
 
     const json = await res.json();
     if (json.updates && json.updates.length > 0) {
-      showLatestAlert(json.updates[0]);
+      //showLatestAlert(json.updates[0]);
     }
   } catch (err) {
     console.error("Error loading alerts:", err);
@@ -632,9 +666,52 @@ function showLatestAlert(alert) {
     .openOn(map);
 }
 
-function refreshAlerts() {
-  loadAlerts();
+async function refreshAlerts() {
+    try {
+        const url = "https://raw.githubusercontent.com/BunmahonCGU/cgu-map-pwa/main/data/alerts.json?cb=" + Date.now();
+        const res = await fetch(url, { cache: "no-store" });
+
+        if (!res.ok) return;
+
+        const json = await res.json();
+        const updates = json.updates || [];
+
+        const now = Date.now();
+        const cutoff = now - 24 * 60 * 60 * 1000;
+
+        // newest first
+        const recent = updates
+            .filter(a => a.timestamp >= cutoff)
+            .sort((a, b) => b.timestamp - a.timestamp);
+
+        const list = document.getElementById("alerts-list");
+        list.innerHTML = "";
+
+        recent.forEach(a => {
+            const li = document.createElement("li");
+            li.className = "alert-row";
+
+            const date = new Date(a.timestamp).toLocaleString("en-IE", {
+                hour: "2-digit",
+                minute: "2-digit",
+                day: "2-digit",
+                month: "short"
+            });
+
+            li.innerHTML = `
+                <div class="alert-date">${date}</div>
+                <div class="alert-body">${a.message}</div>
+            `;
+
+            list.appendChild(li);
+        });
+
+    } catch (err) {
+        console.error("Error loading alerts:", err);
+    }
 }
+
+
 
 // ------------------------------------------------------------
 // Admin panel → Cloudflare Worker → GitHub alerts.json
