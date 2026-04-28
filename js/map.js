@@ -652,7 +652,7 @@ async function initMap() {
 map.on("popupopen", function (e) {
     const popupEl = e.popup._container;
 
-    // -------------------------------
+        // -------------------------------
     // Swipe‑down‑to‑close
     // -------------------------------
     let startY = null;
@@ -664,7 +664,7 @@ map.on("popupopen", function (e) {
     });
 
     popupEl.addEventListener("touchmove", function (ev) {
-        if (!isDragging) return;
+                    if (!isDragging) return;
 
         const currentY = ev.touches[0].clientY;
         const diff = currentY - startY;
@@ -683,10 +683,10 @@ map.on("popupopen", function (e) {
     // -------------------------------
     // Tap‑outside‑to‑close (mobile‑safe)
     // -------------------------------
+    const mapEl = map.getContainer();
+    
     function handleOutsideTap(ev) {
-        const mapEl = map.getContainer();
-
-        // Only close if tap is inside the map but outside the popup
+            // Only close if tap is inside the map but outside the popup
         if (!popupEl.contains(ev.target) && mapEl.contains(ev.target)) {
             map.closePopup();
             mapEl.removeEventListener("touchstart", handleOutsideTap);
@@ -695,7 +695,7 @@ map.on("popupopen", function (e) {
     }
 
     // Attach ONLY to the map container
-    const mapEl = map.getContainer();
+    
     mapEl.addEventListener("touchstart", handleOutsideTap);
     mapEl.addEventListener("mousedown", handleOutsideTap);
 });
