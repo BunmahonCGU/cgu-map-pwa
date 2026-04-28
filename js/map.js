@@ -45,7 +45,13 @@ async function checkTokenStatus() {
 
       el.title = `Expires at: ${data.expires_at}`;
 
-    } else {
+    } 
+    else if (data.status === "unknown") {
+   el.textContent = "Token Status: Unknown — GitHub does not provide expiry for this token type";
+   el.style.color = "orange";
+   el.title = data.message;
+    }
+    else {
       el.textContent = `Token Status: ERROR — ${data.error || "Unknown error"}`;
       el.style.color = "red";
       el.title = JSON.stringify(data, null, 2);
