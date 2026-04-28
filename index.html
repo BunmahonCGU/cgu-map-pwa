@@ -62,10 +62,11 @@
 
 #alerts-panel {
   position: absolute;
-  top: 10px;
+  top: 60px;          /* below layer control */
   left: 10px;
-  right: 10px;
-  max-height: 40%;
+  width: calc(100% - 20px);
+  max-width: 360px;   /* desktop/tablet */
+  max-height: 50%;
   overflow-y: auto;
   background: rgba(255,255,255,0.95);
   padding: 10px;
@@ -73,6 +74,37 @@
   box-shadow: 0 2px 6px rgba(0,0,0,0.3);
   z-index: 9998;
 }
+
+@media (max-width: 600px) {
+  #alerts-panel {
+    top: 70px;
+    left: 10px;
+    right: 10px;
+    max-width: none;
+    width: calc(100% - 20px);
+    max-height: 40%;
+  }
+}
+
+.alert-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.alert-date {
+  font-size: 12px;
+  font-weight: bold;
+  color: #555;
+}
+
+.alert-body {
+  font-size: 14px;
+  color: #333;
+}
+
 
 .hidden {
   display: none;
