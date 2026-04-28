@@ -126,11 +126,11 @@ const iconMap = {
     EJ:  { shape: "square-pin", color: "pink" }
 };
 
-function normalizeGroupName(group) {
-    if (!group) return null;
-    const match = group.match(/^[A-Za-z]+/);
-    return match ? match[0] : null;
-}
+//function normalizeGroupName(group) {
+//    if (!group) return null;
+//    const match = group.match(/^[A-Za-z]+/);
+//    return match ? match[0] : null;
+//}
 
 const geojsonOptions = {
 
@@ -160,24 +160,22 @@ const geojsonOptions = {
 
         const marker = L.marker(latlng, { icon });
 
-        // ✅ use uMap group for grouping
-        const rawGroup = props._umap_options?.group;
-        const group    = normalizeGroupName(rawGroup);
-        if (group && layerGroups[group]) {
-            layerGroups[group].addLayer(marker);
+        // ⬅️ back to prefix-based grouping (your earlier behaviour)
+        if (layerGroups[prefix]) {
+            layerGroups[prefix].addLayer(marker);
         }
 
         return marker;
     },
 
     onEachFeature: (feature, layer) => {
-        const props    = feature.properties || {};
-        const rawGroup = props._umap_options?.group;
-        const group    = normalizeGroupName(rawGroup);
-
-        // ✅ assign ALL geometries to correct uMap layer group
-        if (group && layerGroups[group]) {
-            layerGroups[group].addLayer(layer);
+        // ⬅️ back to prefix-based grouping for lines
+        if (feature.geometry && feature.geometry.type === "LineString") {
+            const name   = (feature.properties && feature.properties.name) || "";
+            const prefix = getFeaturePrefixFromName(name);
+            if (layerGroups[prefix]) {
+                layerGroups[prefix].addLayer(layer);
+            }
         }
 
         // ---------- POPUP LOGIC ----------
@@ -190,6 +188,8 @@ const geojsonOptions = {
                 (props._umap_options && props._umap_options.description) ||
                 (props._umap_options && props._umap_options.popupContent) ||
                 "";
+
+            console.log("RAW POPUP INPUT >>>", JSON.stringify(raw));
 
             let popup = formatUmapPopup(raw);
 
@@ -272,6 +272,7 @@ const geojsonOptions = {
                     .replaceAll("{ele}", elevationText);
             }
 
+            console.log("FINAL POPUP HTML >>>", popup);
             layer.bindPopup(popup, { maxWidth: 400, className: "custom-popup" });
         }
     }
