@@ -700,6 +700,11 @@ map.on("popupopen", function (e) {
     mapEl.addEventListener("mousedown", handleOutsideTap);
 });
 
+map.on("blur", () => {
+    // Prevent Leaflet from hiding controls on mobile
+    const controls = document.querySelectorAll(".leaflet-control");
+    controls.forEach(c => c.style.display = "block");
+});
 
 }
 
