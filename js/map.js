@@ -21,51 +21,46 @@ async function checkTokenStatus() {
     });
 
     const data = await res.json();
+    const payload = data.raw || data;  // 👈 key line
 
-    // Show raw debug output
     if (debugEl) {
-      debugEl.textContent = JSON.stringify(data, null, 2);
+      debugEl.textContent = JSON.stringify(payload, null, 2);
     }
 
-    if (data.status === "ok") {
-      const days = data.days_remaining;
+    if (payload.status === "ok") {
+      const days = payload.days_remaining;
 
       if (days > 14) {
         el.textContent = `Token Status: Healthy (${days} days remaining)`;
         el.style.color = "green";
-
       } else if (days > 0) {
         el.textContent = `Token Status: WARNING (${days} days remaining)`;
         el.style.color = "orange";
-
       } else {
         el.textContent = "Token Status: EXPIRED — renewal required";
         el.style.color = "red";
       }
 
-      el.title = `Expires at: ${data.expires_at}`;
+      el.title = `Expires at: ${payload.expires_at}`;
 
-    } 
-    else if (data.status === "unknown") {
-   el.textContent = "Token Status: Unknown — GitHub does not provide expiry for this token type";
-   el.style.color = "orange";
-   el.title = data.message;
-    }
-    else {
-      el.textContent = `Token Status: ERROR — ${data.error || "Unknown error"}`;
+    } else if (payload.status === "unknown") {
+      el.textContent = "Token Status: Unknown — GitHub does not provide expiry for this token type";
+      el.style.color = "orange";
+      el.title = payload.message || "";
+
+    } else {
+      el.textContent = `Token Status: ERROR — ${payload.error || "Unknown error"}`;
       el.style.color = "red";
-      el.title = JSON.stringify(data, null, 2);
+      el.title = JSON.stringify(payload, null, 2);
     }
 
   } catch (err) {
     el.textContent = `Token Status: ERROR — ${err.toString()}`;
     el.style.color = "red";
-
-    if (debugEl) {
-      debugEl.textContent = err.toString();
-    }
+    if (debugEl) debugEl.textContent = err.toString();
   }
 }
+
 
 // Disable Leaflet HTML sanitization so <img> tags are not stripped
 L.Popup.prototype.options.sanitize = false;
