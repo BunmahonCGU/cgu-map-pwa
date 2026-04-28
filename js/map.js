@@ -432,7 +432,7 @@ map.on("dragstart", () => {
         }
     });
 
-    const geojson = await loadUmapFile("data/bunmahon-latest.umap");
+    //const geojson = await loadUmapFile("data/bunmahon-latest.umap");
     //const geojson = await loadUmapFile("data/map.geojson");
 
     window.umapLayer = L.geoJSON(geojson,geojsonOptions );//.addTo(map);
@@ -473,24 +473,24 @@ gpsButton.onAdd = function () {
 gpsButton.addTo(map);
 
     async function refreshUmapLayer() {
-  for (const key in layerGroups) {
-        layerGroups[key].clearLayers();
-    }
-        if (window.umapLayer) {
-    map.removeLayer(window.umapLayer);
-  }
-
-  const geojson = await loadUmapFile("data/bunmahon-latest.umap?cachebust=" + Date.now());
-
-  window.umapLayer = L.geoJSON(geojson,geojsonOptions).addTo(map);
-}
-
-    // Listen for service worker update messages
-navigator.serviceWorker.addEventListener("message", e => {
-  if (e.data?.type === "umap-updated") {
-    refreshUmapLayer();
-  }
-});
+          for (const key in layerGroups) {
+                layerGroups[key].clearLayers();
+            }
+                if (window.umapLayer) {
+            map.removeLayer(window.umapLayer);
+          }
+        
+          const newData  = await loadUmapFile("data/bunmahon-latest.umap?cachebust=" + Date.now());
+        
+          window.umapLayer = L.geoJSON(newData,geojsonOptions).addTo(map);
+        }
+        
+            // Listen for service worker update messages
+        navigator.serviceWorker.addEventListener("message", e => {
+          if (e.data?.type === "umap-updated") {
+            refreshUmapLayer();
+          }
+        });
 
     refreshAlerts();
 
