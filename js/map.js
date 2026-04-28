@@ -11,6 +11,47 @@ const userIcon = L.divIcon({
     iconAnchor: [14, 14]  // center the dot on the location
 });
 
+async function checkTokenStatus() {
+  const el = document.getElementById("token-status");
+
+  try {
+    const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/token-health", {
+      method: "POST"
+    });
+
+    const data = await res.json();
+
+    if (data.status === "ok") {
+      const days = data.days_remaining;
+
+      if (days > 14) {
+        el.textContent = `Token Status: Healthy (${days} days remaining)`;
+        el.style.color = "green";
+
+      } else if (days > 0) {
+        el.textContent = `Token Status: WARNING (${days} days remaining)`;
+        el.style.color = "orange";
+
+      } else {
+        el.textContent = "Token Status: EXPIRED — renewal required";
+        el.style.color = "red";
+      }
+
+      el.title = `Expires at: ${data.expires_at}`;
+
+    } else {
+      el.textContent = "Token Status: ERROR";
+      el.style.color = "red";
+      el.title = data.error;
+    }
+
+  } catch (err) {
+    el.textContent = "Token Status: ERROR";
+    el.style.color = "red";
+    el.title = err.toString();
+  }
+}
+
 // Disable Leaflet HTML sanitization so <img> tags are not stripped
 L.Popup.prototype.options.sanitize = false;
 
