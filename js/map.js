@@ -377,21 +377,21 @@ async function loadUmapFile(url) {
     };
 }
 
-const alertsToggle = L.control({ position: "topright" });
+//const alertsToggle = L.control({ position: "topright" });
 
-alertsToggle.onAdd = function () {
-    const div = L.DomUtil.create("div", "leaflet-control-layers");
-    div.style.padding = "6px";
-    div.style.cursor = "pointer";
-    div.innerHTML = `<label><input type="checkbox" id="alerts-toggle"> Show Updates</label>`;
-    return div;
-};
+//alertsToggle.onAdd = function () {
+//    const div = L.DomUtil.create("div", "leaflet-control-layers");
+//    div.style.padding = "6px";
+//    div.style.cursor = "pointer";
+//    div.innerHTML = `<label><input type="checkbox" id="alerts-toggle"> Show Updates</label>`;
+//    return div;
+//};
 
-alertsToggle.addTo(map);
+//alertsToggle.addTo(map);
 
-document.getElementById("alerts-toggle").addEventListener("change", (e) => {
-    document.getElementById("alerts-panel").classList.toggle("hidden", !e.target.checked);
-});
+//document.getElementById("alerts-toggle").addEventListener("change", (e) => {
+ //   document.getElementById("alerts-panel").classList.toggle("hidden", !e.target.checked);
+//});
 
 // ------------------------------------------------------------
 // Map initialisation
