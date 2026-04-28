@@ -385,7 +385,7 @@ async function initMap() {
     // --------------------------------------------------------
     // 1. Create map + initial view
     // --------------------------------------------------------
-    map = L.map("map").setView([52.1031, -7.3498], 16);
+    map = L.map("map").setView([52.1031, -7.3498], 12);
 
     // --------------------------------------------------------
     // 2. Load uMap file
@@ -757,14 +757,21 @@ const ALERT_ENDPOINT = "https://shiny-math-8471.bunmahoncgu.workers.dev/update";
 let adminPin = null;
 
 document.getElementById("admin-open").onclick = () => {
-  const pin = prompt("Enter admin PIN");
-  if (pin && pin.trim()) {
+  if (!adminPin) {
+    const pin = prompt("Enter admin PIN");
+    if (!pin || !pin.trim()) {
+      alert("PIN required");
+      return;
+    }
     adminPin = pin.trim();
-    document.getElementById("admin-panel").classList.toggle("hidden");
-  } else {
-    alert("PIN required");
   }
-    checkTokenStatus();
+
+  document.getElementById("admin-panel").classList.remove("hidden");
+  checkTokenStatus();
+};
+
+document.getElementById("admin-close").onclick = () => {
+  document.getElementById("admin-panel").classList.add("hidden");
 };
 
 document.getElementById("admin-submit").onclick = async () => {
