@@ -51,7 +51,7 @@ async function checkTokenStatus() {
     } else {
       el.textContent = `Token Status: ERROR — ${payload.error || "Unknown error"}`;
       el.style.color = "red";
-      el.title = JSON.stringify(payload, null, 2);
+      //el.title = JSON.stringify(payload, null, 2);
     }
 
   } catch (err) {
