@@ -400,7 +400,7 @@ async function initMap() {
     map = L.map("map").setView([52.1031, -7.3498], 6);
     
     // 1. Load the uMap file
-    const geojson = await loadUmapFile("data/bunmahon-latest.umap");
+    const geojson = await loadUmapFile("data/bunmahon-latest.umap"); 
     
     // 2. Build the GeoJSON layer (this populates layerGroups)
     window.umapLayer = L.geoJSON(geojson, geojsonOptions);
@@ -431,26 +431,62 @@ for (const [displayName, codes] of Object.entries(layerDisplayNames)) {
     overlays[displayName] = group;
 }
 
+        // Your layer control
+
 L.control.layers(null, overlays, { collapsed: true }).addTo(map);
-map.whenReady(() => {
+
+
+
+// ------------------------------------------------------------
+// Inject Alerts Toggle into Layer List (safe retry loop)
+// ------------------------------------------------------------
+function attachAlertsToggle() {
     const layerList = document.querySelector(".leaflet-control-layers-list");
 
-    if (layerList) {
-        const toggleContainer = document.createElement("div");
-        toggleContainer.style.marginTop = "10px";
-        toggleContainer.innerHTML = `
-            <label style="cursor:pointer;">
-                <input type="checkbox" id="alerts-toggle">
-                Show Updates
-            </label>
-        `;
-        layerList.appendChild(toggleContainer);
-
-        document.getElementById("alerts-toggle").addEventListener("change", (e) => {
-            document.getElementById("alerts-panel").classList.toggle("hidden", !e.target.checked);
-        });
+    if (!layerList) {
+        requestAnimationFrame(attachAlertsToggle);
+        return;
     }
-});
+
+    const toggleContainer = document.createElement("div");
+    toggleContainer.style.marginTop = "10px";
+    toggleContainer.innerHTML = `
+        <label style="cursor:pointer;">
+            <input type="checkbox" id="alerts-toggle">
+            Show Updates
+        </label>
+    `;
+
+    layerList.appendChild(toggleContainer);
+
+    document.getElementById("alerts-toggle").addEventListener("change", (e) => {
+        document.getElementById("alerts-panel")
+            .classList.toggle("hidden", !e.target.checked);
+    });
+}
+
+attachAlertsToggle();
+
+    
+    //map.whenReady(() => {
+    //const layerList = document.querySelector(".leaflet-control-layers-list");
+
+    //if (layerList) {
+      //  const toggleContainer = document.createElement("div");
+       // toggleContainer.style.marginTop = "10px";
+       // toggleContainer.innerHTML = `
+         //   <label style="cursor:pointer;">
+          //      <input type="checkbox" id="alerts-toggle">
+           //     Show Updates
+           // </label>
+       // `;
+       // layerList.appendChild(toggleContainer);
+
+       // document.getElementById("alerts-toggle").addEventListener("change", (e) => {
+         //   document.getElementById("alerts-panel").classList.toggle("hidden", !e.target.checked);
+       // });
+   // }
+//});
 
     // Add all overlay groups to the map initially
 //Object.values(overlays).forEach(group => group.addTo(map));
