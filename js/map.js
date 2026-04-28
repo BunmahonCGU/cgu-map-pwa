@@ -61,13 +61,6 @@ async function checkTokenStatus() {
   }
 }
 
-
-if (data.status === "ok") {
-    debugEl.textContent = "";
-} else {
-    debugEl.textContent = JSON.stringify(data, null, 2);
-}
-
 // Disable Leaflet HTML sanitization so <img> tags are not stripped
 L.Popup.prototype.options.sanitize = false;
 
