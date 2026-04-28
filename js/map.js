@@ -309,9 +309,23 @@ let followMode = true;
 async function loadUmapFile(url) {
     const response = await fetch(url);
     const umap = await response.json();
-    const allFeatures = umap.layers.flatMap(layer => layer.features);
-    return { type: "FeatureCollection", features: allFeatures };
+
+    // Flatten all features from all layers
+    let allFeatures = umap.layers.flatMap(layer => layer.features);
+
+    // Remove uMap's top panel (the fake feature that contains W1 W2 W3…)
+    allFeatures = allFeatures.filter(f => {
+        const desc = f.properties?.description || "";
+        // The panel always contains MANY abbreviations in one blob
+        return !desc.match(/W1\b/) && !desc.match(/W2\b/);
+    });
+
+    return {
+        type: "FeatureCollection",
+        features: allFeatures
+    };
 }
+
 
 // ------------------------------------------------------------
 // Map initialisation
@@ -326,15 +340,33 @@ async function initMap() {
     window.umapLayer = L.geoJSON(geojson, geojsonOptions);
     // DO NOT addTo(map) — layers should start OFF
     
-    // 3. Now that layerGroups are populated, build the layer control
-    const overlays = {};
-    for (const key in layerGroups) {
-        overlays[key] = layerGroups[key];
-    }
-    
-    L.control.layers(null, overlays, { collapsed: false }).addTo(map);
+    // 3. Build grouped, human-readable layer control
+const layerDisplayNames = {
+    "Cliff Walks":        ["CWA", "CAP"],
+    "Lake Access":        ["LA", "LR"],
+    "Defibrillator":      ["D"],
+    "West Roads":         ["WR", "WJ"],
+    "West Access Points": ["WAP"],
+    "East Roads":         ["ER", "EJ"],
+    "East Access Points": ["EAP"]
+};
 
-    // ------------------------------------------------------------
+const overlays = {};
+
+for (const [displayName, codes] of Object.entries(layerDisplayNames)) {
+    const group = L.layerGroup();
+
+    codes.forEach(code => {
+        if (layerGroups[code]) {
+            group.addLayer(layerGroups[code]);
+        }
+    });
+
+    overlays[displayName] = group;
+}
+
+L.control.layers(null, overlays, { collapsed: false }).addTo(map);
+
     
 // ------------------------------------------------------------
 // Enable GPS tracking
