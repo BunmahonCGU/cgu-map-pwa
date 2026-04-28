@@ -13,13 +13,19 @@ const userIcon = L.divIcon({
 
 async function checkTokenStatus() {
   const el = document.getElementById("token-status");
+  const debugEl = document.getElementById("token-debug");
 
   try {
-    const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/token-health", {
+    const res = await fetch("https://<YOUR_WORKER_URL>/token-health", {
       method: "POST"
     });
 
     const data = await res.json();
+
+    // Show raw debug output
+    if (debugEl) {
+      debugEl.textContent = JSON.stringify(data, null, 2);
+    }
 
     if (data.status === "ok") {
       const days = data.days_remaining;
@@ -40,18 +46,21 @@ async function checkTokenStatus() {
       el.title = `Expires at: ${data.expires_at}`;
 
     } else {
-      el.textContent = "Token Status: ERROR";
+      el.textContent = `Token Status: ERROR — ${data.error || "Unknown error"}`;
       el.style.color = "red";
-      el.title = data.error;
+      el.title = JSON.stringify(data, null, 2);
     }
 
   } catch (err) {
-    el.textContent = "Token Status: ERROR";
+    el.textContent = `Token Status: ERROR — ${err.toString()}`;
     el.style.color = "red";
-    el.title = err.toString();
+
+    if (debugEl) {
+      debugEl.textContent = err.toString();
+    }
   }
 }
-const debugEl = document.getElementById("token-debug");
+
 
 if (data.status === "ok") {
     debugEl.textContent = "";
