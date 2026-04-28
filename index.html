@@ -113,6 +113,34 @@
     </style>
     
 <style>
+    /* Limit popup width on mobile */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-content {
+  max-width: 260px !important;
+  width: auto !important;
+}
+
+/* Make images scale properly */
+.leaflet-popup-content img {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+}
+
+/* Make iframes responsive */
+.leaflet-popup-content iframe {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 16 / 9;
+}
+
+/* Wrap long text */
+.leaflet-popup-content {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+ </style>  
+<style>
 .leaflet-control-locate.locate-active {
     background: #0078ff !important;
     color: white !important;
@@ -144,7 +172,8 @@
 
 <button id="admin-open" class="admin-button">Admin</button>
 
-<div id="admin-panel" class="hidden" style="padding: 10px; background: #f3f3f3; margin-top: 10px;">
+<div id="admin-panel" class="hidden">
+
   <h3>Post Update</h3>
 
   <input id="admin-title" type="text" placeholder="Title" style="width:100%; margin-bottom:6px;">
