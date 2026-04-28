@@ -159,11 +159,19 @@ const geojsonOptions = {
             return marker;
         },
 
-        onEachFeature: (feature, layer) => {
+//        onEachFeature: (feature, layer) => {
 
            // if (feature.properties && feature.properties.description) {
             //    let popup = formatUmapPopup(feature.properties.description);
-
+            onEachFeature: (feature, layer) => {
+                const props = feature.properties || {};
+                const group = props._umap_options?.group;
+            
+                // Assign feature to correct uMap layer group
+                if (group && layerGroups[group]) {
+                    layerGroups[group].addLayer(layer);
+                }
+                
           if (feature.properties) {
             const props = feature.properties;
 
