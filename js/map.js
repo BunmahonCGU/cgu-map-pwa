@@ -16,7 +16,7 @@ async function checkTokenStatus() {
   const debugEl = document.getElementById("token-debug");
 
   try {
-    const res = await fetch("https://<YOUR_WORKER_URL>/token-health", {
+    const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/token-health", {
       method: "POST"
     });
 
