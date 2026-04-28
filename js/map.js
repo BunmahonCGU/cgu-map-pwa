@@ -492,16 +492,7 @@ attachAlertsToggle();
 //Object.values(overlays).forEach(group => group.addTo(map));
 
     
-// ------------------------------------------------------------
-// Enable GPS tracking
-// ------------------------------------------------------------
-    
-    map.locate({
-    watch: true,
-    enableHighAccuracy: true,
-    maximumAge: 1000,
-    timeout: 10000
-});
+
 // Cache the control button once Leaflet inserts it
 
 function attachGpsButtonHandler() {
@@ -597,30 +588,7 @@ map.on("dragstart", () => {
 
    
 
-// ------------------------------------------------------------
-// Add GPS button (bottom-right)
-// ------------------------------------------------------------
-const gpsButton = L.control({ position: "bottomright" });
 
-gpsButton.onAdd = function () {
-    const div = L.DomUtil.create("div", "gps-button");
-    div.innerHTML = "📍";
-    div.style.cursor = "pointer";
-    div.style.fontSize = "28px";
-    div.style.background = "white";
-    div.style.padding = "6px 10px";
-    div.style.borderRadius = "6px";
-    div.style.boxShadow = "0 1px 4px rgba(0,0,0,0.4)";
-
-    div.onclick = () => {
-        followMode = true;
-        map.locate({ setView: true, maxZoom: 17 });
-    };
-
-    return div;
-};
-
-gpsButton.addTo(map);
 
     async function refreshUmapLayer() {
           for (const key in layerGroups) {
@@ -649,8 +617,40 @@ document.getElementById("refreshMapBtn")
     refreshUmapLayer();
     refreshAlerts();
   });
+// ------------------------------------------------------------
+// Enable GPS tracking
+// ------------------------------------------------------------
+    
+    map.locate({
+    watch: true,
+    enableHighAccuracy: true,
+    maximumAge: 1000,
+    timeout: 10000
+});
+// ------------------------------------------------------------
+// Add GPS button (bottom-right)
+// ------------------------------------------------------------
+const gpsButton = L.control({ position: "bottomright" });
 
+gpsButton.onAdd = function () {
+    const div = L.DomUtil.create("div", "gps-button");
+    div.innerHTML = "📍";
+    div.style.cursor = "pointer";
+    div.style.fontSize = "28px";
+    div.style.background = "white";
+    div.style.padding = "6px 10px";
+    div.style.borderRadius = "6px";
+    div.style.boxShadow = "0 1px 4px rgba(0,0,0,0.4)";
 
+    div.onclick = () => {
+        followMode = true;
+        map.locate({ setView: true, maxZoom: 17 });
+    };
+
+    return div;
+};
+
+gpsButton.addTo(map);
 }
 initMap();
 
