@@ -365,7 +365,7 @@ for (const [displayName, codes] of Object.entries(layerDisplayNames)) {
     overlays[displayName] = group;
 }
 
-L.control.layers(null, overlays, { collapsed: false }).addTo(map);
+L.control.layers(null, overlays, { collapsed: true }).addTo(map);
 
     
 // ------------------------------------------------------------
