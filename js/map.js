@@ -681,19 +681,25 @@ map.on("popupopen", function (e) {
 
 
     // -------------------------------
-    // Tap‑outside‑to‑close
+    // Tap‑outside‑to‑close (mobile‑safe)
     // -------------------------------
     function handleOutsideTap(ev) {
-        if (!popupEl.contains(ev.target)) {
+        const mapEl = map.getContainer();
+
+        // Only close if tap is inside the map but outside the popup
+        if (!popupEl.contains(ev.target) && mapEl.contains(ev.target)) {
             map.closePopup();
-            document.removeEventListener("touchstart", handleOutsideTap);
-            document.removeEventListener("mousedown", handleOutsideTap);
+            mapEl.removeEventListener("touchstart", handleOutsideTap);
+            mapEl.removeEventListener("mousedown", handleOutsideTap);
         }
     }
 
-    document.addEventListener("touchstart", handleOutsideTap);
-    document.addEventListener("mousedown", handleOutsideTap);
+    // Attach ONLY to the map container
+    const mapEl = map.getContainer();
+    mapEl.addEventListener("touchstart", handleOutsideTap);
+    mapEl.addEventListener("mousedown", handleOutsideTap);
 });
+
 
 }
 
