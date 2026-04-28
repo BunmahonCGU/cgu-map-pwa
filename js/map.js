@@ -382,7 +382,7 @@ async function loadUmapFile(url) {
 // Map initialisation
 // ------------------------------------------------------------
 async function initMap() {
-    map = L.map("map").setView([52.1031, -7.3498], 10);
+    map = L.map("map").setView([52.1031, -7.3498], 6);
     
     // 1. Load the uMap file
     const geojson = await loadUmapFile("data/bunmahon-latest.umap");
@@ -433,33 +433,7 @@ L.control.layers(null, overlays, { collapsed: true }).addTo(map);
     timeout: 10000
 });
 // Cache the control button once Leaflet inserts it
-//setTimeout(() => {
- //   const locateBtn = document.querySelector('.gps-button');
 
-    //if (!locateBtn) return;
-
-  // locateBtn.addEventListener('click', () => {
-   //     tracking = !tracking;
-
-     //   if (tracking) {
-            // Restart continuous tracking
-       //     map.locate({ watch: true, enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
-        //    followMode = true;
-
-            // Recenter immediately if we have a last known location
-         //   if (lastLocation) {
-         //       map.setView(lastLocation, map.getZoom());
-           // }
-
-      //      locateBtn.classList.add('locate-active');
-       // } else {
-            // Stop tracking
-         //   map.stopLocate();
-          //  followMode = false;
-           // locateBtn.classList.remove('locate-active');
-        //}
-    //});
-//}, 300);
 function attachGpsButtonHandler() {
     const locateBtn = document.querySelector('.gps-button');
     if (!locateBtn) {
