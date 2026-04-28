@@ -125,167 +125,163 @@ const iconMap = {
     EAP: { shape: "circle-pin", color: "pink" },
     EJ:  { shape: "square-pin", color: "pink" }
 };
+
+function normalizeGroupName(group) {
+    if (!group) return null;
+    const match = group.match(/^[A-Za-z]+/); // keep leading letters only, e.g. "WR - Waymarked Route" → "WR"
+    return match ? match[0] : null;
+}
 // ------------------------------------------------------------
 // Fix feature options for use in refresh.
 // ------------------------------------------------------------
 
 const geojsonOptions = {
 
-        style: feature => {
-            const name = feature.properties.name || "";
-            const prefix = getFeaturePrefixFromName(name);
+    style: feature => {
+        const name = feature.properties.name || "";
+        const prefix = getFeaturePrefixFromName(name);
 
-            if (feature.geometry.type === "LineString") {
-                if (prefix === "WR")  return { color: "blue",   weight: 4 };
-                if (prefix === "ER")  return { color: "pink",   weight: 4 };
-                if (prefix === "LR")  return { color: "orange", weight: 4 };
-                if (prefix === "CAP") return { color: "white",  weight: 4 };
-            }
-            return {};
-        },
+        if (feature.geometry.type === "LineString") {
+            if (prefix === "WR")  return { color: "blue",   weight: 4 };
+            if (prefix === "ER")  return { color: "pink",   weight: 4 };
+            if (prefix === "LR")  return { color: "orange", weight: 4 };
+            if (prefix === "CAP") return { color: "white",  weight: 4 };
+        }
+        return {};
+    },
 
-        pointToLayer: (feature, latlng) => {
-            if (feature.geometry.type !== "Point") return;
+    pointToLayer: (feature, latlng) => {
+        if (feature.geometry.type !== "Point") return;
 
-            const name = feature.properties.name || "";
-            const prefix = getFeaturePrefixFromName(name);
-            const label = getFeatureLabel(feature);
+        const props  = feature.properties || {};
+        const name   = props.name || "";
+        const prefix = getFeaturePrefixFromName(name);
+        const label  = getFeatureLabel(feature);
 
-            const iconDef = iconMap[prefix] || { shape: "circle-pin", color: "blue" };
-            const icon = makeSvgIcon(iconDef.shape, iconDef.color, label);
+        const iconDef = iconMap[prefix] || { shape: "circle-pin", color: "blue" };
+        const icon    = makeSvgIcon(iconDef.shape, iconDef.color, label);
 
-            const marker = L.marker(latlng, { icon });
-            if (layerGroups[prefix]) layerGroups[prefix].addLayer(marker);
-            return marker;
-        },
+        const marker = L.marker(latlng, { icon });
 
-//        onEachFeature: (feature, layer) => {
+        // use uMap group (normalized) for layer grouping
+        const rawGroup = props._umap_options?.group;
+        const group    = normalizeGroupName(rawGroup);
+        if (group && layerGroups[group]) {
+            layerGroups[group].addLayer(marker);
+        }
 
-           // if (feature.properties && feature.properties.description) {
-            //    let popup = formatUmapPopup(feature.properties.description);
-            onEachFeature: (feature, layer) => {
-                const props = feature.properties || {};
-                const group = props._umap_options?.group;
-            
-                // Assign feature to correct uMap layer group
-                if (group && layerGroups[group]) {
-                    layerGroups[group].addLayer(layer);
-                }
-                
-          if (feature.properties) {
+        return marker;
+    },
+
+    onEachFeature: (feature, layer) => {
+        const props    = feature.properties || {};
+        const rawGroup = props._umap_options?.group;
+        const group    = normalizeGroupName(rawGroup);
+
+        // assign ALL geometries (lines, polygons, points) to correct uMap layer group
+        if (group && layerGroups[group]) {
+            layerGroups[group].addLayer(layer);
+        }
+
+        // ---------- POPUP LOGIC ----------
+        if (feature.properties) {
             const props = feature.properties;
 
             const raw =
-            props.description ||
-            props.popupContent ||
-            (props._umap_options && props._umap_options.description) ||
-            (props._umap_options && props._umap_options.popupContent) ||
-            "";
+                props.description ||
+                props.popupContent ||
+                (props._umap_options && props._umap_options.description) ||
+                (props._umap_options && props._umap_options.popupContent) ||
+                "";
 
-        console.log("RAW POPUP INPUT >>>", JSON.stringify(raw));
+            console.log("RAW POPUP INPUT >>>", JSON.stringify(raw));
 
-        let popup = formatUmapPopup(raw);
+            let popup = formatUmapPopup(raw);
 
-                    
-                if (feature.geometry && feature.geometry.type === "Point") {
-                    const [lon, lat] = feature.geometry.coordinates;
-                    popup = popup
-                        .replaceAll("{lat}", lat)
-                        .replaceAll("{lng}", lon)
-                        .replaceAll("{lon}", lon);
-                }
-
-                if (feature.geometry.type === "LineString") {
-
-                    if (/\{(measure|length|distance)\}/i.test(popup)) {
-
-                        const coords = feature.geometry.coordinates;
-
-                        if (Array.isArray(coords) && coords.length > 1) {
-
-                            const latlngs = coords.map(c => L.latLng(c[1], c[0]));
-
-                            const R = 6371000;
-                            function segmentDistance(a, b) {
-                                const rad = Math.PI / 180;
-                                const dLat = (b.lat - a.lat) * rad;
-                                const dLon = (b.lng - a.lng) * rad;
-                                const lat1 = a.lat * rad;
-                                const lat2 = b.lat * rad;
-                                const sinDLat = Math.sin(dLat / 2);
-                                const sinDLon = Math.sin(dLon / 2);
-                                const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon;
-                                return 2 * R * Math.asin(Math.sqrt(h));
-                            }
-
-                            let lengthMeters = 0;
-                            for (let i = 0; i < latlngs.length - 1; i++) {
-                                lengthMeters += segmentDistance(latlngs[i], latlngs[i + 1]);
-                            }
-
-                            const lengthRounded = Math.round(lengthMeters);
-
-                            popup = popup.replace(/\{(measure|length|distance)\}/gi, lengthRounded + " m");
-                        }
-                    }
-                }
-
-                if (feature.geometry.type === "Polygon" && /\{area\}/i.test(popup)) {
-
-                    const rings = feature.geometry.coordinates[0];
-                    if (Array.isArray(rings) && rings.length > 2) {
-
-                        const R = 6371000;
-                        function toRad(d) { return d * Math.PI / 180; }
-
-                        let area = 0;
-                        for (let i = 0; i < rings.length - 1; i++) {
-                            const [lon1, lat1] = rings[i];
-                            const [lon2, lat2] = rings[i + 1];
-                            area += toRad(lon2 - lon1) * (2 + Math.sin(toRad(lat1)) + Math.sin(toRad(lat2)));
-                        }
-                        area = Math.abs(area * R * R / 2);
-
-                        const areaRounded = Math.round(area);
-
-                        popup = popup.replace(/\{area\}/gi, areaRounded + " m²");
-                    }
-                }
-
-                if (popup.includes("{Elevation}") || popup.includes("{elevation}") || popup.includes("{ele}")) {
-                    let elevation = null;
-
-                    if (feature.geometry && feature.geometry.type === "Point") {
-                        const coords = feature.geometry.coordinates;
-                        if (coords.length >= 3 && typeof coords[2] === "number") {
-                            elevation = coords[2];
-                        }
-                    }
-
-                    const props = feature.properties || {};
-                    if (elevation === null && typeof props.ele === "number") elevation = props.ele;
-                    if (elevation === null && typeof props.elevation === "number") elevation = props.elevation;
-
-                    const elevationText = elevation !== null ? elevation + " m" : "N/A";
-
-                    popup = popup
-                        .replaceAll("{Elevation}", elevationText)
-                        .replaceAll("{elevation}", elevationText)
-                        .replaceAll("{ele}", elevationText);
-                }
-
-                console.log("FINAL POPUP HTML >>>", popup);
-                layer.bindPopup(popup, { maxWidth: 400, className: "custom-popup" });
-
+            if (feature.geometry && feature.geometry.type === "Point") {
+                const [lon, lat] = feature.geometry.coordinates;
+                popup = popup
+                    .replaceAll("{lat}", lat)
+                    .replaceAll("{lng}", lon)
+                    .replaceAll("{lon}", lon);
             }
 
             if (feature.geometry.type === "LineString") {
-                const name = feature.properties.name || "";
-                const prefix = getFeaturePrefixFromName(name);
-                if (layerGroups[prefix]) layerGroups[prefix].addLayer(layer);
+                if (/\{(measure|length|distance)\}/i.test(popup)) {
+                    const coords = feature.geometry.coordinates;
+
+                    if (Array.isArray(coords) && coords.length > 1) {
+                        const latlngs = coords.map(c => L.latLng(c[1], c[0]));
+
+                        const R = 6371000;
+                        function segmentDistance(a, b) {
+                            const rad  = Math.PI / 180;
+                            const dLat = (b.lat - a.lat) * rad;
+                            const dLon = (b.lng - a.lng) * rad;
+                            const lat1 = a.lat * rad;
+                            const lat2 = b.lat * rad;
+                            const sinDLat = Math.sin(dLat / 2);
+                            const sinDLon = Math.sin(dLon / 2);
+                            const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon;
+                            return 2 * R * Math.asin(Math.sqrt(h));
+                        }
+
+                        let lengthMeters = 0;
+                        for (let i = 0; i < latlngs.length - 1; i++) {
+                            lengthMeters += segmentDistance(latlngs[i], latlngs[i + 1]);
+                        }
+
+                        const lengthRounded = Math.round(lengthMeters);
+                        popup = popup.replace(/\{(measure|length|distance)\}/gi, lengthRounded + " m");
+                    }
+                }
             }
+
+            if (feature.geometry.type === "Polygon" && /\{area\}/i.test(popup)) {
+                const rings = feature.geometry.coordinates[0];
+                if (Array.isArray(rings) && rings.length > 2) {
+                    const R = 6371000;
+                    function toRad(d) { return d * Math.PI / 180; }
+
+                    let area = 0;
+                    for (let i = 0; i < rings.length - 1; i++) {
+                        const [lon1, lat1] = rings[i];
+                        const [lon2, lat2] = rings[i + 1];
+                        area += toRad(lon2 - lon1) * (2 + Math.sin(toRad(lat1)) + Math.sin(toRad(lat2)));
+                    }
+                    area = Math.abs(area * R * R / 2);
+
+                    const areaRounded = Math.round(area);
+                    popup = popup.replace(/\{area\}/gi, areaRounded + " m²");
+                }
+            }
+
+            if (popup.includes("{Elevation}") || popup.includes("{elevation}") || popup.includes("{ele}")) {
+                let elevation = null;
+
+                if (feature.geometry && feature.geometry.type === "Point") {
+                    const coords = feature.geometry.coordinates;
+                    if (coords.length >= 3 && typeof coords[2] === "number") {
+                        elevation = coords[2];
+                    }
+                }
+
+                if (elevation === null && typeof props.ele === "number")       elevation = props.ele;
+                if (elevation === null && typeof props.elevation === "number") elevation = props.elevation;
+
+                const elevationText = elevation !== null ? elevation + " m" : "N/A";
+
+                popup = popup
+                    .replaceAll("{Elevation}", elevationText)
+                    .replaceAll("{elevation}", elevationText)
+                    .replaceAll("{ele}", elevationText);
+            }
+
+            console.log("FINAL POPUP HTML >>>", popup);
+            layer.bindPopup(popup, { maxWidth: 400, className: "custom-popup" });
         }
-    };
+    }
+};
 
 // ------------------------------------------------------------
 // Layer groups (toggleable)
