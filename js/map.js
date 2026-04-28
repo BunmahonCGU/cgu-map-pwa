@@ -647,6 +647,37 @@ async function initMap() {
     };
 
     gpsButton.addTo(map);
+
+    // Enable swipe-down-to-close for popups
+map.on("popupopen", function (e) {
+    const popupEl = e.popup._container;
+
+    let startY = null;
+    let isDragging = false;
+
+    popupEl.addEventListener("touchstart", function (ev) {
+        startY = ev.touches[0].clientY;
+        isDragging = true;
+    });
+
+    popupEl.addEventListener("touchmove", function (ev) {
+        if (!isDragging) return;
+
+        const currentY = ev.touches[0].clientY;
+        const diff = currentY - startY;
+
+        // User swiped down at least 40px
+        if (diff > 40) {
+            map.closePopup();
+            isDragging = false;
+        }
+    });
+
+    popupEl.addEventListener("touchend", function () {
+        isDragging = false;
+    });
+});
+
 }
 
 // ------------------------------------------------------------
@@ -757,6 +788,7 @@ const ALERT_ENDPOINT = "https://shiny-math-8471.bunmahoncgu.workers.dev/update";
 let adminPin = null;
 
 document.getElementById("admin-open").onclick = () => {
+  // Ask for PIN only if not already stored
   if (!adminPin) {
     const pin = prompt("Enter admin PIN");
     if (!pin || !pin.trim()) {
@@ -766,9 +798,14 @@ document.getElementById("admin-open").onclick = () => {
     adminPin = pin.trim();
   }
 
-  document.getElementById("admin-panel").classList.remove("hidden");
+  // Always OPEN the panel (no toggle)
+  const panel = document.getElementById("admin-panel");
+  panel.classList.remove("hidden");
+
+  // Run token status ONLY when opening
   checkTokenStatus();
 };
+
 
 document.getElementById("admin-close").onclick = () => {
   document.getElementById("admin-panel").classList.add("hidden");
