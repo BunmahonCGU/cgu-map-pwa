@@ -128,12 +128,9 @@ const iconMap = {
 
 function normalizeGroupName(group) {
     if (!group) return null;
-    const match = group.match(/^[A-Za-z]+/); // keep leading letters only, e.g. "WR - Waymarked Route" → "WR"
+    const match = group.match(/^[A-Za-z]+/);
     return match ? match[0] : null;
 }
-// ------------------------------------------------------------
-// Fix feature options for use in refresh.
-// ------------------------------------------------------------
 
 const geojsonOptions = {
 
@@ -163,7 +160,7 @@ const geojsonOptions = {
 
         const marker = L.marker(latlng, { icon });
 
-        // use uMap group (normalized) for layer grouping
+        // ✅ use uMap group for grouping
         const rawGroup = props._umap_options?.group;
         const group    = normalizeGroupName(rawGroup);
         if (group && layerGroups[group]) {
@@ -178,7 +175,7 @@ const geojsonOptions = {
         const rawGroup = props._umap_options?.group;
         const group    = normalizeGroupName(rawGroup);
 
-        // assign ALL geometries (lines, polygons, points) to correct uMap layer group
+        // ✅ assign ALL geometries to correct uMap layer group
         if (group && layerGroups[group]) {
             layerGroups[group].addLayer(layer);
         }
@@ -193,8 +190,6 @@ const geojsonOptions = {
                 (props._umap_options && props._umap_options.description) ||
                 (props._umap_options && props._umap_options.popupContent) ||
                 "";
-
-            console.log("RAW POPUP INPUT >>>", JSON.stringify(raw));
 
             let popup = formatUmapPopup(raw);
 
@@ -277,11 +272,11 @@ const geojsonOptions = {
                     .replaceAll("{ele}", elevationText);
             }
 
-            console.log("FINAL POPUP HTML >>>", popup);
             layer.bindPopup(popup, { maxWidth: 400, className: "custom-popup" });
         }
     }
 };
+
 
 // ------------------------------------------------------------
 // Layer groups (toggleable)
