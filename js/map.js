@@ -377,193 +377,182 @@ async function loadUmapFile(url) {
     };
 }
 
-//const alertsToggle = L.control({ position: "topright" });
-
-//alertsToggle.onAdd = function () {
-//    const div = L.DomUtil.create("div", "leaflet-control-layers");
-//    div.style.padding = "6px";
-//    div.style.cursor = "pointer";
-//    div.innerHTML = `<label><input type="checkbox" id="alerts-toggle"> Show Updates</label>`;
-//    return div;
-//};
-
-//alertsToggle.addTo(map);
-
-//document.getElementById("alerts-toggle").addEventListener("change", (e) => {
- //   document.getElementById("alerts-panel").classList.toggle("hidden", !e.target.checked);
-//});
-
 // ------------------------------------------------------------
 // Map initialisation
 // ------------------------------------------------------------
 async function initMap() {
-    map = L.map("map").setView([52.1031, -7.3498], 6);
-    
-    // 1. Load the uMap file
-    const geojson = await loadUmapFile("data/bunmahon-latest.umap"); 
-    
-    // 2. Build the GeoJSON layer (this populates layerGroups)
+
+    // --------------------------------------------------------
+    // 1. Create map + initial view
+    // --------------------------------------------------------
+    map = L.map("map").setView([52.1031, -7.3498], 16);
+
+    // --------------------------------------------------------
+    // 2. Load uMap file
+    // --------------------------------------------------------
+    const geojson = await loadUmapFile("data/bunmahon-latest.umap");
+
+    // --------------------------------------------------------
+    // 3. Build GeoJSON layer (populates layerGroups)
+    // --------------------------------------------------------
     window.umapLayer = L.geoJSON(geojson, geojsonOptions);
-    // DO NOT addTo(map) — layers should start OFF
-    
-    // 3. Build grouped, human-readable layer control
-const layerDisplayNames = {
-    "Cliff Walks":        ["CWA", "CAP"],
-    "Lake Access":        ["LA", "LR"],
-    "Defibrillator":      ["D"],
-    "West Roads":         ["WR", "WJ"],
-    "West Access Points": ["WAP"],
-    "East Roads":         ["ER", "EJ"],
-    "East Access Points": ["EAP"]
-};
+    // NOTE: Do NOT addTo(map) — layers start OFF
 
-const overlays = {};
+    // --------------------------------------------------------
+    // 4. Build grouped, human‑readable layer control
+    // --------------------------------------------------------
+    const layerDisplayNames = {
+        "Cliff Walks":        ["CWA", "CAP"],
+        "Lake Access":        ["LA", "LR"],
+        "Defibrillator":      ["D"],
+        "West Roads":         ["WR", "WJ"],
+        "West Access Points": ["WAP"],
+        "East Roads":         ["ER", "EJ"],
+        "East Access Points": ["EAP"]
+    };
 
-for (const [displayName, codes] of Object.entries(layerDisplayNames)) {
-    const group = L.layerGroup();
+    const overlays = {};
 
-    codes.forEach(code => {
-        if (layerGroups[code]) {
-            group.addLayer(layerGroups[code]);
-        }
-    });
+    for (const [displayName, codes] of Object.entries(layerDisplayNames)) {
+        const group = L.layerGroup();
 
-    overlays[displayName] = group;
-}
-
-        // Your layer control
-
-L.control.layers(null, overlays, { collapsed: true }).addTo(map);
-
-
-
-// ------------------------------------------------------------
-// Inject Alerts Toggle into Layer List (safe retry loop)
-// ------------------------------------------------------------
-function attachAlertsToggle() {
-    const layerList = document.querySelector(".leaflet-control-layers-list");
-
-    if (!layerList) {
-        requestAnimationFrame(attachAlertsToggle);
-        return;
-    }
-
-    const toggleContainer = document.createElement("div");
-    toggleContainer.style.marginTop = "10px";
-    toggleContainer.innerHTML = `
-        <label style="cursor:pointer;">
-            <input type="checkbox" id="alerts-toggle">
-            Show Updates
-        </label>
-    `;
-
-    layerList.appendChild(toggleContainer);
-
-    document.getElementById("alerts-toggle").addEventListener("change", (e) => {
-        document.getElementById("alerts-panel")
-            .classList.toggle("hidden", !e.target.checked);
-    });
-}
-
-map.whenReady(() => {
-    requestAnimationFrame(attachAlertsToggle);
-});
-
-    
-    //map.whenReady(() => {
-    //const layerList = document.querySelector(".leaflet-control-layers-list");
-
-    //if (layerList) {
-      //  const toggleContainer = document.createElement("div");
-       // toggleContainer.style.marginTop = "10px";
-       // toggleContainer.innerHTML = `
-         //   <label style="cursor:pointer;">
-          //      <input type="checkbox" id="alerts-toggle">
-           //     Show Updates
-           // </label>
-       // `;
-       // layerList.appendChild(toggleContainer);
-
-       // document.getElementById("alerts-toggle").addEventListener("change", (e) => {
-         //   document.getElementById("alerts-panel").classList.toggle("hidden", !e.target.checked);
-       // });
-   // }
-//});
-
-    // Add all overlay groups to the map initially
-//Object.values(overlays).forEach(group => group.addTo(map));
-
-    
-
-// Cache the control button once Leaflet inserts it
-
-function attachGpsButtonHandler() {
-    const locateBtn = document.querySelector('.gps-button');
-    if (!locateBtn) {
-        requestAnimationFrame(attachGpsButtonHandler);
-        return;
-    }
-
-    locateBtn.addEventListener('click', () => {
-        tracking = !tracking;
-
-        if (tracking) {
-            map.locate({ watch: true, enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 });
-            followMode = true;
-
-            if (lastLocation) {
-                map.setView(lastLocation, map.getZoom());
+        codes.forEach(code => {
+            if (layerGroups[code]) {
+                group.addLayer(layerGroups[code]);
             }
+        });
 
-            locateBtn.classList.add('locate-active');
+        overlays[displayName] = group;
+    }
+
+    // --------------------------------------------------------
+    // 5. Add layer control to map
+    // --------------------------------------------------------
+    L.control.layers(null, overlays, { collapsed: true }).addTo(map);
+
+
+
+    // ------------------------------------------------------------
+    // 6. Inject Alerts Toggle into Layer List (safe retry loop)
+    // ------------------------------------------------------------
+    function attachAlertsToggle() {
+        const layerList = document.querySelector(".leaflet-control-layers-list");
+
+        if (!layerList) {
+            requestAnimationFrame(attachAlertsToggle);
+            return;
+        }
+
+        const toggleContainer = document.createElement("div");
+        toggleContainer.style.marginTop = "10px";
+        toggleContainer.innerHTML = `
+            <label style="cursor:pointer;">
+                <input type="checkbox" id="alerts-toggle">
+                Show Updates
+            </label>
+        `;
+
+        layerList.appendChild(toggleContainer);
+
+        document.getElementById("alerts-toggle").addEventListener("change", (e) => {
+            document.getElementById("alerts-panel")
+                .classList.toggle("hidden", !e.target.checked);
+        });
+    }
+
+    map.whenReady(() => {
+        requestAnimationFrame(attachAlertsToggle);
+    });
+
+    // ------------------------------------------------------------
+    // 7. GPS button handler (waits for DOM insertion)
+    // ------------------------------------------------------------
+    function attachGpsButtonHandler() {
+        const locateBtn = document.querySelector('.gps-button');
+
+        if (!locateBtn) {
+            requestAnimationFrame(attachGpsButtonHandler);
+            return;
+        }
+
+        locateBtn.addEventListener('click', () => {
+            tracking = !tracking;
+
+            if (tracking) {
+                map.locate({
+                    watch: true,
+                    enableHighAccuracy: true,
+                    maximumAge: 1000,
+                    timeout: 10000
+                });
+                followMode = true;
+
+                if (lastLocation) {
+                    map.setView(lastLocation, map.getZoom());
+                }
+
+                locateBtn.classList.add('locate-active');
+            } else {
+                map.stopLocate();
+                followMode = false;
+                locateBtn.classList.remove('locate-active');
+            }
+        });
+    }
+
+    attachGpsButtonHandler();
+
+
+
+    // ------------------------------------------------------------
+    // 8. GPS locationfound handler
+    // ------------------------------------------------------------
+    map.on("locationfound", (e) => {
+        lastLocation = e.latlng;
+
+        if (!tracking) return;
+
+        // User marker
+        if (!userMarker) {
+            userMarker = L.marker(e.latlng, { icon: userIcon }).addTo(map);
         } else {
-            map.stopLocate();
-            followMode = false;
-            locateBtn.classList.remove('locate-active');
+            userMarker.setLatLng(e.latlng);
+        }
+
+        // Accuracy circle
+        if (!accuracyCircle) {
+            accuracyCircle = L.circle(e.latlng, {
+                radius: e.accuracy,
+                color: "#136AEC",
+                fillColor: "#136AEC",
+                fillOpacity: 0.15,
+                weight: 2
+            }).addTo(map);
+        } else {
+            accuracyCircle.setLatLng(e.latlng);
+            accuracyCircle.setRadius(e.accuracy);
+        }
+
+        // Follow mode
+        if (followMode) {
+            map.setView(e.latlng, map.getZoom());
         }
     });
-}
-
-attachGpsButtonHandler();
-
-map.on("locationfound", (e) => {
-    lastLocation = e.latlng;
-
-    if (!tracking) return;
-
-    // Create or update user marker
-    if (!userMarker) {
-    userMarker = L.marker(e.latlng, { icon: userIcon }).addTo(map);
-} else {
-    userMarker.setLatLng(e.latlng);
-}
-
-    // Create or update accuracy circle
-    if (!accuracyCircle) {
-        accuracyCircle = L.circle(e.latlng, {
-            radius: e.accuracy,
-            color: "#136AEC",
-            fillColor: "#136AEC",
-            fillOpacity: 0.15,
-            weight: 2
-        }).addTo(map);
-    } else {
-        accuracyCircle.setLatLng(e.latlng);
-        accuracyCircle.setRadius(e.accuracy);
-    }
-
-    // Follow mode
-    if (followMode) {
-        map.setView(e.latlng, map.getZoom());
-    }
-});
 
 
-// Stop following if user manually pans
-map.on("dragstart", () => {
-    followMode = false;
-});
 
+    // ------------------------------------------------------------
+    // 9. Stop following if user manually pans
+    // ------------------------------------------------------------
+    map.on("dragstart", () => {
+        followMode = false;
+    });
+
+
+
+    // ------------------------------------------------------------
+    // 10. Base layers (OSM + Satellite)
+    // ------------------------------------------------------------
     const osm = L.tileLayer('//{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
         maxZoom: 20,
         attribution: '© OpenStreetMap contributors'
@@ -583,77 +572,86 @@ map.on("dragstart", () => {
         }
     });
 
-    //const geojson = await loadUmapFile("data/bunmahon-latest.umap");
-    //const geojson = await loadUmapFile("data/map.geojson");
-
-    //window.umapLayer = L.geoJSON(geojson,geojsonOptions );//.addTo(map);
-
-   
 
 
-
+    // ------------------------------------------------------------
+    // 11. Refresh uMap layer
+    // ------------------------------------------------------------
     async function refreshUmapLayer() {
-          for (const key in layerGroups) {
-                layerGroups[key].clearLayers();
-            }
-                if (window.umapLayer) {
-            map.removeLayer(window.umapLayer);
-          }
-        
-          const newData  = await loadUmapFile("data/bunmahon-latest.umap?cachebust=" + Date.now());
-        
-          window.umapLayer = L.geoJSON(newData,geojsonOptions);//.addTo(map);
+        for (const key in layerGroups) {
+            layerGroups[key].clearLayers();
         }
-        
-            // Listen for service worker update messages
-        navigator.serviceWorker.addEventListener("message", e => {
-          if (e.data?.type === "umap-updated") {
+
+        if (window.umapLayer) {
+            map.removeLayer(window.umapLayer);
+        }
+
+        const newData = await loadUmapFile("data/bunmahon-latest.umap?cachebust=" + Date.now());
+        window.umapLayer = L.geoJSON(newData, geojsonOptions);
+    }
+
+    navigator.serviceWorker.addEventListener("message", e => {
+        if (e.data?.type === "umap-updated") {
             refreshUmapLayer();
-          }
+        }
+    });
+
+
+
+    // ------------------------------------------------------------
+    // 12. Alerts refresh + refresh button
+    // ------------------------------------------------------------
+    refreshAlerts();
+
+    document.getElementById("refreshMapBtn")
+        .addEventListener("click", () => {
+            refreshUmapLayer();
+            refreshAlerts();
         });
 
-    refreshAlerts();
 
-document.getElementById("refreshMapBtn")
-  .addEventListener("click", () => {
-    refreshUmapLayer();
-    refreshAlerts();
-  });
-// ------------------------------------------------------------
-// Enable GPS tracking
-// ------------------------------------------------------------
-    
+
+    // ------------------------------------------------------------
+    // 13. Enable GPS tracking
+    // ------------------------------------------------------------
     map.locate({
-    watch: true,
-    enableHighAccuracy: true,
-    maximumAge: 1000,
-    timeout: 10000
-});
-// ------------------------------------------------------------
-// Add GPS button (bottom-right)
-// ------------------------------------------------------------
-const gpsButton = L.control({ position: "bottomright" });
+        watch: true,
+        enableHighAccuracy: true,
+        maximumAge: 1000,
+        timeout: 10000
+    });
 
-gpsButton.onAdd = function () {
-    const div = L.DomUtil.create("div", "gps-button");
-    div.innerHTML = "📍";
-    div.style.cursor = "pointer";
-    div.style.fontSize = "28px";
-    div.style.background = "white";
-    div.style.padding = "6px 10px";
-    div.style.borderRadius = "6px";
-    div.style.boxShadow = "0 1px 4px rgba(0,0,0,0.4)";
 
-    div.onclick = () => {
-        followMode = true;
-        map.locate({ setView: true, maxZoom: 17 });
+
+    // ------------------------------------------------------------
+    // 14. Add GPS button (bottom-right)
+    // ------------------------------------------------------------
+    const gpsButton = L.control({ position: "bottomright" });
+
+    gpsButton.onAdd = function () {
+        const div = L.DomUtil.create("div", "gps-button");
+        div.innerHTML = "📍";
+        div.style.cursor = "pointer";
+        div.style.fontSize = "28px";
+        div.style.background = "white";
+        div.style.padding = "6px 10px";
+        div.style.borderRadius = "6px";
+        div.style.boxShadow = "0 1px 4px rgba(0,0,0,0.4)";
+
+        div.onclick = () => {
+            followMode = true;
+            map.locate({ setView: true, maxZoom: 17 });
+        };
+
+        return div;
     };
 
-    return div;
-};
-
-gpsButton.addTo(map);
+    gpsButton.addTo(map);
 }
+
+// ------------------------------------------------------------
+// Initialise map
+// ------------------------------------------------------------
 initMap();
 
 // ------------------------------------------------------------
@@ -706,7 +704,7 @@ function showLatestAlert(alert) {
 
 async function refreshAlerts() {
     try {
-        const url = "https://raw.githubusercontent.com/BunmahonCGU/cgu-map-pwa/main/data/alerts.json?cb=" + Date.now();
+        const url = "data/alerts.json?cb=" + Date.now();
         const res = await fetch(url, { cache: "no-store" });
 
         if (!res.ok) return;
