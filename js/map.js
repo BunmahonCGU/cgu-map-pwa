@@ -470,7 +470,7 @@ map.on("dragstart", () => {
     //const geojson = await loadUmapFile("data/bunmahon-latest.umap");
     //const geojson = await loadUmapFile("data/map.geojson");
 
-    window.umapLayer = L.geoJSON(geojson,geojsonOptions );//.addTo(map);
+    //window.umapLayer = L.geoJSON(geojson,geojsonOptions );//.addTo(map);
 
    
 
