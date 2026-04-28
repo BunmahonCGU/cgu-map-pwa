@@ -465,7 +465,9 @@ function attachAlertsToggle() {
     });
 }
 
-attachAlertsToggle();
+map.whenReady(() => {
+    requestAnimationFrame(attachAlertsToggle);
+});
 
     
     //map.whenReady(() => {
