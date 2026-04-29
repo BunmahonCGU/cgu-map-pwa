@@ -815,6 +815,8 @@ async function refreshAlerts() {
 const ALERT_ENDPOINT = "https://shiny-math-8471.bunmahoncgu.workers.dev/update";
 let adminPin = null;
 
+const LOCAL_ADMIN_PIN = "9112";   // set your real PIN here
+
 document.getElementById("admin-open").onclick = () => {
     const pin = prompt("Enter admin PIN");
 
@@ -823,21 +825,16 @@ document.getElementById("admin-open").onclick = () => {
         return;
     }
 
-    // Validate PIN BEFORE opening the panel
-    if (pin.trim() !== ADMIN_PIN) {   // or env.ADMIN_PIN if injected
+    if (pin.trim() !== LOCAL_ADMIN_PIN) {
         alert("Incorrect PIN");
         return;
     }
 
-    // Only set adminPin AFTER validation
     adminPin = pin.trim();
-
-    // Now open the panel
     document.getElementById("admin-panel").classList.remove("hidden");
-
-    // Refresh token status
     checkTokenStatus();
 };
+
 
 
 
