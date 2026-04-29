@@ -449,16 +449,15 @@ async function initMap() {
         `;
         layerList.appendChild(toggleContainer);
         document.getElementById("alerts-toggle").addEventListener("change", (e) => {
-        const panel = document.getElementById("alerts-panel");
+    const panel = document.getElementById("alerts-panel");
 
-        // Show/hide panel
-        panel.classList.toggle("hidden", !e.target.checked);
+    panel.classList.toggle("hidden", !e.target.checked);
 
-        // If opening → enable tap‑outside‑to‑close
-        if (!panel.classList.contains("hidden")) {
+    if (!panel.classList.contains("hidden")) {
         enableAlertsOutsideClose();
     }
 });
+
     }
     map.whenReady(() => {
         requestAnimationFrame(attachAlertsToggle);
@@ -709,14 +708,23 @@ map.on("blur", () => {
 // ============================================================
 function enableAlertsOutsideClose() {
     function handler(e) {
-        const panel = document.getElementById('alerts-panel');
+        const panel = document.getElementById("alerts-panel");
+
+        // If click is outside the panel → close it
         if (!panel.contains(e.target)) {
-            panel.classList.remove('open');
-            document.removeEventListener('click', handler);
+            panel.classList.add("hidden");
+
+            // Uncheck the toggle
+            const toggle = document.getElementById("alerts-toggle");
+            if (toggle) toggle.checked = false;
+
+            document.removeEventListener("click", handler);
         }
     }
-    document.addEventListener('click', handler);
+
+    document.addEventListener("click", handler);
 }
+
 
 // ------------------------------------------------------------
 // Initialise map
