@@ -7,21 +7,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bunmahon CGU Access Map</title>
-
     <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-
-
-
-
     <!-- App Styles -->
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: Arial, sans-serif;
-        }
+ /* ============================================================
+   BASE LAYOUT
+   ============================================================ */
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: Arial, sans-serif;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+}
+
 .user-location-icon {
     width: 28px;
     height: 28px;
@@ -30,162 +34,136 @@
     border-radius: 50%;
     box-shadow: 0 0 8px rgba(0,0,0,0.4);
 }
-        #map {
-            width: 100%;
-            height: 100%;
-        }
 
-  .admin-button {
-  position: absolute;
-  bottom: 80px;
-  right: 10px;
-  z-index: 9999;
+/* ============================================================
+   ADMIN PANEL
+   ============================================================ */
+.admin-button {
+    position: absolute;
+    bottom: 80px;
+    right: 10px;
+    z-index: 9999;
 }
 
 #admin-panel {
-  position: absolute;
-  bottom: 50px;
-  left: 10px;
-  right: 10px;
-  background: white;
-  padding: 12px;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  z-index: 9999;
+    position: absolute;
+    bottom: 50px;
+    left: 10px;
+    right: 10px;
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    z-index: 9999;
 }
 
 #admin-panel input,
 #admin-panel textarea {
-  width: 100%;
-  margin-bottom: 8px;
-}
-/* Admin panel mobile fix */
-@media (max-width: 600px) {
-  #admin-panel {
-    bottom: 120px;
-  }
+    width: 100%;
+    margin-bottom: 8px;
 }
 
 @media (max-width: 600px) {
-  #alerts-panel {
-    top: 140px;
-    /* left: 10px; */
-    right: 10px;
-    /* max-width: none; */
-    /* width: calc(100% - 20px); */
-    max-height: 40%;
-  }
-}
-
-.alert-row {
-  display: grid;
-  grid-template-columns: 60px 1fr; /* timestamp | message */
-  gap: 8px;
-  padding: 4px 0;
-  border-bottom: 1px solid #ddd;
-  margin-left: 0;      /* ensure alignment with panel heading */
-  padding-left: 0;     /* remove extra indent */
-}
-
-.alert-date {
-  font-size: 12px;
-  font-weight: bold;
-  color: #555;
-}
-
-.alert-body {
-  font-size: 14px;
-  color: #333;
-}
-
-
-.hidden {
-  display: none;
-}
-/* ============================================================
-   ALERTS PANEL — COLUMN SIZING + MOBILE WIDTH + VISUAL TWEAKS
-   ============================================================ */
-
-/* Timestamp column: compact, left-aligned */
-#alerts-panel .alert-time {
-    width: 60px;
-    min-width: 60px;
-    text-align: left;
-    padding-right: 6px;
-    font-weight: 600;
-    opacity: 0.85;
-}
-
-/* Mobile width tuning */
-@media (max-width: 600px) {
-    #alerts-panel {
-        width: 78vw;        /* reduced from ~85–90vw */
-        max-width: 350px;
-        left: 8px;          /* keeps it off the edge */
+    #admin-panel {
+        bottom: 120px;
     }
 }
 
-/* Ensure panel has a proper click boundary */
+/* ============================================================
+   ALERTS PANEL
+   ============================================================ */
 #alerts-panel {
-  position: absolute;
-  top: 110px;
-  left: 10px;
-  width: calc(100% - 20px);
-  max-width: 360px;
-  max-height: 50%;
-  overflow-y: auto;
-  background: rgba(255,255,255,0.95);
-  padding: 10px;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  z-index: 9999;
+    position: absolute;
+    top: 110px;
+    left: 10px;
+    width: calc(100% - 20px);
+    max-width: 360px;
+    max-height: 50%;
+    overflow-y: auto;
+    background: rgba(255,255,255,0.95);
+    padding: 10px;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    z-index: 9999;
 }
-#alerts-panel .alert-body {
-    width: calc(100% - 60px);
-    word-wrap: break-word;
-    padding-left: 2px; /* tiny visual buffer */
+
+@media (max-width: 600px) {
+    #alerts-panel {
+        width: 78vw;
+        max-width: 350px;
+        left: 8px;
+        top: 140px;
+        max-height: 40%;
+    }
 }
+
 #alerts-list {
     list-style: none;
     margin: 0;
-    padding: 0;   /* THIS is the missing piece */
+    padding: 0;
 }
-    </style>
-    
-<style>
-    /* Limit popup width on mobile */
-.leaflet-popup-content-wrapper,
-.leaflet-popup-content {
-    max-height: 70vh;      /* never exceed screen height */
-    overflow-y: auto;      /* scroll inside */
+
+.alert-row {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.alert-date {
+    font-size: 12px;
+    font-weight: bold;
+    color: #555;
+}
+
+.alert-body {
+    font-size: 14px;
+    color: #333;
+    width: calc(100% - 60px);
+    word-wrap: break-word;
+    padding-left: 2px;
+}
+
+.hidden {
+    display: none;
+}
+
+/* ============================================================
+   POPUP (MOBILE‑OPTIMIZED, SINGLE SCROLL CONTAINER)
+   ============================================================ */
+
+/* Wrapper: sizing only — NO scrolling */
+.leaflet-popup-content-wrapper {
     max-width: 260px !important;
     width: auto !important;
+    overflow: visible !important;
 }
 
-/* Make images scale properly */
-.leaflet-popup-content img {
-  max-width: 100% !important;
-  height: auto !important;
-  display: block;
-}
-
-/* Make iframes responsive */
-.leaflet-popup-content iframe {
-  width: 100% !important;
-  height: auto !important;
-  aspect-ratio: 16 / 9;
-}
-
-/* Wrap long text */
+/* Content: the ONLY scrollable element */
 .leaflet-popup-content {
-  word-wrap: break-word;
-  overflow-wrap: break-word;
+    max-height: 70vh;
+    overflow-y: auto;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    -webkit-overflow-scrolling: touch;
 }
-.leaflet-control {
-    opacity: 1 !important;
-    visibility: visible !important;
-    display: block !important;
+
+/* Images scale properly */
+.leaflet-popup-content img {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block;
 }
+
+/* Responsive iframes */
+.leaflet-popup-content iframe {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+}
+
+/* Grab handle for swipe-down */
 .popup-grab {
     width: 40px;
     height: 5px;
@@ -194,12 +172,19 @@
     margin: 6px auto 10px auto;
 }
 
-</style>  
-<style>
+/* Ensure Leaflet controls stay visible */
+.leaflet-control {
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+}
+
+/* Locate button active state */
 .leaflet-control-locate.locate-active {
     background: #0078ff !important;
     color: white !important;
 }
+
 </style>
   
 </head>
