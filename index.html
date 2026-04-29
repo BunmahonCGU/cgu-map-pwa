@@ -94,10 +94,12 @@
 
 .alert-row {
   display: grid;
-  grid-template-columns: 90px 1fr;
+  grid-template-columns: 60px 1fr; /* timestamp | message */
   gap: 8px;
-  padding: 6px 0;
+  padding: 4px 0;
   border-bottom: 1px solid #ddd;
+  margin-left: 0;      /* ensure alignment with panel heading */
+  padding-left: 0;     /* remove extra indent */
 }
 
 .alert-date {
@@ -145,6 +147,11 @@
     background: white;
     border-radius: 6px;
     padding: 10px;
+}
+#alerts-panel .alert-body {
+    width: calc(100% - 60px);
+    word-wrap: break-word;
+    padding-left: 2px; /* tiny visual buffer */
 }
 
     </style>
