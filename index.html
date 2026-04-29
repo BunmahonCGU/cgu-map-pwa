@@ -65,21 +65,6 @@
     bottom: 120px;
   }
 }
-#alerts-panel {
-  position: absolute;
-  top: 110px;
-  left: 10px;
-  width: calc(100% - 20px);
-  max-width: 360px;
-  max-height: 50%;
-  overflow-y: auto;
-  background: rgba(255,255,255,0.95);
-  padding: 10px;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  z-index: 9999;
-}
-
 
 @media (max-width: 600px) {
   #alerts-panel {
@@ -142,11 +127,18 @@
 
 /* Ensure panel has a proper click boundary */
 #alerts-panel {
-    position: absolute;
-    z-index: 9999;
-    background: white;
-    border-radius: 6px;
-    padding: 10px;
+  position: absolute;
+  top: 110px;
+  left: 10px;
+  width: calc(100% - 20px);
+  max-width: 360px;
+  max-height: 50%;
+  overflow-y: auto;
+  background: rgba(255,255,255,0.95);
+  padding: 10px;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  z-index: 9999;
 }
 #alerts-panel .alert-body {
     width: calc(100% - 60px);
