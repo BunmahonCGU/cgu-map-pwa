@@ -816,23 +816,29 @@ const ALERT_ENDPOINT = "https://shiny-math-8471.bunmahoncgu.workers.dev/update";
 let adminPin = null;
 
 document.getElementById("admin-open").onclick = () => {
-  // Ask for PIN only if not already stored
-  if (!adminPin) {
     const pin = prompt("Enter admin PIN");
+
     if (!pin || !pin.trim()) {
-      alert("PIN required");
-      return;
+        alert("PIN required");
+        return;
     }
+
+    // Validate PIN BEFORE opening the panel
+    if (pin.trim() !== ADMIN_PIN) {   // or env.ADMIN_PIN if injected
+        alert("Incorrect PIN");
+        return;
+    }
+
+    // Only set adminPin AFTER validation
     adminPin = pin.trim();
-  }
 
-  // Always OPEN the panel (no toggle)
-  const panel = document.getElementById("admin-panel");
-  panel.classList.remove("hidden");
+    // Now open the panel
+    document.getElementById("admin-panel").classList.remove("hidden");
 
-  // Run token status ONLY when opening
-  checkTokenStatus();
+    // Refresh token status
+    checkTokenStatus();
 };
+
 
 
 document.getElementById("admin-close").onclick = () => {
