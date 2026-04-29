@@ -430,19 +430,15 @@ async function initMap() {
     // --------------------------------------------------------
     L.control.layers(null, overlays, { collapsed: true }).addTo(map);
 
-
-
     // ------------------------------------------------------------
     // 6. Inject Alerts Toggle into Layer List (safe retry loop)
     // ------------------------------------------------------------
     function attachAlertsToggle() {
         const layerList = document.querySelector(".leaflet-control-layers-list");
-
         if (!layerList) {
             requestAnimationFrame(attachAlertsToggle);
             return;
         }
-
         const toggleContainer = document.createElement("div");
         toggleContainer.style.marginTop = "10px";
         toggleContainer.innerHTML = `
@@ -451,15 +447,19 @@ async function initMap() {
                 Show Updates
             </label>
         `;
-
         layerList.appendChild(toggleContainer);
-
         document.getElementById("alerts-toggle").addEventListener("change", (e) => {
-            document.getElementById("alerts-panel")
-                .classList.toggle("hidden", !e.target.checked);
-        });
-    }
+        const panel = document.getElementById("alerts-panel");
 
+        // Show/hide panel
+        panel.classList.toggle("hidden", !e.target.checked);
+
+        // If opening → enable tap‑outside‑to‑close
+        if (!panel.classList.contains("hidden")) {
+        enableAlertsOutsideClose();
+    }
+});
+    }
     map.whenReady(() => {
         requestAnimationFrame(attachAlertsToggle);
     });
@@ -469,15 +469,12 @@ async function initMap() {
     // ------------------------------------------------------------
     function attachGpsButtonHandler() {
         const locateBtn = document.querySelector('.gps-button');
-
         if (!locateBtn) {
             requestAnimationFrame(attachGpsButtonHandler);
             return;
         }
-
         locateBtn.addEventListener('click', () => {
             tracking = !tracking;
-
             if (tracking) {
                 map.locate({
                     watch: true,
@@ -707,6 +704,19 @@ map.on("blur", () => {
 });
 
 }
+// ============================================================
+// ALERTS PANEL — TAP OUTSIDE TO CLOSE (SAFE, SCOPED)
+// ============================================================
+function enableAlertsOutsideClose() {
+    function handler(e) {
+        const panel = document.getElementById('alerts-panel');
+        if (!panel.contains(e.target)) {
+            panel.classList.remove('open');
+            document.removeEventListener('click', handler);
+        }
+    }
+    document.addEventListener('click', handler);
+}
 
 // ------------------------------------------------------------
 // Initialise map
@@ -792,11 +802,17 @@ async function refreshAlerts() {
                 day: "2-digit",
                 month: "short"
             });
+// --- Format timestamp as hh:mm:ss ---
+const ts = new Date(item.timestamp);
+const hh = ts.getHours().toString().padStart(2, '0');
+const mm = ts.getMinutes().toString().padStart(2, '0');
+const ss = ts.getSeconds().toString().padStart(2, '0');
+const timeOnly = `${hh}:${mm}:${ss}`;
 
             li.innerHTML = `
-                <div class="alert-date">${date}</div>
-                <div class="alert-body">${a.message}</div>
-            `;
+    <div class="alert-time">${timeOnly}</div>
+    <div class="alert-body">${item.message}</div>
+`;
 
             list.appendChild(li);
         });
