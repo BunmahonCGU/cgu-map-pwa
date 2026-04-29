@@ -156,8 +156,10 @@
     /* Limit popup width on mobile */
 .leaflet-popup-content-wrapper,
 .leaflet-popup-content {
-  max-width: 260px !important;
-  width: auto !important;
+    max-height: 70vh;      /* never exceed screen height */
+    overflow-y: auto;      /* scroll inside */
+    max-width: 260px !important;
+    width: auto !important;
 }
 
 /* Make images scale properly */
@@ -183,6 +185,13 @@
     opacity: 1 !important;
     visibility: visible !important;
     display: block !important;
+}
+.popup-grab {
+    width: 40px;
+    height: 5px;
+    background: #ccc;
+    border-radius: 3px;
+    margin: 6px auto 10px auto;
 }
 
 </style>  
