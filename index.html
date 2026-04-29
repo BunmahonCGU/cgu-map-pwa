@@ -83,10 +83,10 @@
 @media (max-width: 600px) {
   #alerts-panel {
     top: 140px;
-    left: 10px;
+    //left: 10px;
     right: 10px;
-    max-width: none;
-    width: calc(100% - 20px);
+    //max-width: none;
+    //width: calc(100% - 20px);
     max-height: 40%;
   }
 }
@@ -113,6 +113,43 @@
 
 .hidden {
   display: none;
+}
+/* ============================================================
+   ALERTS PANEL — COLUMN SIZING + MOBILE WIDTH + VISUAL TWEAKS
+   ============================================================ */
+
+/* Timestamp column: compact, left-aligned */
+#alerts-panel .alert-time {
+    width: 60px;
+    min-width: 60px;
+    text-align: left;
+    padding-right: 6px;
+    font-weight: 600;
+    opacity: 0.85;
+}
+
+/* Message column */
+#alerts-panel .alert-body {
+    width: calc(100% - 60px);
+    word-wrap: break-word;
+}
+
+/* Mobile width tuning */
+@media (max-width: 600px) {
+    #alerts-panel {
+        width: 78vw;        /* reduced from ~85–90vw */
+        max-width: 350px;
+        left: 8px;          /* keeps it off the edge */
+    }
+}
+
+/* Ensure panel has a proper click boundary */
+#alerts-panel {
+    position: absolute;
+    z-index: 9999;
+    background: white;
+    border-radius: 6px;
+    padding: 10px;
 }
 
     </style>
