@@ -787,7 +787,7 @@ async function refreshAlerts() {
         // newest first
         const recent = updates
             .filter(a => new Date(a.timestamp).getTime() >= cutoff)
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
         const list = document.getElementById("alerts-list");
         list.innerHTML = "";
@@ -796,23 +796,17 @@ async function refreshAlerts() {
             const li = document.createElement("li");
             li.className = "alert-row";
 
-            const date = new Date(a.timestamp).toLocaleString("en-IE", {
-                hour: "2-digit",
-                minute: "2-digit",
-                day: "2-digit",
-                month: "short"
-            });
-// --- Format timestamp as hh:mm:ss ---
-const ts = new Date(item.timestamp);
-const hh = ts.getHours().toString().padStart(2, '0');
-const mm = ts.getMinutes().toString().padStart(2, '0');
-const ss = ts.getSeconds().toString().padStart(2, '0');
-const timeOnly = `${hh}:${mm}:${ss}`;
+            // --- Format timestamp as hh:mm:ss ---
+            const ts = new Date(a.timestamp);
+            const hh = ts.getHours().toString().padStart(2, '0');
+            const mm = ts.getMinutes().toString().padStart(2, '0');
+            const ss = ts.getSeconds().toString().padStart(2, '0');
+            const timeOnly = `${hh}:${mm}:${ss}`;
 
             li.innerHTML = `
-    <div class="alert-time">${timeOnly}</div>
-    <div class="alert-body">${item.message}</div>
-`;
+                <div class="alert-time">${timeOnly}</div>
+                <div class="alert-body">${a.message}</div>
+            `;
 
             list.appendChild(li);
         });
@@ -821,8 +815,6 @@ const timeOnly = `${hh}:${mm}:${ss}`;
         console.error("Error loading alerts:", err);
     }
 }
-
-
 
 // ------------------------------------------------------------
 // Admin panel → Cloudflare Worker → GitHub alerts.json
