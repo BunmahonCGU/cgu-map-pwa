@@ -647,9 +647,15 @@ async function initMap() {
     // Enable swipe-down-to-close for popups
 map.on("popupopen", function (e) {
     const popupEl = e.popup._container;
+    const contentEl = popupEl.querySelector(".leaflet-popup-content");
 
-        // -------------------------------
-    // Swipe‑down‑to‑close
+    // Add grab handle if missing
+    if (!popupEl.querySelector(".popup-grab")) {
+        popupEl.insertAdjacentHTML("afterbegin", "<div class='popup-grab'></div>");
+    }
+
+    // -------------------------------
+    // Swipe‑down‑to‑close (only when at top)
     // -------------------------------
     let startY = null;
     let isDragging = false;
@@ -660,12 +666,15 @@ map.on("popupopen", function (e) {
     });
 
     popupEl.addEventListener("touchmove", function (ev) {
-                    if (!isDragging) return;
+        if (!isDragging) return;
 
         const currentY = ev.touches[0].clientY;
         const diff = currentY - startY;
 
-        if (diff > 40) {
+        // Only close if user is at top of scroll
+        const atTop = contentEl.scrollTop === 0;
+
+        if (diff > 40 && atTop) {
             map.closePopup();
             isDragging = false;
         }
@@ -675,26 +684,21 @@ map.on("popupopen", function (e) {
         isDragging = false;
     });
 
-
     // -------------------------------
-    // Tap‑outside‑to‑close (mobile‑safe)
+    // Tap‑outside‑to‑close (document‑scoped)
     // -------------------------------
-    const mapEl = map.getContainer();
-    
     function handleOutsideTap(ev) {
-            // Only close if tap is inside the map but outside the popup
-        if (!popupEl.contains(ev.target) && mapEl.contains(ev.target)) {
+        if (!popupEl.contains(ev.target)) {
             map.closePopup();
-            mapEl.removeEventListener("touchstart", handleOutsideTap);
-            mapEl.removeEventListener("mousedown", handleOutsideTap);
+            document.removeEventListener("touchstart", handleOutsideTap);
+            document.removeEventListener("mousedown", handleOutsideTap);
         }
     }
 
-    // Attach ONLY to the map container
-    
-    mapEl.addEventListener("touchstart", handleOutsideTap);
-    mapEl.addEventListener("mousedown", handleOutsideTap);
+    document.addEventListener("touchstart", handleOutsideTap);
+    document.addEventListener("mousedown", handleOutsideTap);
 });
+
 
 map.on("blur", () => {
     // Prevent Leaflet from hiding controls on mobile
