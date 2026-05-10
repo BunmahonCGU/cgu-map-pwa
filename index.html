@@ -167,9 +167,10 @@ html, body {
 }
 
 /* ============================================================
-   WIDER POPUP WHEN VIDEO IS PRESENT — MOBILE ONLY
+   WIDER POPUP WHEN VIDEO IS PRESENT — RESPONSIVE
    ============================================================ */
 
+/* Mobile: use most of the screen */
 @media (max-width: 600px) {
     .leaflet-popup-content-wrapper:has(iframe) {
         max-width: 90vw !important;
@@ -177,6 +178,16 @@ html, body {
         margin: 0 auto;
     }
 }
+
+/* Desktop: wider but not huge */
+@media (min-width: 601px) {
+    .leaflet-popup-content-wrapper:has(iframe) {
+        max-width: 420px !important;
+        width: 420px !important;
+        margin: 0 auto;
+    }
+}
+
 
 
 
