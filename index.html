@@ -214,6 +214,15 @@ html, body {
     background: #0078ff !important;
     color: white !important;
 }
+#admin-panel,
+#alerts-panel {
+    pointer-events: auto;
+    touch-action: none;      /* don't let gestures propagate as scroll/zoom */
+}
+
+#map {
+    touch-action: pan-x pan-y;  /* map still scrolls, but panels don't trigger gestures */
+}
 
 </style>
   
