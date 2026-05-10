@@ -130,10 +130,10 @@ html, body {
 }
 
 /* ============================================================
-   POPUP (MOBILE‑OPTIMIZED, SINGLE SCROLL CONTAINER)
+   POPUP (MOBILE‑OPTIMIZED, RESPONSIVE, VIDEO‑FRIENDLY)
    ============================================================ */
 
-/* Wrapper: sizing only — NO scrolling */
+/* Wrapper: default width for normal popups */
 .leaflet-popup-content-wrapper {
     max-width: 260px !important;
     width: auto !important;
@@ -156,15 +156,27 @@ html, body {
     display: block;
 }
 
-/* Responsive iframes (CRITICAL for YouTube/Vimeo) */
+/* Responsive iframes (YouTube/Vimeo) */
 .leaflet-popup-content iframe {
-    width: 100% !important;       /* override width="300" */
-    height: auto !important;      /* override height="200" */
-    aspect-ratio: 16 / 9;         /* maintain video shape */
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+    min-height: 150px;
     display: block;
     margin-top: 6px;
-    min-height: 150px;
 }
+
+/* ============================================================
+   WIDER POPUP WHEN VIDEO IS PRESENT
+   ============================================================ */
+
+/* Expand popup width when iframe is present */
+.leaflet-popup-content-wrapper:has(iframe) {
+    max-width: 90vw !important;
+    width: 90vw !important;
+    margin: 0 auto;
+}
+
 
 /* Grab handle for swipe-down */
 .popup-grab {
