@@ -1,3 +1,6 @@
+document.addEventListener("DOMContentLoaded", () => {
+    initMap();
+});
 // ------------------------------------------------------------
 // Bunmahon CGU Access Map – Full Feature Version (FINAL)
 // ------------------------------------------------------------
@@ -746,7 +749,7 @@ function enableAlertsOutsideClose() {
 // ------------------------------------------------------------
 // Initialise map
 // ------------------------------------------------------------
-initMap();
+//initMap();
 
 // ------------------------------------------------------------
 // Optional: Auto-download latest .umap file
