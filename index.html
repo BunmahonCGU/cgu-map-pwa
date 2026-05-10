@@ -167,15 +167,17 @@ html, body {
 }
 
 /* ============================================================
-   WIDER POPUP WHEN VIDEO IS PRESENT
+   WIDER POPUP WHEN VIDEO IS PRESENT — MOBILE ONLY
    ============================================================ */
 
-/* Expand popup width when iframe is present */
-.leaflet-popup-content-wrapper:has(iframe) {
-    max-width: 90vw !important;
-    width: 90vw !important;
-    margin: 0 auto;
+@media (max-width: 600px) {
+    .leaflet-popup-content-wrapper:has(iframe) {
+        max-width: 90vw !important;
+        width: 90vw !important;
+        margin: 0 auto;
+    }
 }
+
 
 
 /* Grab handle for swipe-down */
