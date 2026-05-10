@@ -882,17 +882,13 @@ adminPanel.addEventListener("touchstart", e => {
     e.stopPropagation();
 }, { passive: false });
 
-// Prevent the close button tap from bubbling into Leaflet
-adminClose.addEventListener("touchstart", e => {
-    e.stopPropagation();
-    e.preventDefault();
-}, { passive: false });
-
-// Actual close logic
-adminClose.addEventListener("click", () => {
+// ------------------------------------------------------------
+// CLOSE ADMIN PANEL (mobile + desktop safe)
+// ------------------------------------------------------------
+function closeAdminPanel() {
     adminPanel.classList.add("hidden");
 
-    // Restore Leaflet controls on mobile (Leaflet hides them on touch)
+    // Restore Leaflet controls on mobile
     setTimeout(() => {
         document.querySelectorAll('.leaflet-control').forEach(el => {
             el.style.display = 'block';
@@ -900,7 +896,21 @@ adminClose.addEventListener("click", () => {
             el.style.visibility = 'visible';
         });
     }, 50);
+}
+
+// Desktop click
+adminClose.addEventListener("click", e => {
+    e.stopPropagation();
+    closeAdminPanel();
 });
+
+// Mobile touch
+adminClose.addEventListener("touchend", e => {
+    e.stopPropagation();
+    e.preventDefault();   // prevents ghost click
+    closeAdminPanel();
+}, { passive: false });
+
 
 // ------------------------------------------------------------
 // SUBMIT ADMIN ALERT
