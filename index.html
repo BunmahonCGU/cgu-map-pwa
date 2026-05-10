@@ -156,11 +156,13 @@ html, body {
     display: block;
 }
 
-/* Responsive iframes */
+/* Responsive iframes (CRITICAL for YouTube/Vimeo) */
 .leaflet-popup-content iframe {
-    width: 100% !important;
-    height: auto !important;
-    aspect-ratio: 16 / 9;
+    width: 100% !important;       /* override width="300" */
+    height: auto !important;      /* override height="200" */
+    aspect-ratio: 16 / 9;         /* maintain video shape */
+    display: block;
+    margin-top: 6px;
 }
 
 /* Grab handle for swipe-down */
@@ -171,6 +173,7 @@ html, body {
     border-radius: 3px;
     margin: 6px auto 10px auto;
 }
+
 
 /* Ensure Leaflet controls stay visible */
 .leaflet-control {
