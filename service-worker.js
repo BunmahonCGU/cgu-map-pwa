@@ -2,15 +2,15 @@
 // Bunmahon CGU PWA Service Worker (patched for alerts + freshness)
 // ------------------------------------------------------------
 
-const CACHE_NAME = "cgu-map-cache-v5";
+const CACHE_NAME = "cgu-map-cache-v6";
 
 // Only cache the app shell — NOT dynamic data
 const APP_SHELL = [
-  "/",
-  "/index.html",
-  "/manifest.json",
-  "/favicon.png",
-  "/js/map.js",
+ "/cgu-map-pwa/",
+  "/cgu-map-pwa/index.html",
+  "/cgu-map-pwa/manifest.json",
+  "/cgu-map-pwa/favicon.png",
+  "/cgu-map-pwa/js/map.js",
   "https://unpkg.com/leaflet/dist/leaflet.css",
   "https://unpkg.com/leaflet/dist/leaflet.js"
 ];
@@ -60,7 +60,7 @@ self.addEventListener("fetch", event => {
   }
 
   // App shell → cache-first
-  if (APP_SHELL.some(path => url.endsWith(path))) {
+  if (APP_SHELL.some(path => url.includes(path))) {
     event.respondWith(
       caches.match(event.request).then(cached => {
         return (
