@@ -108,13 +108,7 @@ function formatUmapPopup(raw) {
     );
 
     // --- 2) Remove Markdown image syntax ---
-    out = out.replace(/!
-
-\[[^\]
-
-]*\]
-
-\([^)]+\)/g, "");
+    out = out.replace(/!\[[^\]]*\]\([^)]+\)/g, "");
 
     // --- 3) Remove escaped <img> ---
     out = out.replace(/&lt;img[^&]*&gt;/gi, "");
