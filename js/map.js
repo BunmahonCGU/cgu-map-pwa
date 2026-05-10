@@ -721,6 +721,22 @@ map.on("blur", () => {
     const controls = document.querySelectorAll(".leaflet-control");
     controls.forEach(c => c.style.display = "block");
 });
+// ---------------------------------------------------------
+// PREVENT TOUCH EVENTS INSIDE PANELS FROM REACHING THE MAP
+// ---------------------------------------------------------
+["touchstart", "touchend", "touchmove", "click"].forEach(evt => {
+    const stop = e => {
+        e.stopPropagation();
+    };
+
+    const adminPanel = document.getElementById("admin-panel");
+    const alertsPanel = document.getElementById("alerts-panel");
+    const adminSubmit = document.getElementById("admin-submit");
+
+    if (adminPanel) adminPanel.addEventListener(evt, stop, { passive: false });
+    if (alertsPanel) alertsPanel.addEventListener(evt, stop, { passive: false });
+    if (adminSubmit) adminSubmit.addEventListener(evt, stop, { passive: false });
+});
 
 }
 // ============================================================
@@ -955,5 +971,11 @@ document.getElementById("admin-submit").onclick = async () => {
         alert("Network error");
     }
 };
-
+const adminSubmit = document.getElementById("admin-submit");
+["touchstart", "touchend", "click"].forEach(evt => {
+    adminSubmit.addEventListener(evt, e => {
+        e.stopPropagation();
+        e.preventDefault();
+    }, { passive: false });
+});
 
