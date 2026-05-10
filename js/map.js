@@ -850,6 +850,9 @@ let adminPin = null;
 
 const LOCAL_ADMIN_PIN = "9112";   // set your real PIN here
 
+// ------------------------------------------------------------
+// OPEN ADMIN PANEL
+// ------------------------------------------------------------
 document.getElementById("admin-open").onclick = () => {
     const pin = prompt("Enter admin PIN");
 
@@ -868,48 +871,76 @@ document.getElementById("admin-open").onclick = () => {
     checkTokenStatus();
 };
 
+// ------------------------------------------------------------
+// CLOSE ADMIN PANEL (mobile‑safe)
+// ------------------------------------------------------------
+const adminPanel = document.getElementById("admin-panel");
+const adminClose = document.getElementById("admin-close");
 
+// Prevent Leaflet from hiding controls when tapping inside the panel
+adminPanel.addEventListener("touchstart", e => {
+    e.stopPropagation();
+}, { passive: false });
 
+// Prevent the close button tap from bubbling into Leaflet
+adminClose.addEventListener("touchstart", e => {
+    e.stopPropagation();
+    e.preventDefault();
+}, { passive: false });
 
-document.getElementById("admin-close").onclick = () => {
-  document.getElementById("admin-panel").classList.add("hidden");
-};
+// Actual close logic
+adminClose.addEventListener("click", () => {
+    adminPanel.classList.add("hidden");
 
+    // Restore Leaflet controls on mobile (Leaflet hides them on touch)
+    setTimeout(() => {
+        document.querySelectorAll('.leaflet-control').forEach(el => {
+            el.style.display = 'block';
+            el.style.opacity = '1';
+            el.style.visibility = 'visible';
+        });
+    }, 50);
+});
+
+// ------------------------------------------------------------
+// SUBMIT ADMIN ALERT
+// ------------------------------------------------------------
 document.getElementById("admin-submit").onclick = async () => {
-  const title = document.getElementById("admin-title").value.trim();
-  const message = document.getElementById("admin-message").value.trim();
+    const title = document.getElementById("admin-title").value.trim();
+    const message = document.getElementById("admin-message").value.trim();
 
-  if (!adminPin) {
-    alert("PIN not set. Use the Admin button first.");
-    return;
-  }
-  if (!title || !message) {
-    alert("Title and message required");
-    return;
-  }
-
-  const combinedMessage = `${title}: ${message}`;
-
-  try {
-    const res = await fetch(ALERT_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: combinedMessage, pin: adminPin })
-    });
-
-    const data = await res.json();
-
-    if (data.status !== "ok") {
-      alert("Failed to post update: " + (data.error || "Unknown error"));
-      return;
+    if (!adminPin) {
+        alert("PIN not set. Use the Admin button first.");
+        return;
+    }
+    if (!title || !message) {
+        alert("Title and message required");
+        return;
     }
 
-    alert("Update posted");
-    document.getElementById("admin-title").value = "";
-    document.getElementById("admin-message").value = "";
-  } catch (e) {
-    console.error(e);
-    alert("Network error");
-  }
+    const combinedMessage = `${title}: ${message}`;
+
+    try {
+        const res = await fetch(ALERT_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: combinedMessage, pin: adminPin })
+        });
+
+        const data = await res.json();
+
+        if (data.status !== "ok") {
+            alert("Failed to post update: " + (data.error || "Unknown error"));
+            return;
+        }
+
+        alert("Update posted");
+        document.getElementById("admin-title").value = "";
+        document.getElementById("admin-message").value = "";
+    } catch (e) {
+        console.error(e);
+        alert("Network error");
+    }
 };
+
 
