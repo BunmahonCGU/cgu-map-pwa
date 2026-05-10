@@ -907,14 +907,19 @@ adminPanel.addEventListener("touchstart", e => {
 function closeAdminPanel() {
     adminPanel.classList.add("hidden");
 
-    // Restore Leaflet controls on mobile
+    // Restore Leaflet controls AFTER the panel transition finishes
     setTimeout(() => {
         document.querySelectorAll('.leaflet-control').forEach(el => {
             el.style.display = 'block';
             el.style.opacity = '1';
             el.style.visibility = 'visible';
         });
-    }, 50);
+
+        // Belt + braces: force Leaflet control container visible
+        if (map && map._controlContainer) {
+            map._controlContainer.style.display = "block";
+        }
+    }, 150); // must be > CSS transition time
 }
 
 // Desktop click
@@ -926,15 +931,28 @@ adminClose.addEventListener("click", e => {
 // Mobile touch
 adminClose.addEventListener("touchend", e => {
     e.stopPropagation();
-    e.preventDefault();   // prevents ghost click
+    // DO NOT call preventDefault here — it breaks click synthesis
     closeAdminPanel();
 }, { passive: false });
-
 
 // ------------------------------------------------------------
 // SUBMIT ADMIN ALERT
 // ------------------------------------------------------------
-document.getElementById("admin-submit").onclick = async () => {
+const adminSubmit = document.getElementById("admin-submit");
+
+// 1. BLOCK touch events from reaching the map (but DO NOT preventDefault)
+["touchstart", "touchmove", "touchend"].forEach(evt => {
+    adminSubmit.addEventListener(evt, e => {
+        e.stopPropagation();   // stops Leaflet from hiding controls
+        // DO NOT call preventDefault here — it breaks onclick
+    }, { passive: false });
+});
+
+// 2. NORMAL CLICK HANDLER (works on desktop + mobile)
+adminSubmit.addEventListener("click", async e => {
+    e.stopPropagation();   // safety
+    // DO NOT call preventDefault here — it breaks async submit
+
     const title = document.getElementById("admin-title").value.trim();
     const message = document.getElementById("admin-message").value.trim();
 
@@ -966,16 +984,11 @@ document.getElementById("admin-submit").onclick = async () => {
         alert("Update posted");
         document.getElementById("admin-title").value = "";
         document.getElementById("admin-message").value = "";
+
     } catch (e) {
         console.error(e);
         alert("Network error");
     }
-};
-const adminSubmit = document.getElementById("admin-submit");
-["touchstart", "touchend", "click"].forEach(evt => {
-    adminSubmit.addEventListener(evt, e => {
-        e.stopPropagation();
-        e.preventDefault();
-    }, { passive: false });
 });
+
 
