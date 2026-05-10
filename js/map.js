@@ -88,40 +88,58 @@ function getFeaturePrefixFromName(name) {
 // uMap-style popup formatter (FINAL)
 // ------------------------------------------------------------
 function formatUmapPopup(raw) {
-console.log("RAW POPUP INPUT >>>", JSON.stringify(raw));
+    console.log("RAW POPUP INPUT >>>", JSON.stringify(raw));
 
     if (!raw) return "";
     raw = raw.replace(/^"(.*)"$/s, "$1");
 
     let out = raw;
 
-    // 1) Convert uMap {{image}} syntax into <img> tags (handles all variants)
-out = out.replace(
-    /\{\{\s*(https?:\/\/[^}\s]+)\s*\}\}/gi,
-    '<img src="$1" style="max-width:100%; margin-top:6px;"/>'
-);
+    // 1) uMap {{image}} syntax
+    out = out.replace(
+        /\{\{\s*(https?:\/\/[^}\s]+)\s*\}\}/gi,
+        '<img src="$1" style="max-width:100%; margin-top:6px;"/>'
+    );
 
+    // 2) Remove Markdown image syntax
+    out = out.replace(/!
 
-    // 2) Remove Markdown image syntax ![alt](url)
-    out = out.replace(/!\[[^\]]*\]\([^)]+\)/g, "");
+\[[^\]
 
-    // 3) Remove *escaped* <img> tags only (e.g. &lt;img ... &gt;)
-out = out.replace(/&lt;img[^&]*&gt;/gi, "");
+]*\]
 
-    // 4) Convert real line breaks + ##
+\([^)]+\)/g, "");
+
+    // 3) Remove escaped <img>
+    out = out.replace(/&lt;img[^&]*&gt;/gi, "");
+
+    // 4) Line breaks
     out = out.replace(/\n/g, "<br/>");
     out = out.replace(/##/g, "<br/>");
 
     // 5) Bold
     out = out.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
-    // 6) Auto-link remaining URLs, but skip URLs already inside HTML tags
-out = out.replace(
-    /(?<!["'=])(https?:\/\/[^\s<]+)/g,
-    '<a href="$1" target="_blank">$1</a>'
-);
+    // 6) VIDEO EMBEDS (YouTube + Vimeo)
+    out = out.replace(
+        /(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[^&\s]+|youtu\.be\/[^\s]+))/gi,
+        '<iframe src="$1" frameborder="0" allowfullscreen></iframe>'
+    );
+
+    out = out.replace(
+        /(https?:\/\/(?:www\.)?vimeo\.com\/[0-9]+)/gi,
+        '<iframe src="$1" frameborder="0" allowfullscreen></iframe>'
+    );
+
+    // 7) Auto‑link remaining URLs (skip ones already inside tags)
+    out = out.replace(
+        /(?<!["'=])(https?:\/\/[^\s<]+)/g,
+        '<a href="$1" target="_blank">$1</a>'
+    );
+
     return out;
 }
+
 
 // ------------------------------------------------------------
 // SVG Icon Factory (40×40, minified SVG strings)
