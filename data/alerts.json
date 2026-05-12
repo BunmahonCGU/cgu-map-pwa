@@ -1,6 +1,10 @@
 {
   "updates": [
     {
+      "message": "Test3: Test bug",
+      "timestamp": "2026-05-12T19:23:19.084Z"
+    },
+    {
       "message": "Test 2: Mobile",
       "timestamp": "2026-05-12T19:20:56.030Z"
     },
