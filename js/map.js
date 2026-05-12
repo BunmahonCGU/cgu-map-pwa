@@ -404,6 +404,28 @@ async function loadUmapFile(url) {
 
   return { type: "FeatureCollection", features: allFeatures };
 }
+// *** FIX: Override Leaflet's mobile blur behaviour ***
+function forceControlsVisible() {
+  const controls = document.querySelectorAll(".leaflet-control");
+
+  controls.forEach(c => {
+    c.style.display = "block";
+    c.style.opacity = "1";
+    c.style.visibility = "visible";
+
+    // Remove Leaflet's hidden/fade classes
+    c.classList.remove("leaflet-control-hidden");
+    c.classList.remove("leaflet-fade-anim");
+    c.classList.remove("leaflet-touching");
+  });
+
+  // Also force the control container visible
+  if (map && map._controlContainer) {
+    map._controlContainer.style.display = "block";
+    map._controlContainer.style.opacity = "1";
+    map._controlContainer.style.visibility = "visible";
+  }
+}
 
 // ------------------------------------------------------------
 // Map initialisation
@@ -705,11 +727,13 @@ async function initMap() {
     document.addEventListener("mousedown", handleOutsideTap);
   });
 
-  map.on("blur", () => {
-    // Prevent Leaflet from hiding controls on mobile
-    const controls = document.querySelectorAll(".leaflet-control");
-    controls.forEach(c => c.style.display = "block");
-  });
+  // *** FIX: Disable Leaflet's default blur behaviour ***
+map.off("blur"); // remove Leaflet's internal blur handler
+
+map.on("blur", () => {
+  forceControlsVisible();
+});
+
 
   // ---------------------------------------------------------
   // PREVENT TOUCH EVENTS INSIDE PANELS FROM REACHING THE MAP
