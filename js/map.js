@@ -75,6 +75,14 @@ function getFeaturePrefixFromName(name) {
   const match = (name || "").match(/^[A-Za-z]+/);
   return match ? match[0] : "";
 }
+// *** FIX: Block the next synthetic click after submit ***
+function blockNextMapClick() {
+  const blocker = e => {
+    e.stopPropagation();
+    map.off("click", blocker);
+  };
+  map.on("click", blocker);
+}
 
 // ------------------------------------------------------------
 // uMap-style popup formatter (FINAL)
@@ -940,7 +948,8 @@ const adminSubmit = document.getElementById("admin-submit");
 adminSubmit.addEventListener("click", async e => {
   e.stopPropagation(); // safety
   // DO NOT call preventDefault here — it breaks async submit
-
+  blockNextMapClick();
+  
   const title = document.getElementById("admin-title").value.trim();
   const message = document.getElementById("admin-message").value.trim();
 
