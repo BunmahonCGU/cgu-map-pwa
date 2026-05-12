@@ -426,6 +426,28 @@ function forceControlsVisible() {
     map._controlContainer.style.visibility = "visible";
   }
 }
+// *** FIX: Reset Leaflet's internal touch state ***
+function resetLeafletTouchState() {
+  if (map && map._touching) {
+    map._touching = false;
+  }
+
+  // Force controls to re‑layout
+  const controls = document.querySelectorAll(".leaflet-control");
+  controls.forEach(c => {
+    c.style.transform = "none";
+    c.style.left = "";
+    c.style.right = "";
+    c.style.top = "";
+    c.style.bottom = "";
+    c.classList.remove("leaflet-touching");
+    c.classList.remove("leaflet-fade-anim");
+  });
+
+  if (map._controlContainer) {
+    map._controlContainer.style.transform = "none";
+  }
+}
 
 // ------------------------------------------------------------
 // Map initialisation
@@ -972,6 +994,8 @@ const adminSubmit = document.getElementById("admin-submit");
 adminSubmit.addEventListener("click", async e => {
   e.stopPropagation(); // safety
   // DO NOT call preventDefault here — it breaks async submit
+  resetLeafletTouchState();
+
   blockNextMapClick();
   
   const title = document.getElementById("admin-title").value.trim();
