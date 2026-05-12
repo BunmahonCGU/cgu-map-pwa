@@ -1,6 +1,10 @@
 {
   "updates": [
     {
+      "message": "Test6: Browser",
+      "timestamp": "2026-05-12T20:35:44.174Z"
+    },
+    {
       "message": "Test 4: desktop",
       "timestamp": "2026-05-12T20:34:51.430Z"
     },
