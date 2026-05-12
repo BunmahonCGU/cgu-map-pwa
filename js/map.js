@@ -448,6 +448,65 @@ function resetLeafletTouchState() {
     map._controlContainer.style.transform = "none";
   }
 }
+// *** FIX: Reset Leaflet's map container transform ***
+function resetMapTransform() {
+  if (!map || !map._container) return;
+
+  const container = map._container;
+
+  // Reset any transform Leaflet applied
+  container.style.transform = "none";
+
+  // Also reset the control container transform
+  if (map._controlContainer) {
+    map._controlContainer.style.transform = "none";
+  }
+}
+// *** FIX: Reset Leaflet's internal pan/zoom gesture state ***
+function resetLeafletGestureState() {
+  if (!map) return;
+
+  // Reset pan state
+  map._moved = false;
+  map._moving = false;
+  map._startPos = null;
+  map._newPos = null;
+
+  // Reset zoom state
+  map._animatingZoom = false;
+  map._zooming = false;
+  map._startZoom = null;
+  map._centerOffset = null;
+
+  // Reset pan animation if present
+  if (map._panAnim && map._panAnim._inProgress) {
+    map._panAnim.stop();
+  }
+
+  // Reset transforms
+  if (map._container) {
+    map._container.style.transform = "none";
+  }
+  if (map._controlContainer) {
+    map._controlContainer.style.transform = "none";
+  }
+
+  // Force controls visible and aligned
+  const controls = document.querySelectorAll(".leaflet-control");
+  controls.forEach(c => {
+    c.style.transform = "none";
+    c.style.left = "";
+    c.style.right = "";
+    c.style.top = "";
+    c.style.bottom = "";
+    c.style.opacity = "1";
+    c.style.visibility = "visible";
+    c.style.display = "block";
+    c.classList.remove("leaflet-touching");
+    c.classList.remove("leaflet-fade-anim");
+    c.classList.remove("leaflet-control-hidden");
+  });
+}
 
 // ------------------------------------------------------------
 // Map initialisation
@@ -954,6 +1013,7 @@ function closeAdminPanel() {
     if (map && map._controlContainer) {
       map._controlContainer.style.display = "block";
     }
+    resetLeafletGestureState();
   }, 150); // must be > CSS transition time
 }
 
@@ -992,6 +1052,7 @@ const adminSubmit = document.getElementById("admin-submit");
 
 // 2. NORMAL CLICK HANDLER (works on desktop + mobile)
 adminSubmit.addEventListener("click", async e => {
+  resetMapTransform();
   e.stopPropagation(); // safety
   // DO NOT call preventDefault here — it breaks async submit
   resetLeafletTouchState();
