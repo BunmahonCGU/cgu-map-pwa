@@ -1014,6 +1014,7 @@ function closeAdminPanel() {
       map._controlContainer.style.display = "block";
     }
     resetLeafletGestureState();
+    map.invalidateSize({ animate: false });
   }, 150); // must be > CSS transition time
 }
 
