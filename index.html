@@ -223,6 +223,26 @@ html, body {
 #map {
     touch-action: pan-x pan-y;  /* map still scrolls, but panels don't trigger gestures */
 }
+/* ============================================================
+   iOS / small-screen viewport stabilisation
+   ============================================================ */
+
+/* General: prevent horizontal scroll / overshoot */
+html, body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* Mobile / small screens: make map track the visual viewport */
+@media (max-width: 600px) {
+    #map {
+        width: 100vw;
+        max-width: 100vw;
+        height: 100vh;
+        max-height: 100vh;
+    }
+}
 
 </style>
   
