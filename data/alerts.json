@@ -1,6 +1,10 @@
 {
   "updates": [
     {
+      "message": "Det: Test",
+      "timestamp": "2026-05-13T20:28:05.830Z"
+    },
+    {
       "message": "Test: Test again",
       "timestamp": "2026-05-12T20:45:57.924Z"
     },
