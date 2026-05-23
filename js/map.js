@@ -725,6 +725,15 @@ async function initMap() {
   // 12. Alerts refresh + refresh button
   // ------------------------------------------------------------
   refreshAlerts();
+  // Refresh button click feedback
+const refreshBtn = document.getElementById("refreshMapBtn");
+
+if (refreshBtn) {
+  refreshBtn.addEventListener("click", () => {
+    refreshBtn.classList.add("refreshing");
+    setTimeout(() => refreshBtn.classList.remove("refreshing"), 300);
+  });
+}
   document.getElementById("refreshMapBtn")
     .addEventListener("click", () => {
       refreshUmapLayer();
@@ -1071,15 +1080,7 @@ adminSubmit.addEventListener("click", async e => {
   resetLeafletTouchState();
 
   blockNextMapClick();
-  // Refresh button click feedback
-const refreshBtn = document.getElementById("refreshMapBtn");
-
-if (refreshBtn) {
-  refreshBtn.addEventListener("click", () => {
-    refreshBtn.classList.add("refreshing");
-    setTimeout(() => refreshBtn.classList.remove("refreshing"), 300);
-  });
-}
+  
 
   const title = document.getElementById("admin-title").value.trim();
   const message = document.getElementById("admin-message").value.trim();
