@@ -671,10 +671,11 @@ async function initMap() {
  //   attribution: '© OpenStreetMap contributors'
  // }).addTo(map);
 
-  const osm = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+  const osm = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 17,
-    attribution: '© OpenStreetMap contributors, SRTM'
+    attribution: 'Tiles © Esri'
 });
+
 
 
   const sat = L.tileLayer(
