@@ -223,7 +223,13 @@ html, body {
 #map {
     touch-action: pan-x pan-y;  /* map still scrolls, but panels don't trigger gestures */
 }
-
+<!-- Refresh button click feedback  -->
+#refreshMapBtn:active,
+#refreshMapBtn.refreshing {
+  transform: scale(0.85);
+  opacity: 0.6;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
 </style>
   
 </head>
@@ -250,6 +256,7 @@ html, body {
 </button>
 
 <button id="admin-open" class="admin-button">Admin</button>
+
 
 <div id="admin-panel" class="hidden">
 
