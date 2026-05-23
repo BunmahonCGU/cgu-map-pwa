@@ -727,13 +727,17 @@ async function initMap() {
   refreshAlerts();
   // Refresh button click feedback
 const refreshBtn = document.getElementById("refreshMapBtn");
-
 if (refreshBtn) {
+
+  // ⭐ ADD THIS LINE
+  L.DomEvent.disableClickPropagation(refreshBtn);
+
   refreshBtn.addEventListener("click", () => {
     refreshBtn.classList.add("refreshing");
     setTimeout(() => refreshBtn.classList.remove("refreshing"), 300);
   });
 }
+
   document.getElementById("refreshMapBtn")
     .addEventListener("click", () => {
       refreshUmapLayer();
