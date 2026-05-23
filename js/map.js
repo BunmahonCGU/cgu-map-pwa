@@ -918,7 +918,8 @@ function showLatestAlert(alert) {
 
 async function refreshAlerts() {
   try {
-    const url = "data/alerts.json?cb=" + Date.now();
+    //const url = "data/alerts.json?cb=" + Date.now();
+    const url = "https://raw.githubusercontent.com/BunmahonCGU/cgu-map-pwa/main/data/alerts.json?cb=" + Date.now();
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return;
     const json = await res.json();
