@@ -666,10 +666,19 @@ async function initMap() {
   // ------------------------------------------------------------
   // 10. Base layers (OSM + Satellite)
   // ------------------------------------------------------------
-  const osm = L.tileLayer('//{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-    maxZoom: 20,
-    attribution: '© OpenStreetMap contributors'
-  }).addTo(map);
+  //const osm = L.tileLayer('//{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+ //   maxZoom: 20,
+ //   attribution: '© OpenStreetMap contributors'
+ // }).addTo(map);
+
+  const osm = L.tileLayer(
+  "https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}.png?api-key=community",
+  {
+    maxZoom: 18,
+    attribution:
+      'Tiles courtesy of <a href="https://www.jawg.io">JawgMaps</a> — Map data © OpenStreetMap contributors'
+  }
+);
 
   const sat = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
