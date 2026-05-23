@@ -929,7 +929,8 @@ function showLatestAlert(alert) {
 async function refreshAlerts() {
   try {
     //const url = "data/alerts.json?cb=" + Date.now();
-    const url = "https://raw.githubusercontent.com/BunmahonCGU/cgu-map-pwa/main/data/alerts.json?cb=" + Date.now();
+    //const url = "https://raw.githubusercontent.com/BunmahonCGU/cgu-map-pwa/main/data/alerts.json?cb=" + Date.now();
+    const url = "https://shiny-math-8471.bunmahoncgu.workers.dev/alerts?cb=" + Date.now();
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return;
     const json = await res.json();
@@ -1070,7 +1071,16 @@ adminSubmit.addEventListener("click", async e => {
   resetLeafletTouchState();
 
   blockNextMapClick();
-  
+  // Refresh button click feedback
+const refreshBtn = document.getElementById("refreshMapBtn");
+
+if (refreshBtn) {
+  refreshBtn.addEventListener("click", () => {
+    refreshBtn.classList.add("refreshing");
+    setTimeout(() => refreshBtn.classList.remove("refreshing"), 300);
+  });
+}
+
   const title = document.getElementById("admin-title").value.trim();
   const message = document.getElementById("admin-message").value.trim();
 
