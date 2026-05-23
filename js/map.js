@@ -671,14 +671,11 @@ async function initMap() {
  //   attribution: '© OpenStreetMap contributors'
  // }).addTo(map);
 
-  const osm = L.tileLayer(
-  "https://tile.jawg.io/jawg-terrain/{z}/{x}/{y}.png?api-key=community",
-  {
-    maxZoom: 18,
-    attribution:
-      'Tiles courtesy of <a href="https://www.jawg.io">JawgMaps</a> — Map data © OpenStreetMap contributors'
-  }
-);
+  const osm = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+    maxZoom: 17,
+    attribution: '© OpenStreetMap contributors, SRTM'
+});
+
 
   const sat = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
