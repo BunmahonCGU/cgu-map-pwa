@@ -302,14 +302,14 @@ html, body {
  <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-     <script src="js/map.js?v=6"></script>
+     <script src="js/map.js?v=6" defer></script>
     
-    <!-- Register Service Worker 
+    <!-- Register Service Worker -->
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('service-worker.js');
         }
-    </script> -->
+    </script> 
 <script>
 navigator.serviceWorker.addEventListener("controllerchange", () => {
     window.location.reload();
