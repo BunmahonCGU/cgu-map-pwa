@@ -891,10 +891,13 @@ function enableAlertsOutsideClose() {
 // ------------------------------------------------------------
 async function loadAlerts() {
   try {
-    const url =
-      "https://raw.githubusercontent.com/BunmahonCGU/cgu-map-pwa/main/data/alerts.json?cb=" +
-      Date.now();
-    const res = await fetch(url, { cache: "no-store" });
+    //const url =
+   //   "https://raw.githubusercontent.com/BunmahonCGU/cgu-map-pwa/main/data/alerts.json?cb=" +
+   //   Date.now();
+   // const res = await fetch(url, { cache: "no-store" });
+const url = "https://shiny-math-8471.bunmahoncgu.workers.dev/alerts?cb=" + Date.now();
+const res = await fetch(url, { cache: "no-store" });
+
     if (!res.ok) {
       console.warn("Failed to load alerts.json:", res.status);
       return;
