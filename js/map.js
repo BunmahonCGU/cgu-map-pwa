@@ -1060,6 +1060,7 @@ function closeAdminPanel() {
 
     // Second redraw (after iOS viewport reset)
     setTimeout(() => {
+      resetLeafletGestureState();
       map.invalidateSize({ animate: false });
     }, 200);   // 200–300ms is ideal for iOS PWAs
 
