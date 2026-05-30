@@ -1052,10 +1052,20 @@ function closeAdminPanel() {
     if (map && map._controlContainer) {
       map._controlContainer.style.display = "block";
     }
+
     resetLeafletGestureState();
+
+    // First redraw (after panel animation)
     map.invalidateSize({ animate: false });
+
+    // Second redraw (after iOS viewport reset)
+    setTimeout(() => {
+      map.invalidateSize({ animate: false });
+    }, 200);   // 200–300ms is ideal for iOS PWAs
+
   }, 150); // must be > CSS transition time
 }
+
 
 // Desktop click
 adminClose.addEventListener("click", e => {
