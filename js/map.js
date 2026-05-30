@@ -515,6 +515,10 @@ async function initMap() {
   // --------------------------------------------------------
   // 1. Create map + initial view
   // --------------------------------------------------------
+
+  // Ensure map container is not transformed before Leaflet initializes
+  resetMapTransform();
+  
   map = L.map("map").setView([52.1031, -7.3498], 12);
   // Fix invisible map on load
   setTimeout(() => map.invalidateSize(), 250);  
