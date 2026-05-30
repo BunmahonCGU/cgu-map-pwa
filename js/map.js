@@ -521,10 +521,11 @@ async function initMap() {
   
   map = L.map("map").setView([52.1031, -7.3498], 12);
     // Add base map tiles
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors"
-  }).addTo(map)
+  
+ L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", {
+  maxZoom: 19,
+  attribution: "Tiles © Esri"
+}).addTo(map);
   // Fix invisible map on load
   setTimeout(() => map.invalidateSize(), 250);  
   window.addEventListener("load", () => map.invalidateSize());
