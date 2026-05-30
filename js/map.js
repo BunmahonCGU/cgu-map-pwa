@@ -462,6 +462,23 @@ function resetMapTransform() {
     map._controlContainer.style.transform = "none";
   }
 }
+function forceEnableLeafletGestures() {
+  if (!map) return;
+
+  // Re-enable all gesture handlers
+  map.touchZoom.enable();
+  map.scrollWheelZoom.enable();
+  map.boxZoom.enable();
+  map.keyboard.enable();
+  map.dragging.enable();
+
+  // iOS Safari sometimes needs this twice
+  setTimeout(() => {
+    map.touchZoom.enable();
+    map.dragging.enable();
+  }, 50);
+}
+
 // *** FIX: Reset Leaflet's internal pan/zoom gesture state ***
 function resetLeafletGestureState() {
   if (!map) return;
@@ -1054,13 +1071,14 @@ function closeAdminPanel() {
     }
 
     resetLeafletGestureState();
-
+    forceEnableLeafletGestures();
     // First redraw (after panel animation)
     map.invalidateSize({ animate: false });
 
     // Second redraw (after iOS viewport reset)
     setTimeout(() => {
       resetLeafletGestureState();
+      forceEnableLeafletGestures();
       map.invalidateSize({ animate: false });
     }, 200);   // 200–300ms is ideal for iOS PWAs
 
