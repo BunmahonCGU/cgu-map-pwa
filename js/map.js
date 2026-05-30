@@ -516,6 +516,10 @@ async function initMap() {
   // 1. Create map + initial view
   // --------------------------------------------------------
   map = L.map("map").setView([52.1031, -7.3498], 12);
+  // Fix invisible map on load
+  setTimeout(() => map.invalidateSize(), 250);  
+  window.addEventListener("load", () => map.invalidateSize());
+  document.addEventListener("visibilitychange", () => map.invalidateSize());
 
   // --------------------------------------------------------
   // 2. Load uMap file
