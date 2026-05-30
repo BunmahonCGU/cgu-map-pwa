@@ -1045,7 +1045,7 @@ function closeAdminPanel() {
 
 // Desktop click
 adminClose.addEventListener("click", e => {
-  e.stopPropagation();
+  L.DomEvent.stopPropagation(e);
   closeAdminPanel();
 });
 
@@ -1101,21 +1101,33 @@ adminSubmit.addEventListener("click", async e => {
   const combinedMessage = `${title}: ${message}`;
 
   try {
-    const res = await fetch(ALERT_ENDPOINT, {
+    const fullMessage = combinedMessage; // already title + message
+
+    const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/alerts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: combinedMessage, pin: adminPin })
+      body: JSON.stringify({
+        message: fullMessage,
+        pin: adminPin
+      })
     });
+
     const data = await res.json();
+
     if (data.status !== "ok") {
       alert("Failed to post update: " + (data.error || "Unknown error"));
       return;
     }
+
     alert("Update posted");
     document.getElementById("admin-title").value = "";
     document.getElementById("admin-message").value = "";
-  } catch (e) {
+    refreshAlerts();
+    closeAdminPanel();
+
+} catch (e) {
     console.error(e);
     alert("Network error");
-  }
+}
+
 });
