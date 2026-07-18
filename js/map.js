@@ -635,7 +635,27 @@ async function initMap() {
     `;
     layerList.appendChild(toggleContainer);
 
-    document.getElementById("alerts-toggle").addEventListener("change", (e) => {
+    // ===============================
+    // SHARE LOCATION TOGGLE
+    // ===============================
+    const shareContainer = document.createElement("div");
+    shareContainer.style.marginTop = "6px";
+    shareContainer.innerHTML = `
+        <label style="cursor:pointer;">
+            <input type="checkbox" id="shareLocationOptIn">
+            Share My Location
+        </label>
+    `;
+    layerList.appendChild(shareContainer);
+    
+    const shareOptIn = document.getElementById("shareLocationOptIn");
+    shareOptIn.checked = localStorage.getItem("shareLocation") === "true";
+    
+    shareOptIn.addEventListener("change", () => {
+        localStorage.setItem("shareLocation", shareOptIn.checked ? "true" : "false");
+    });
+
+      document.getElementById("alerts-toggle").addEventListener("change", (e) => {
       const panel = document.getElementById("alerts-panel");
       panel.classList.toggle("hidden", !e.target.checked);
       if (!panel.classList.contains("hidden")) {
@@ -708,6 +728,23 @@ async function initMap() {
       accuracyCircle.setLatLng(e.latlng);
       accuracyCircle.setRadius(e.accuracy);
     }
+
+    // ===============================
+    // LOCATION PUBLISHING
+    // ===============================
+    if (localStorage.getItem("shareLocation") === "true") {
+        fetch("/location/update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                userId,
+                lat: e.latlng.lat,
+                lng: e.latlng.lng,
+                ts: Date.now()
+            })
+        }).catch(err => console.warn("Location publish failed:", err));
+    }
+
 
     // Follow mode
     if (followMode) {
@@ -894,6 +931,52 @@ map.on("blur", () => {
   forceControlsVisible();
 });
 
+// ===============================
+// LIVE USER POLLING
+// ===============================
+let liveUserMarkers = {};
+
+async function refreshLiveUsers() {
+    try {
+        const res = await fetch("/location/all");
+        const data = await res.json();
+        const now = Date.now();
+
+        // Remove stale markers (> 2 minutes)
+        for (const uid in liveUserMarkers) {
+            if (!data[uid] || now - data[uid].ts > 120000) {
+                layerGroups["LIVE_USERS"].removeLayer(liveUserMarkers[uid]);
+                delete liveUserMarkers[uid];
+            }
+        }
+
+        // Add/update markers
+        for (const uid in data) {
+            const { lat, lng, ts } = data[uid];
+
+            if (!liveUserMarkers[uid]) {
+                liveUserMarkers[uid] = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        className: "live-user-icon",
+                        html: `<div style="
+                            width:14px;height:14px;
+                            background:#00aaff;
+                            border-radius:50%;
+                            border:2px solid white;
+                        "></div>`
+                    })
+                }).addTo(layerGroups["LIVE_USERS"]);
+            } else {
+                liveUserMarkers[uid].setLatLng([lat, lng]);
+            }
+        }
+
+    } catch (err) {
+        console.warn("Live user refresh failed:", err);
+    }
+}
+
+setInterval(refreshLiveUsers, 10000);
 
   // ---------------------------------------------------------
   // PREVENT TOUCH EVENTS INSIDE PANELS FROM REACHING THE MAP
