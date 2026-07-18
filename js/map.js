@@ -769,7 +769,7 @@ nameInput.addEventListener("input", () => {
     // LOCATION PUBLISHING
     // ===============================
     if (localStorage.getItem("shareLocation") === "true") {
-        fetch("/location/update", {
+        fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/location/update", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -976,7 +976,7 @@ let liveUserMarkers = {};
 
 async function refreshLiveUsers() {
     try {
-        const res = await fetch("/location/all");
+        const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/location/all");
         const { users } = await res.json();
         const now = Date.now();
 
