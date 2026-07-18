@@ -403,14 +403,7 @@ let userMarker = null;
 let accuracyCircle = null;
 let followMode = true;
 
-// ===============================
-// USER ID (persistent anonymous)
-// ===============================
-let userId = localStorage.getItem('userId');
-if (!userId) {
-    userId = crypto.randomUUID();
-    localStorage.setItem('userId', userId);
-}
+
 
 // ------------------------------------------------------------
 // Load uMap JSON (local PWA copy)
@@ -939,19 +932,19 @@ let liveUserMarkers = {};
 async function refreshLiveUsers() {
     try {
         const res = await fetch("/location/all");
-        const data = await res.json();
+        const { users } = await res.json();
         const now = Date.now();
 
         // Remove stale markers (> 2 minutes)
         for (const uid in liveUserMarkers) {
-            if (!data[uid] || now - data[uid].ts > 120000) {
+            if (!users[uid] || now - users[uid].ts > 120000) {
                 layerGroups["LIVE_USERS"].removeLayer(liveUserMarkers[uid]);
                 delete liveUserMarkers[uid];
             }
         }
 
         // Add/update markers
-        for (const uid in data) {
+        for (const uid in users) {
             const { lat, lng, ts } = data[uid];
 
             if (!liveUserMarkers[uid]) {
