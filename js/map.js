@@ -996,16 +996,18 @@ async function refreshLiveUsers() {
 
             if (!liveUserMarkers[userId]) {
                 liveUserMarkers[userId] = L.marker([lat, lng], {
-                    icon: L.divIcon({
-                        className: "live-user-icon",
-                        html: `<div style="
-                            width:14px;height:14px;
-                            background:#00aaff;
-                            border-radius:50%;
-                            border:2px solid white;
-                        "></div>`
-                    })
-                }).addTo(layerGroups["LIVE_USERS"]);
+                icon: L.divIcon({
+                    className: "live-user-icon",
+                    html: `
+                        <div class="live-user-wrapper">
+                            <div class="live-user-dot"></div>
+                            <div class="live-user-name">${displayName || "Anonymous"}</div>
+                        </div>
+                    `,
+                    iconSize: [80, 24],
+                    iconAnchor: [40, 12]
+                })
+            }).addTo(layerGroups["LIVE_USERS"]);
             } else {
                 liveUserMarkers[userId].setLatLng([lat, lng]);
             }
