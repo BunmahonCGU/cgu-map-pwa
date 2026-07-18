@@ -992,7 +992,7 @@ async function refreshLiveUsers() {
 
         // Add/update markers
         for (const user of users) {
-            const { userId, lat, lng } = user;
+           const { userId, lat, lng, displayName } = user;
 
             if (!liveUserMarkers[userId]) {
                 liveUserMarkers[userId] = L.marker([lat, lng], {
@@ -1001,7 +1001,7 @@ async function refreshLiveUsers() {
                     html: `
                         <div class="live-user-wrapper">
                             <div class="live-user-dot"></div>
-                            <div class="live-user-name">${displayName || "Anonymous"}</div>
+                            <div class="live-user-name">${displayName ? displayName : userId}</div>
                         </div>
                     `,
                     iconSize: [80, 24],
