@@ -777,7 +777,7 @@ nameInput.addEventListener("input", () => {
             displayName: localStorage.getItem("displayName") || null,
             lat: e.latlng.lat,
             lng: e.latlng.lng,
-            ts: Date.now()
+            timestamp: Date.now()
             })
 
         }).catch(err => console.warn("Location publish failed:", err));
