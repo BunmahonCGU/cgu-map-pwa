@@ -647,7 +647,31 @@ async function initMap() {
     shareOptIn.addEventListener("change", () => {
         localStorage.setItem("shareLocation", shareOptIn.checked ? "true" : "false");
     });
-      
+
+        // ===============================
+        // LIVE USERS LAYER TOGGLE
+        // ===============================
+        const liveUsersContainer = document.createElement("div");
+        liveUsersContainer.style.marginTop = "6px";
+        liveUsersContainer.innerHTML = `
+            <label style="cursor:pointer;">
+                <input type="checkbox" id="liveUsersToggle">
+                Show Active Users
+            </label>
+        `;
+        layerList.appendChild(liveUsersContainer);
+        
+        const liveUsersToggle = document.getElementById("liveUsersToggle");
+        liveUsersToggle.checked = false;
+        
+        liveUsersToggle.addEventListener("change", () => {
+            if (liveUsersToggle.checked) {
+                map.addLayer(layerGroups["LIVE_USERS"]);
+            } else {
+                map.removeLayer(layerGroups["LIVE_USERS"]);
+            }
+        });
+
 // ===============================
 // DISPLAY NAME INPUT
 // ===============================
