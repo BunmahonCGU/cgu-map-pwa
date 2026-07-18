@@ -937,18 +937,20 @@ async function refreshLiveUsers() {
 
         // Remove stale markers (> 2 minutes)
         for (const uid in liveUserMarkers) {
-            if (!users[uid] || now - users[uid].ts > 120000) {
+            const user = users.find(u => u.userId === uid);
+
+            if (!user || now - new Date(user.timestamp).getTime() > 120000) {
                 layerGroups["LIVE_USERS"].removeLayer(liveUserMarkers[uid]);
                 delete liveUserMarkers[uid];
             }
         }
 
         // Add/update markers
-        for (const uid in users) {
-            const { lat, lng, ts } = data[uid];
+        for (const user of users) {
+            const { userId, lat, lng } = user;
 
-            if (!liveUserMarkers[uid]) {
-                liveUserMarkers[uid] = L.marker([lat, lng], {
+            if (!liveUserMarkers[userId]) {
+                liveUserMarkers[userId] = L.marker([lat, lng], {
                     icon: L.divIcon({
                         className: "live-user-icon",
                         html: `<div style="
@@ -960,7 +962,7 @@ async function refreshLiveUsers() {
                     })
                 }).addTo(layerGroups["LIVE_USERS"]);
             } else {
-                liveUserMarkers[uid].setLatLng([lat, lng]);
+                liveUserMarkers[userId].setLatLng([lat, lng]);
             }
         }
 
@@ -968,6 +970,7 @@ async function refreshLiveUsers() {
         console.warn("Live user refresh failed:", err);
     }
 }
+
 
 setInterval(refreshLiveUsers, 10000);
 
