@@ -647,6 +647,25 @@ async function initMap() {
     shareOptIn.addEventListener("change", () => {
         localStorage.setItem("shareLocation", shareOptIn.checked ? "true" : "false");
     });
+      
+// ===============================
+// DISPLAY NAME INPUT
+// ===============================
+const nameContainer = document.createElement("div");
+nameContainer.style.marginTop = "6px";
+nameContainer.innerHTML = `
+    <label style="cursor:pointer;">
+        <input type="text" id="displayNameInput" placeholder="Your name (optional)" style="width: 140px;">
+    </label>
+`;
+layerList.appendChild(nameContainer);
+
+const nameInput = document.getElementById("displayNameInput");
+nameInput.value = localStorage.getItem("displayName") || "";
+
+nameInput.addEventListener("input", () => {
+    localStorage.setItem("displayName", nameInput.value.trim());
+});
 
       document.getElementById("alerts-toggle").addEventListener("change", (e) => {
       const panel = document.getElementById("alerts-panel");
@@ -730,11 +749,13 @@ async function initMap() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                userId,
-                lat: e.latlng.lat,
-                lng: e.latlng.lng,
-                ts: Date.now()
+            userId,
+            displayName: localStorage.getItem("displayName") || null,
+            lat: e.latlng.lat,
+            lng: e.latlng.lng,
+            ts: Date.now()
             })
+
         }).catch(err => console.warn("Location publish failed:", err));
     }
 
