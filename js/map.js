@@ -8,6 +8,16 @@ let tracking = true;
 let lastLocation = null;
 let map;
 
+// ===============================
+// USER ID (persistent anonymous)
+// ===============================
+let userId = localStorage.getItem('userId');
+if (!userId) {
+    userId = crypto.randomUUID();
+    localStorage.setItem('userId', userId);
+}
+
+
 const userIcon = L.divIcon({
   className: "user-location-icon",
   iconSize: [28, 28], // size of the dot
@@ -361,6 +371,8 @@ const geojsonOptions = {
   }
 };
 
+
+
 // ------------------------------------------------------------
 // Layer groups (toggleable)
 // ------------------------------------------------------------
@@ -378,12 +390,27 @@ const layerGroups = {
   EAP: L.layerGroup()
 };
 
+// ===============================
+// LIVE USER LOCATIONS LAYER
+// ===============================
+layerGroups["LIVE_USERS"] = L.layerGroup();
+
+
 // ------------------------------------------------------------
 // Enable GPS tracking
 // ------------------------------------------------------------
 let userMarker = null;
 let accuracyCircle = null;
 let followMode = true;
+
+// ===============================
+// USER ID (persistent anonymous)
+// ===============================
+let userId = localStorage.getItem('userId');
+if (!userId) {
+    userId = crypto.randomUUID();
+    localStorage.setItem('userId', userId);
+}
 
 // ------------------------------------------------------------
 // Load uMap JSON (local PWA copy)
@@ -572,6 +599,7 @@ async function initMap() {
     "East Access Points": ["EAP"]
   };
 
+  
   const overlays = {};
   for (const [displayName, codes] of Object.entries(layerDisplayNames)) {
     const group = L.layerGroup();
