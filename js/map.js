@@ -1041,22 +1041,22 @@ async function refreshLiveUsers() {
  // ---------------------------------------------------------
  // HEARTBEAT HANDLER — restart updates if throttled
  // ---------------------------------------------------------
- heartbeatWorker.onmessage = () => {
-   lastHeartbeat = Date.now();
+// heartbeatWorker.onmessage = () => {
+//   lastHeartbeat = Date.now();
 
-   if (!locationUpdateActive) {
-     console.log("Heartbeat detected — restarting location updates");
-     startLocationUpdates();
-   }
- };
+//   if (!locationUpdateActive) {
+//     console.log("Heartbeat detected — restarting location updates");
+//     startLocationUpdates();
+//   }
+// };
 
  // Safety monitor: detect stalled heartbeat
- setInterval(() => {
-   if (Date.now() - lastHeartbeat > 3000) {
-     console.warn("Heartbeat stalled — forcing location update restart");
-     locationUpdateActive = false;
-   }
- }, 2000);
+// setInterval(() => {
+ //  if (Date.now() - lastHeartbeat > 3000) {
+ //    console.warn("Heartbeat stalled — forcing location update restart");
+ //    locationUpdateActive = false;
+ //  }
+// }, 2000);
 
 console.log("map.js loaded");
 
