@@ -1026,7 +1026,7 @@ async function refreshLiveUsers() {
 }
 
 
-setInterval(refreshLiveUsers, 10000);
+setInterval(refreshLiveUsers, 5000);
 
   // ---------------------------------------------------------
   // PREVENT TOUCH EVENTS INSIDE PANELS FROM REACHING THE MAP
