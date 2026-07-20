@@ -3,13 +3,13 @@ console.log("map.js loaded");
 // ---------------------------------------------------------
  // HEARTBEAT WORKER — Prevent Chromium passive throttling
  // ---------------------------------------------------------
- const heartbeatWorker = new Worker(URL.createObjectURL(new Blob([
+ //const heartbeatWorker = new Worker(URL.createObjectURL(new Blob([
    // Send a heartbeat every second   
-  "setInterval(() => postMessage('tick'), 1000);"
- ], { type: 'application/javascript' })));
+//  "setInterval(() => postMessage('tick'), 1000);"
+// ], { type: 'application/javascript' })));
 
- let lastHeartbeat = Date.now();
- let locationUpdateActive = false;
+ //let lastHeartbeat = Date.now();
+ //let locationUpdateActive = false;
 
 document.addEventListener("DOMContentLoaded", () => { initMap(); });
 
@@ -1058,38 +1058,33 @@ async function refreshLiveUsers() {
    }
  }, 2000);
 
- // ---------------------------------------------------------
-// SEND LOCATION UPDATE TO WORKER
+console.log("map.js loaded");
+
 // ---------------------------------------------------------
+// SIMPLE LOCATION UPDATES — no heartbeat, no throttling logic
+// ---------------------------------------------------------
+
 function sendLocationUpdate(lat, lng) {
   console.log("sendLocationUpdate()", lat, lng);
 
   fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/location/update", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, lat, lng, timestamp: Date.now() })
+    body: JSON.stringify({
+      userId,
+      lat,
+      lng,
+      timestamp: Date.now()
+    })
   }).catch(err => console.error("Location update failed:", err));
 }
 
-
- // ---------------------------------------------------------
- // THROTTLE‑SAFE LOCATION UPDATES
- // ---------------------------------------------------------
- function startLocationUpdates() {
+function startLocationUpdates() {
   console.log("startLocationUpdates() called");
-
-  locationUpdateActive = true;
 
   navigator.geolocation.watchPosition(
     pos => {
       console.log("GPS callback fired", pos.coords);
-
-      if (Date.now() - lastHeartbeat > 3000) {
-        console.warn("Stale GPS callback ignored due to throttling");
-        return;
-      }
-
-      console.log("Calling sendLocationUpdate");
       sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
     },
     err => console.error("GPS error", err),
@@ -1097,10 +1092,8 @@ function sendLocationUpdate(lat, lng) {
   );
 }
 
-
- // Start updates immediately
- startLocationUpdates();
-
+// Start updates immediately
+startLocationUpdates();
 
 
 
