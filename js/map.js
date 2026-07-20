@@ -839,9 +839,10 @@ nameInput.addEventListener("input", () => {
   // 11. Refresh uMap layer
   // ------------------------------------------------------------
   async function refreshUmapLayer() {
-    for (const key in layerGroups) {
-      layerGroups[key].clearLayers();
-    }
+  for (const key in layerGroups) {
+    if (key === "LIVE_USERS") continue;   // do not wipe live user markers
+    layerGroups[key].clearLayers();
+}
     if (window.umapLayer) {
       map.removeLayer(window.umapLayer);
     }
