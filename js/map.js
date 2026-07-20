@@ -1036,7 +1036,7 @@ async function refreshLiveUsers() {
     }
 }
 
-+ // ---------------------------------------------------------
+ // ---------------------------------------------------------
  // HEARTBEAT HANDLER — restart updates if throttled
  // ---------------------------------------------------------
  heartbeatWorker.onmessage = () => {
