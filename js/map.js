@@ -1,4 +1,3 @@
-
 console.log("map.js loaded");
 // ---------------------------------------------------------
  // HEARTBEAT WORKER — Prevent Chromium passive throttling
