@@ -842,13 +842,19 @@ nameInput.addEventListener("input", () => {
   for (const key in layerGroups) {
     if (key === "LIVE_USERS") continue;   // do not wipe live user markers
     layerGroups[key].clearLayers();
-}
+        }
     if (window.umapLayer) {
       map.removeLayer(window.umapLayer);
-    }
+        }
     const newData = await loadUmapFile("data/bunmahon-latest.umap?cachebust=" + Date.now());
     window.umapLayer = L.geoJSON(newData, geojsonOptions);
-  }
+
+      // Re-add LIVE_USERS layer if toggle is on
+    const liveUsersToggle = document.getElementById("liveUsersToggle");
+    if (liveUsersToggle && liveUsersToggle.checked) {
+        map.addLayer(layerGroups["LIVE_USERS"]);
+    }
+}
 
   navigator.serviceWorker.addEventListener("message", e => {
     if (e.data?.type === "umap-updated") {
