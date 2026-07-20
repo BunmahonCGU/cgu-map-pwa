@@ -1060,7 +1060,7 @@ async function refreshLiveUsers() {
 // SEND LOCATION UPDATE TO WORKER
 // ---------------------------------------------------------
 function sendLocationUpdate(lat, lng) {
-  fetch("/location/update", {
+  fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/location/update", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -1071,6 +1071,7 @@ function sendLocationUpdate(lat, lng) {
     })
   }).catch(err => console.error("Location update failed:", err));
 }
+
 
  // ---------------------------------------------------------
  // THROTTLE‑SAFE LOCATION UPDATES
