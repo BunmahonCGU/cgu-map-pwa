@@ -1,10 +1,10 @@
  // ---------------------------------------------------------
  // HEARTBEAT WORKER — Prevent Chromium passive throttling
  // ---------------------------------------------------------
- const heartbeatWorker = new Worker(URL.createObjectURL(new Blob([`
-   // Send a heartbeat every second
-   setInterval(() => postMessage('tick'), 1000);
- `], { type: 'application/javascript' })));
+ const heartbeatWorker = new Worker(URL.createObjectURL(new Blob([
+   // Send a heartbeat every second   
+  "setInterval(() => postMessage('tick'), 1000);"
+ ], { type: 'application/javascript' })));
 
  let lastHeartbeat = Date.now();
  let locationUpdateActive = false;
