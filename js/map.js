@@ -1057,6 +1057,22 @@ async function refreshLiveUsers() {
  }, 2000);
 
  // ---------------------------------------------------------
+// SEND LOCATION UPDATE TO WORKER
+// ---------------------------------------------------------
+function sendLocationUpdate(lat, lng) {
+  fetch("/location/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId,
+      lat,
+      lng,
+      timestamp: Date.now()
+    })
+  }).catch(err => console.error("Location update failed:", err));
+}
+
+ // ---------------------------------------------------------
  // THROTTLE‑SAFE LOCATION UPDATES
  // ---------------------------------------------------------
  function startLocationUpdates() {
