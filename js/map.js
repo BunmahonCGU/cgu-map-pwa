@@ -1027,10 +1027,13 @@ async function refreshLiveUsers() {
 
 
 navigator.geolocation.watchPosition(
-  pos => sendLocationUpdate(pos.coords.latitude, pos.coords.longitude),
-  err => console.error(err),
+  pos => {
+    sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
+  },
+  err => console.error("GPS error", err),
   { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
 );
+
 
 
   // ---------------------------------------------------------
