@@ -1,4 +1,6 @@
- // ---------------------------------------------------------
+
+console.log("map.js loaded");
+// ---------------------------------------------------------
  // HEARTBEAT WORKER — Prevent Chromium passive throttling
  // ---------------------------------------------------------
  const heartbeatWorker = new Worker(URL.createObjectURL(new Blob([
@@ -1060,15 +1062,12 @@ async function refreshLiveUsers() {
 // SEND LOCATION UPDATE TO WORKER
 // ---------------------------------------------------------
 function sendLocationUpdate(lat, lng) {
+  console.log("sendLocationUpdate()", lat, lng);
+
   fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/location/update", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      userId,
-      lat,
-      lng,
-      timestamp: Date.now()
-    })
+    body: JSON.stringify({ userId, lat, lng, timestamp: Date.now() })
   }).catch(err => console.error("Location update failed:", err));
 }
 
@@ -1077,22 +1076,27 @@ function sendLocationUpdate(lat, lng) {
  // THROTTLE‑SAFE LOCATION UPDATES
  // ---------------------------------------------------------
  function startLocationUpdates() {
-   locationUpdateActive = true;
+  console.log("startLocationUpdates() called");
 
-   navigator.geolocation.watchPosition(
-     pos => {
-       // If Chromium suspended the page, ignore stale callbacks
-       if (Date.now() - lastHeartbeat > 3000) {
-         console.warn("Stale GPS callback ignored due to throttling");
-         return;
-       }
+  locationUpdateActive = true;
 
-       sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
-     },
-     err => console.error("GPS error", err),
-     { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-   );
- }
+  navigator.geolocation.watchPosition(
+    pos => {
+      console.log("GPS callback fired", pos.coords);
+
+      if (Date.now() - lastHeartbeat > 3000) {
+        console.warn("Stale GPS callback ignored due to throttling");
+        return;
+      }
+
+      console.log("Calling sendLocationUpdate");
+      sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
+    },
+    err => console.error("GPS error", err),
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+  );
+}
+
 
  // Start updates immediately
  startLocationUpdates();
