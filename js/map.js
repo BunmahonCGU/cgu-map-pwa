@@ -1,3 +1,14 @@
++ // ---------------------------------------------------------
++ // HEARTBEAT WORKER — Prevent Chromium passive throttling
++ // ---------------------------------------------------------
++ const heartbeatWorker = new Worker(URL.createObjectURL(new Blob([`
++   // Send a heartbeat every second
++   setInterval(() => postMessage('tick'), 1000);
++ `], { type: 'application/javascript' })));
++
++ let lastHeartbeat = Date.now();
++ let locationUpdateActive = false;
+
 document.addEventListener("DOMContentLoaded", () => { initMap(); });
 
 // ------------------------------------------------------------
@@ -1025,14 +1036,50 @@ async function refreshLiveUsers() {
     }
 }
 
++ // ---------------------------------------------------------
++ // HEARTBEAT HANDLER — restart updates if throttled
++ // ---------------------------------------------------------
++ heartbeatWorker.onmessage = () => {
++   lastHeartbeat = Date.now();
++
++   if (!locationUpdateActive) {
++     console.log("Heartbeat detected — restarting location updates");
++     startLocationUpdates();
++   }
++ };
++
++ // Safety monitor: detect stalled heartbeat
++ setInterval(() => {
++   if (Date.now() - lastHeartbeat > 3000) {
++     console.warn("Heartbeat stalled — forcing location update restart");
++     locationUpdateActive = false;
++   }
++ }, 2000);
 
-navigator.geolocation.watchPosition(
-  pos => {
-    sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
-  },
-  err => console.error("GPS error", err),
-  { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-);
++ // ---------------------------------------------------------
++ // THROTTLE‑SAFE LOCATION UPDATES
++ // ---------------------------------------------------------
++ function startLocationUpdates() {
++   locationUpdateActive = true;
++
++   navigator.geolocation.watchPosition(
++     pos => {
++       // If Chromium suspended the page, ignore stale callbacks
++       if (Date.now() - lastHeartbeat > 3000) {
++         console.warn("Stale GPS callback ignored due to throttling");
++         return;
++       }
++
++       sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
++     },
++     err => console.error("GPS error", err),
++     { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
++   );
++ }
++
++ // Start updates immediately
++ startLocationUpdates();
+
 
 
 
