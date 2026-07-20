@@ -1026,7 +1026,12 @@ async function refreshLiveUsers() {
 }
 
 
-setInterval(refreshLiveUsers, 5000);
+navigator.geolocation.watchPosition(
+  pos => sendLocationUpdate(pos.coords.latitude, pos.coords.longitude),
+  err => console.error(err),
+  { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+);
+
 
   // ---------------------------------------------------------
   // PREVENT TOUCH EVENTS INSIDE PANELS FROM REACHING THE MAP
