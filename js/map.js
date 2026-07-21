@@ -12,7 +12,7 @@ let map;
 // ===============================
 // USER ID (persistent anonymous)
 // ===============================
-let userId = localStorage.getItems('userId');
+let userId = localStorage.getItem('userId');
 if(!userId) {
   useriD = crypto.randomUUID();
   localStorage.setItem('userId', userId);
