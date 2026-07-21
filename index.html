@@ -26,22 +26,31 @@
 } 
 .live-user-wrapper {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 6px;
-    background: rgba(0,0,0,0.65);
-    color: #fff;
-    padding: 2px 6px;
-    border-radius: 12px;
     font-size: 12px;
-    white-space: nowrap;
+    line-height: 1.1;
 }
 
 .live-user-dot {
-    width: 10px;
-    height: 10px;
+    width: 14px;
+    height: 14px;
     background: #00aaff;
     border-radius: 50%;
+    border: 2px solid white;
+    margin-bottom: 2px;
 }
+
+.live-user-name {
+    font-weight: bold;
+    color: #000;
+}
+
+.live-user-time {
+    font-size: 10px;
+    color: #444;
+}
+
         
 html, body {
     margin: 0;
