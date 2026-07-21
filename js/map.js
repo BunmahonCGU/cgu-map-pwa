@@ -194,7 +194,7 @@ function makeSvgIcon(shape, color, label) {
   }
 
   return L.divIcon({
-    html: svg,
+    : svg,
     className: "",
     iconSize: [40, 40],
     iconAnchor: [20, 38],
@@ -366,7 +366,7 @@ const geojsonOptions = {
           .replaceAll("{ele}", elevationText);
       }
 
-      //console.log("FINAL POPUP HTML >>>", popup);
+      //console.log("FINAL POPUP  >>>", popup);
       layer.bindPopup(popup, { maxWidth: 400, className: "custom-popup" });
     }
   }
@@ -622,7 +622,7 @@ async function initMap() {
 
     const toggleContainer = document.createElement("div");
     toggleContainer.style.marginTop = "10px";
-    toggleContainer.innerHTML = `
+    toggleContainer.inner = `
       <label style="cursor:pointer;">
         <input type="checkbox" id="alerts-toggle"> Show Updates
       </label>
@@ -634,7 +634,7 @@ async function initMap() {
     // ===============================
     const shareContainer = document.createElement("div");
     shareContainer.style.marginTop = "6px";
-    shareContainer.innerHTML = `
+    shareContainer.inner = `
         <label style="cursor:pointer;">
             <input type="checkbox" id="shareLocationOptIn">
             Share My Location
@@ -654,7 +654,7 @@ async function initMap() {
         // ===============================
         const liveUsersContainer = document.createElement("div");
         liveUsersContainer.style.marginTop = "6px";
-        liveUsersContainer.innerHTML = `
+        liveUsersContainer.inner = `
             <label style="cursor:pointer;">
                 <input type="checkbox" id="liveUsersToggle">
                 Show Active Users
@@ -1003,27 +1003,24 @@ async function refreshLiveUsers() {
         // Add/update markers
         for (const user of users) {
            const { userId, lat, lng, displayName } = user;
-
+          const formattedTime = new Date(user.timestamp).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit"
+          });
             if (!liveUserMarkers[userId]) {
                 liveUserMarkers[userId] = L.marker([lat, lng], {
                 icon: L.divIcon({
                     className: "live-user-icon",
                     html: `
-                      <div class="live-user-wrapper">
-                              <div class="live-user-dot"></div>
-                      
-                              <div class="live-user-name">
-                                  ${displayName ? displayName : userId}
-                              </div>
-                      
-                              <div class="live-user-time">
-                                  ${new Date(user.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                              </div>
-                          </div>
+                <div class="live-user-wrapper">
+                <div class="live-user-dot"></div>
+                <div class="live-user-name">${displayName || userId}</div>
+                <div class="live-user-time">${formattedTime}</div>
+                  </div>
                     `,
-                    iconSize: [80, 32],
-                    iconAnchor: [40, 16]
-
+            iconSize: [90, 40],
+            iconAnchor: [45, 20]
                 })
             }).addTo(layerGroups["LIVE_USERS"]);
             } else {
