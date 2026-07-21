@@ -1045,7 +1045,7 @@ async function refreshLiveUsers() {
  //    locationUpdateActive = false;
  //  }
 // }, 2000);
-setInterval(pollLiveUsers, 5000);
+setInterval(refreshLiveUsers, 5000);
 console.log("map.js loaded");
 
 // ---------------------------------------------------------
@@ -1147,48 +1147,6 @@ function enableAlertsOutsideClose() {
 //   const response = await fetch(url);
 //   return await response.blob();
 // }
-async function pollLiveUsers() {
-    try {
-        const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/location/all");
-        const { users } = await res.json();
-        updateLiveUsersLayer(users);
-    } catch (err) {
-        console.warn("Live user refresh failed:", err);
-    }
-}
-
-function updateLiveUsersLayer(users) {
-    const now = Date.now();
-
-    // Remove stale markers (> 2 minutes)
-    for (const uid in liveUserMarkers) {
-        if (!users[uid] || now - users[uid].ts > 120000) {
-            layerGroups["LIVE_USERS"].removeLayer(liveUserMarkers[uid]);
-            delete liveUserMarkers[uid];
-        }
-    }
-
-    // Add/update markers
-    for (const uid in users) {
-        const { lat, lng, ts, displayName } = users[uid];
-
-        if (!liveUserMarkers[uid]) {
-            liveUserMarkers[uid] = L.marker([lat, lng], {
-                icon: L.divIcon({
-                    className: "live-user-icon",
-                    html: `<div style="
-                        width:14px;height:14px;
-                        background:#00aaff;
-                        border-radius:50%;
-                        border:2px solid white;
-                    "></div>`
-                })
-            }).addTo(layerGroups["LIVE_USERS"]);
-        } else {
-            liveUserMarkers[uid].setLatLng([lat, lng]);
-        }
-    }
-}
 
 // ------------------------------------------------------------
 // Alerts: load alerts.json and show latest update
