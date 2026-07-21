@@ -1,20 +1,9 @@
 console.log("map.js loaded");
-// ---------------------------------------------------------
- // HEARTBEAT WORKER — Prevent Chromium passive throttling
- // ---------------------------------------------------------
- //const heartbeatWorker = new Worker(URL.createObjectURL(new Blob([
-   // Send a heartbeat every second   
-//  "setInterval(() => postMessage('tick'), 1000);"
-// ], { type: 'application/javascript' })));
-
- //let lastHeartbeat = Date.now();
- //let locationUpdateActive = false;
-
-document.addEventListener("DOMContentLoaded", () => { initMap(); });
-
 // ------------------------------------------------------------
 // Bunmahon CGU Access Map – Full Feature Version (FINAL)
 // ------------------------------------------------------------ //
+
+document.addEventListener("DOMContentLoaded", () => { initMap(); });
 
 let tracking = true;
 let lastLocation = null;
@@ -23,10 +12,10 @@ let map;
 // ===============================
 // USER ID (persistent anonymous)
 // ===============================
-let userId = localStorage.getItem('userId');
-if (!userId) {
-    userId = crypto.randomUUID();
-    localStorage.setItem('userId', userId);
+let userId = localStorage.getItems('userId');
+if(!userId) {
+  useriD = crypto.randomUUID();
+  localStorage.setItem('userId', userId);
 }
 
 
