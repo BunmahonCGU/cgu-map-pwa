@@ -275,7 +275,7 @@ const geojsonOptions = {
         (props._umap_options && props._umap_options.description) ||
         (props._umap_options && props._umap_options.popupContent) ||
         "";
-      console.log("RAW POPUP INPUT >>>", JSON.stringify(raw));
+      //console.log("RAW POPUP INPUT >>>", JSON.stringify(raw));
 
       let popup = formatUmapPopup(raw);
 
@@ -366,7 +366,7 @@ const geojsonOptions = {
           .replaceAll("{ele}", elevationText);
       }
 
-      console.log("FINAL POPUP HTML >>>", popup);
+      //console.log("FINAL POPUP HTML >>>", popup);
       layer.bindPopup(popup, { maxWidth: 400, className: "custom-popup" });
     }
   }
