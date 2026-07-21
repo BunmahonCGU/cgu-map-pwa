@@ -1060,6 +1060,7 @@ function sendLocationUpdate(lat, lng) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       userId,
+      displayName: localStorage.getItem("displayName") || null,
       lat,
       lng,
       timestamp: Date.now()
