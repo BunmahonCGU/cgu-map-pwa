@@ -1021,8 +1021,9 @@ async function refreshLiveUsers() {
                               </div>
                           </div>
                     `,
-                    iconSize: [80, 24],
-                    iconAnchor: [40, 12]
+                    iconSize: [80, 32],
+                    iconAnchor: [40, 16]
+
                 })
             }).addTo(layerGroups["LIVE_USERS"]);
             } else {
