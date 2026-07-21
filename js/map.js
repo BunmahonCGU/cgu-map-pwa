@@ -1028,7 +1028,7 @@ async function refreshLiveUsers() {
             }
         }
 
-    } catch (err) {
+     catch (err) {
         console.warn("Live user refresh failed:", err);
     }
 }
