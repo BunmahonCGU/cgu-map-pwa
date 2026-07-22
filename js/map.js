@@ -1105,28 +1105,39 @@ function sendLocationUpdate(lat, lng) {
 function startLocationUpdates() {
   console.log("startLocationUpdates() called");
 
+  let lastCoords = null;
+
+  // Get initial fix (mobile + desktop)
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      console.log("Initial GPS fix", pos.coords);
+      lastCoords = pos.coords;
+      sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
+    },
+    err => console.error("Initial GPS error", err),
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+  );
+
   // Mobile: continuous updates
   navigator.geolocation.watchPosition(
     pos => {
       console.log("GPS callback fired", pos.coords);
+      lastCoords = pos.coords;
       sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
     },
-    err => console.error("GPS error", err),
-    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+    err => console.error("GPS watch error", err),
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
   );
 
-  // Desktop: force updates every 5 seconds
+  // Desktop: simulate movement every 5 seconds
   setInterval(() => {
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        console.log("Forced desktop GPS update", pos.coords);
-        sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
-      },
-      err => console.error("Forced GPS error", err),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-    );
+    if (lastCoords) {
+      console.log("Synthetic desktop update", lastCoords);
+      sendLocationUpdate(lastCoords.latitude, lastCoords.longitude);
+    }
   }, 5000);
 }
+
 
 
 // Start updates immediately
