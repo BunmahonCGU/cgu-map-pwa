@@ -48,7 +48,8 @@ self.addEventListener("fetch", event => {
   const url = event.request.url;
 
   // 🚫 Skip cross-origin requests (Cloudflare Worker endpoints)
-  if (!url.startsWith(self.location.origin)) {
+  if (new URL(url).origin !== self.location.origin) {
+    // Let the browser handle it normally
     return;
   }
 
