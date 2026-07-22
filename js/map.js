@@ -1105,6 +1105,7 @@ function sendLocationUpdate(lat, lng) {
 function startLocationUpdates() {
   console.log("startLocationUpdates() called");
 
+  // Mobile: continuous updates
   navigator.geolocation.watchPosition(
     pos => {
       console.log("GPS callback fired", pos.coords);
@@ -1113,7 +1114,20 @@ function startLocationUpdates() {
     err => console.error("GPS error", err),
     { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
   );
+
+  // Desktop: force updates every 5 seconds
+  setInterval(() => {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        console.log("Forced desktop GPS update", pos.coords);
+        sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
+      },
+      err => console.error("Forced GPS error", err),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+    );
+  }, 5000);
 }
+
 
 // Start updates immediately
 startLocationUpdates();
