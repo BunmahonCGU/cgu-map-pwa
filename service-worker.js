@@ -45,28 +45,27 @@ self.addEventListener("activate", event => {
 // Fetch — network-first for dynamic data, cache-first for app shell
 // ------------------------------------------------------------
 self.addEventListener("fetch", event => {
-  const url = event.request.url;
+  const reqUrl = new URL(event.request.url);
 
-  // 🚫 Skip cross-origin requests (Cloudflare Worker endpoints)
-  if (new URL(url).origin !== self.location.origin) {
-    // Let the browser handle it normally
-    return;
+  // 🚫 Do NOT intercept cross-origin requests
+  if (reqUrl.origin !== self.location.origin) {
+    return; // Let the browser handle it normally
   }
 
   // ❌ NEVER cache alerts.json — always fetch fresh
-  if (url.includes("alerts.json")) {
+  if (reqUrl.href.includes("alerts.json")) {
     event.respondWith(fetch(event.request));
     return;
   }
 
   // ❌ NEVER cache uMap layers (they update frequently)
-  if (url.includes("umap") || url.includes("tiles") || url.includes("geojson")) {
+  if (reqUrl.href.includes("umap") || reqUrl.href.includes("tiles") || reqUrl.href.includes("geojson")) {
     event.respondWith(fetch(event.request));
     return;
   }
 
   // App shell → cache-first
-  if (APP_SHELL.some(path => url.includes(path))) {
+  if (APP_SHELL.some(path => reqUrl.href.includes(path))) {
     event.respondWith(
       caches.match(event.request).then(cached => {
         return (
@@ -90,5 +89,6 @@ self.addEventListener("fetch", event => {
       .catch(() => caches.match(event.request))
   );
 });
+
 
 
