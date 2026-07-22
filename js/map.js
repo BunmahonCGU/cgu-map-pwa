@@ -14,7 +14,7 @@ let map;
 // ===============================
 let userId = localStorage.getItem('userId');
 if(!userId) {
-  useriD = crypto.randomUUID();
+  userId = crypto.randomUUID();
   localStorage.setItem('userId', userId);
 }
 
