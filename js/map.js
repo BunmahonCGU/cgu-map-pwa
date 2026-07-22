@@ -622,7 +622,7 @@ async function initMap() {
 
     const toggleContainer = document.createElement("div");
     toggleContainer.style.marginTop = "10px";
-    toggleContainer.inner = `
+    toggleContainer.innerHTML  = `
       <label style="cursor:pointer;">
         <input type="checkbox" id="alerts-toggle"> Show Updates
       </label>
@@ -634,7 +634,7 @@ async function initMap() {
     // ===============================
     const shareContainer = document.createElement("div");
     shareContainer.style.marginTop = "6px";
-    shareContainer.inner = `
+    shareContainer.innerHTML  = `
         <label style="cursor:pointer;">
             <input type="checkbox" id="shareLocationOptIn">
             Share My Location
