@@ -690,7 +690,8 @@ layerList.appendChild(nameContainer);
 
 const nameInput = document.getElementById("displayNameInput");
 nameInput.value = localStorage.getItem("displayName") || "";
-
+console.log("nameInput exists:", !!nameInput);
+    
 nameInput.addEventListener("input", () => {
     localStorage.setItem("displayName", nameInput.value.trim());
 });
