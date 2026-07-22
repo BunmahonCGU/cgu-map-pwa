@@ -47,6 +47,11 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
   const url = event.request.url;
 
+  // 🚫 Skip cross-origin requests (Cloudflare Worker endpoints)
+  if (!url.startsWith(self.location.origin)) {
+    return;
+  }
+
   // ❌ NEVER cache alerts.json — always fetch fresh
   if (url.includes("alerts.json")) {
     event.respondWith(fetch(event.request));
@@ -84,3 +89,4 @@ self.addEventListener("fetch", event => {
       .catch(() => caches.match(event.request))
   );
 });
+
