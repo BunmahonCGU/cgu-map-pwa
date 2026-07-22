@@ -559,7 +559,22 @@ async function initMap() {
   
   map = L.map("map").setView([52.1031, -7.3498], 12);
     // Add base map tiles
-  
+  // Spiderfier for overlapping markers
+
+const oms = new OverlappingMarkerSpiderfier(map, {
+    keepSpiderfied: true,
+    nearbyDistance: 20   // pixels before spiderfy triggers
+});
+
+// Optional highlight effect
+oms.addListener('spiderfy', function(markers) {
+    markers.forEach(m => m.setOpacity(0.9));
+});
+oms.addListener('unspiderfy', function(markers) {
+    markers.forEach(m => m.setOpacity(1));
+});
+
+
  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", {
   maxZoom: 19,
   attribution: "Tiles © Esri"
@@ -1033,6 +1048,7 @@ async function refreshLiveUsers() {
                         iconAnchor: [45, 20]
                     })
                 }).addTo(layerGroups["LIVE_USERS"]);
+                oms.addMarker(liveUserMarkers[userId]);
 
             } else {
                 // Update existing marker position
