@@ -980,7 +980,7 @@ map.on("blur", () => {
 // ===============================
 // LIVE USER POLLING
 // ===============================
-let liveUserMarkers = {};
+let  = {};
 
 async function refreshLiveUsers() {
     try {
@@ -1027,7 +1027,7 @@ async function refreshLiveUsers() {
                 liveUserMarkers[userId].setLatLng([lat, lng]);
             }
         }
-
+    }
      catch (err) {
         console.warn("Live user refresh failed:", err);
     }
