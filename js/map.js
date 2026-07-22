@@ -1034,6 +1034,19 @@ async function refreshLiveUsers() {
             }).addTo(layerGroups["LIVE_USERS"]);
             } else {
                 liveUserMarkers[userId].setLatLng([lat, lng]);
+
+    // ⭐ NEW: update icon HTML
+    liveUserMarkers[userId].setIcon(L.divIcon({
+        className: "live-user-icon",
+        html: `
+            <div class="live-user-wrapper">
+                <div class="live-user-dot"></div>
+                <div class="live-user-name">${displayName || userId}</div>
+                <div class="live-user-time">${formattedTime}</div>
+            </div>
+        `,
+        iconSize: [90, 40],
+        iconAnchor: [45, 20]
             }
         }
     }
