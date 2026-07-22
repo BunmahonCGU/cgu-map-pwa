@@ -647,6 +647,9 @@ async function initMap() {
     
     shareOptIn.addEventListener("change", () => {
         localStorage.setItem("shareLocation", shareOptIn.checked ? "true" : "false");
+
+      localStorage.setItem("displayName", nameInput.value.trim());
+      
     });
 
         // ===============================
@@ -691,7 +694,12 @@ nameInput.value = localStorage.getItem("displayName") || "";
 nameInput.addEventListener("input", () => {
     localStorage.setItem("displayName", nameInput.value.trim());
 });
-
+    
+// ⭐ FIX 2 — mobile‑safe fallback
+nameInput.addEventListener("blur", () => {
+    localStorage.setItem("displayName", nameInput.value.trim());
+});
+    
       document.getElementById("alerts-toggle").addEventListener("change", (e) => {
       const panel = document.getElementById("alerts-panel");
       panel.classList.toggle("hidden", !e.target.checked);
