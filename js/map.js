@@ -999,58 +999,63 @@ async function refreshLiveUsers() {
 
         // Remove stale markers (> 2 minutes)
         for (const uid in liveUserMarkers) {
-    const user = users.find(u => u.userId === uid);
+            const user = users.find(u => u.userId === uid);
 
-    // If user not found OR timestamp older than 2 minutes → remove
-    if (!user || (now - user.timestamp) > 120000) {
-        layerGroups["LIVE_USERS"].removeLayer(liveUserMarkers[uid]);
-        delete liveUserMarkers[uid];
-    }
-}
-
+            if (!user || (now - user.timestamp) > 120000) {
+                layerGroups["LIVE_USERS"].removeLayer(liveUserMarkers[uid]);
+                delete liveUserMarkers[uid];
+            }
+        }
 
         // Add/update markers
         for (const user of users) {
-           const { userId, lat, lng, displayName } = user;
-          const formattedTime = new Date(user.timestamp).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit"
-          });
+            const { userId, lat, lng, displayName } = user;
+
+            const formattedTime = new Date(user.timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit"
+            });
+
             if (!liveUserMarkers[userId]) {
+                // Create new marker
                 liveUserMarkers[userId] = L.marker([lat, lng], {
-                icon: L.divIcon({
-                    className: "live-user-icon",
-                    html: `
-                <div class="live-user-wrapper">
-                <div class="live-user-dot"></div>
-                <div class="live-user-name">${displayName || userId}</div>
-                <div class="live-user-time">${formattedTime}</div>
-                  </div>
-                    `,
-            iconSize: [90, 40],
-            iconAnchor: [45, 20]
-                })
-            }).addTo(layerGroups["LIVE_USERS"]);
+                    icon: L.divIcon({
+                        className: "live-user-icon",
+                        html: `
+                            <div class="live-user-wrapper">
+                                <div class="live-user-dot"></div>
+                                <div class="live-user-name">${displayName || userId}</div>
+                                <div class="live-user-time">${formattedTime}</div>
+                            </div>
+                        `,
+                        iconSize: [90, 40],
+                        iconAnchor: [45, 20]
+                    })
+                }).addTo(layerGroups["LIVE_USERS"]);
+
             } else {
+                // Update existing marker position
                 liveUserMarkers[userId].setLatLng([lat, lng]);
 
-    // ⭐ NEW: update icon HTML
-    liveUserMarkers[userId].setIcon(L.divIcon({
-        className: "live-user-icon",
-        html: `
-            <div class="live-user-wrapper">
-                <div class="live-user-dot"></div>
-                <div class="live-user-name">${displayName || userId}</div>
-                <div class="live-user-time">${formattedTime}</div>
-            </div>
-        `,
-        iconSize: [90, 40],
-        iconAnchor: [45, 20]
+                // ⭐ Update icon HTML (fixes stale name + time)
+                liveUserMarkers[userId].setIcon(
+                    L.divIcon({
+                        className: "live-user-icon",
+                        html: `
+                            <div class="live-user-wrapper">
+                                <div class="live-user-dot"></div>
+                                <div class="live-user-name">${displayName || userId}</div>
+                                <div class="live-user-time">${formattedTime}</div>
+                            </div>
+                        `,
+                        iconSize: [90, 40],
+                        iconAnchor: [45, 20]
+                    })
+                );
             }
         }
-    }
-     catch (err) {
+    } catch (err) {
         console.warn("Live user refresh failed:", err);
     }
 }
