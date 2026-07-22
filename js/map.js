@@ -654,7 +654,7 @@ async function initMap() {
         // ===============================
         const liveUsersContainer = document.createElement("div");
         liveUsersContainer.style.marginTop = "6px";
-        liveUsersContainer.inner = `
+        liveUsersContainer.innerHTML  = `
             <label style="cursor:pointer;">
                 <input type="checkbox" id="liveUsersToggle">
                 Show Active Users
