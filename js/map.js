@@ -194,7 +194,7 @@ function makeSvgIcon(shape, color, label) {
   }
 
   return L.divIcon({
-    : svg,
+    html: svg,
     className: "",
     iconSize: [40, 40],
     iconAnchor: [20, 38],
