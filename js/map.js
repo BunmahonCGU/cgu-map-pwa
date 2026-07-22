@@ -1093,7 +1093,7 @@ function sendLocationUpdate(lat, lng) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      userId,
+      userId: localStorage.getItem("displayName") || userId,
       displayName: localStorage.getItem("displayName") || null,
       lat,
       lng,
