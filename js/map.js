@@ -980,7 +980,7 @@ map.on("blur", () => {
 // ===============================
 // LIVE USER POLLING
 // ===============================
-let  = {};
+let liveUserMarkers  = {};
 
 async function refreshLiveUsers() {
     try {
