@@ -1082,7 +1082,9 @@ async function refreshLiveUsers() {
 
         for (const user of users) {
             const { userId, lat, lng, displayName, team } = user;
-
+            if (!displayName || displayName.trim() === "") {
+                    continue;
+                }
             const formattedTime = new Date(user.timestamp).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -1144,17 +1146,14 @@ async function refreshLiveUsers() {
               const wrapper = marker._icon.querySelector(".live-user-wrapper");
           
               if (wrapper) {
-                  // TEAM COLOUR
                   wrapper.style.backgroundColor = getTeamColor(team);
-          
-                  // TEXT FIELDS
-                  wrapper.querySelector(".live-user-name").textContent = displayName || userId;
+                  wrapper.querySelector(".live-user-name").textContent = displayName;
                   wrapper.querySelector(".live-user-time").textContent = formattedTime;
               }
           
               liveUserMarkers[userId] = marker;
               oms.addMarker(marker);
-          
+         
             // ----------------------------------------------------
             // UPDATE EXISTING MARKER
             // ----------------------------------------------------
@@ -1169,7 +1168,8 @@ async function refreshLiveUsers() {
             //         wrapper.querySelector(".live-user-time").textContent = formattedTime;
             //     }
             // }
-                      // ----------------------------------------------------
+
+            // ----------------------------------------------------
             // UPDATE EXISTING MARKER
             // ----------------------------------------------------
             } else {
@@ -1180,11 +1180,8 @@ async function refreshLiveUsers() {
                 const wrapper = marker._icon.querySelector(".live-user-wrapper");
             
                 if (wrapper) {
-                    // TEAM COLOUR
                     wrapper.style.backgroundColor = getTeamColor(team);
-            
-                    // TEXT FIELDS
-                    wrapper.querySelector(".live-user-name").textContent = displayName || userId;
+                    wrapper.querySelector(".live-user-name").textContent = displayName;
                     wrapper.querySelector(".live-user-time").textContent = formattedTime;
                 }
             }
@@ -1263,37 +1260,27 @@ function startLocationUpdates() {
   console.log("startLocationUpdates() called");
 
   let lastGPS = 0;
-
-  // Mobile + desktop: continuous updates when movement occurs
+  let lastLat = null;
+  let lastLng = null;
+  
   navigator.geolocation.watchPosition(
     pos => {
-      console.log("GPS callback fired", pos.coords);
       lastGPS = Date.now();
-      sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
+      lastLat = pos.coords.latitude;
+      lastLng = pos.coords.longitude;
+      sendLocationUpdate(lastLat, lastLng);
     },
     err => console.error("GPS watch error", err),
     { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
   );
-
-  // ---------------------------------------------------------
-  // DESKTOP HEARTBEAT — prevents stale desktop icon
-  // Fires ONLY when GPS has been idle for >10 seconds
-  // ---------------------------------------------------------
+  
+  // Desktop heartbeat (GPS idle)
   setInterval(() => {
     const now = Date.now();
-
-    // If no GPS callback recently → desktop is idle → send heartbeat
-    if (now - lastGPS > 10000) {
+  
+    if (now - lastGPS > 10000 && lastLat !== null && lastLng !== null) {
       console.log("Desktop heartbeat (GPS idle)");
-      // Reuse last known coordinates if available
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          pos => {
-            sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
-          },
-          err => console.warn("Heartbeat GPS error", err)
-        );
-      }
+      sendLocationUpdate(lastLat, lastLng);   // <-- NO geolocation call
     }
   }, 5000);
 }
