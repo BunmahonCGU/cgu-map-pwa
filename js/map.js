@@ -18,6 +18,19 @@ if(!userId) {
   localStorage.setItem('userId', userId);
 }
 
+const teamColors = {};
+
+function getTeamColor(team) {
+    if (!team) return "#ffffff"; // white for no-team
+
+    if (!teamColors[team]) {
+        const hue = Math.floor(Math.random() * 360);
+        teamColors[team] = `hsl(${hue}, 70%, 80%)`;
+    }
+
+    return teamColors[team];
+}
+
 const liveUserIcon = L.divIcon({
     className: "live-user-icon",
     html: `
@@ -721,6 +734,25 @@ nameContainer.innerHTML = `
 `;
 layerList.appendChild(nameContainer);
 
+const teamContainer = document.createElement("div");
+teamContainer.innerHTML = `
+  <label>
+    <select id="teamSelect">
+      <option value="">No Team</option>
+      <option value="Alpha">Alpha</option>
+      <option value="Bravo">Bravo</option>
+      <option value="Charlie">Charlie</option>
+      <option value="Delta">Delta</option>
+      <option value="Echo">Echo</option>
+      <option value="Foxtrot">Foxtrot</option>
+      <option value="Golf">Golf</option>
+      <option value="Hotel">Hotel</option>
+    </select>
+  </label>
+`;
+layerList.appendChild(teamContainer);
+    
+    
 const nameInput = document.getElementById("displayNameInput");
 nameInput.value = localStorage.getItem("displayName") || "";
 console.log("nameInput exists:", !!nameInput);
@@ -728,6 +760,14 @@ console.log("nameInput exists:", !!nameInput);
 nameInput.addEventListener("input", () => {
     localStorage.setItem("displayName", nameInput.value.trim());
 });
+
+const teamSelect = document.getElementById("teamSelect");
+teamSelect.value = localStorage.getItem("team") || "";
+
+teamSelect.addEventListener("change", () => {
+    localStorage.setItem("team", teamSelect.value);
+});
+
     
 // ⭐ FIX 2 — mobile‑safe fallback
 nameInput.addEventListener("blur", () => {
@@ -1041,7 +1081,7 @@ async function refreshLiveUsers() {
         }
 
         for (const user of users) {
-            const { userId, lat, lng, displayName } = user;
+            const { userId, lat, lng, displayName, team } = user;
 
             const formattedTime = new Date(user.timestamp).toLocaleTimeString([], {
                 hour: "2-digit",
@@ -1049,46 +1089,102 @@ async function refreshLiveUsers() {
                 second: "2-digit"
             });
 
-            // ----------------------------------------------------
-            // NEW MARKER
-            // ----------------------------------------------------
-            if (!liveUserMarkers[userId]) {
+            // // ----------------------------------------------------
+            // // NEW MARKER
+            // // ----------------------------------------------------
+            // if (!liveUserMarkers[userId]) {
 
-                const marker = L.marker([lat, lng], {
-                    icon: L.divIcon({
-                        className: "live-user-icon",
-                        html: `
-                            <div class="live-user-wrapper">
-                                <div class="live-user-dot"></div>
-                                <div class="live-user-name"></div>
-                                <div class="live-user-time"></div>
-                            </div>
-                        `,
-                        iconSize: [80, 40],
-                        iconAnchor: [40, 20]
-                    })
-                }).addTo(layerGroups["LIVE_USERS"]);
+            //     const marker = L.marker([lat, lng], {
+            //         icon: L.divIcon({
+            //             className: "live-user-icon",
+            //             html: `
+            //                 <div class="live-user-wrapper">
+            //                     <div class="live-user-dot"></div>
+            //                     <div class="live-user-name"></div>
+            //                     <div class="live-user-time"></div>
+            //                 </div>
+            //             `,
+            //             iconSize: [80, 40],
+            //             iconAnchor: [40, 20]
+            //         })
+            //     }).addTo(layerGroups["LIVE_USERS"]);
 
-                // Update wrapper text
-                const wrapper = marker._icon.querySelector(".live-user-wrapper");
-                if (wrapper) {
-                    wrapper.querySelector(".live-user-name").textContent = displayName || userId;
-                    wrapper.querySelector(".live-user-time").textContent = formattedTime;
-                }
-
-                liveUserMarkers[userId] = marker;
-                oms.addMarker(marker);
+            //     // Update wrapper text
+            //     const wrapper = marker._icon.querySelector(".live-user-wrapper");
+            //     const color = getTeamColor(team);
+            //     wrapper.style.backgroundColor = color;
+            //     if (wrapper) {
+            //         wrapper.querySelector(".live-user-name").textContent = displayName || userId;
+            //         wrapper.querySelector(".live-user-time").textContent = formattedTime;
+            //     }
+                
+            //     marker._icon.querySelector(".live-user-wrapper").style.backgroundColor = getTeamColor(team);
+            //     liveUserMarkers[userId] = marker;
+            //     oms.addMarker(marker);
+          // ----------------------------------------------------
+          // NEW MARKER
+          // ----------------------------------------------------
+          if (!liveUserMarkers[userId]) {
+          
+              const marker = L.marker([lat, lng], {
+                  icon: L.divIcon({
+                      className: "live-user-icon",
+                      html: `
+                          <div class="live-user-wrapper">
+                              <div class="live-user-dot"></div>
+                              <div class="live-user-name"></div>
+                              <div class="live-user-time"></div>
+                          </div>
+                      `,
+                      iconSize: [80, 40],
+                      iconAnchor: [40, 20]
+                  })
+              }).addTo(layerGroups["LIVE_USERS"]);
+          
+              const wrapper = marker._icon.querySelector(".live-user-wrapper");
+          
+              if (wrapper) {
+                  // TEAM COLOUR
+                  wrapper.style.backgroundColor = getTeamColor(team);
+          
+                  // TEXT FIELDS
+                  wrapper.querySelector(".live-user-name").textContent = displayName || userId;
+                  wrapper.querySelector(".live-user-time").textContent = formattedTime;
+              }
+          
+              liveUserMarkers[userId] = marker;
+              oms.addMarker(marker);
+          }
 
             // ----------------------------------------------------
             // UPDATE EXISTING MARKER
             // ----------------------------------------------------
-            } else {
+            // } else {
 
+            //     const marker = liveUserMarkers[userId];
+            //     marker.setLatLng([lat, lng]);
+
+            //     const wrapper = marker._icon.querySelector(".live-user-wrapper");
+            //     if (wrapper) {
+            //         wrapper.querySelector(".live-user-name").textContent = displayName || userId;
+            //         wrapper.querySelector(".live-user-time").textContent = formattedTime;
+            //     }
+            // }
+                      // ----------------------------------------------------
+            // UPDATE EXISTING MARKER
+            // ----------------------------------------------------
+            } else {
+            
                 const marker = liveUserMarkers[userId];
                 marker.setLatLng([lat, lng]);
-
+            
                 const wrapper = marker._icon.querySelector(".live-user-wrapper");
+            
                 if (wrapper) {
+                    // TEAM COLOUR
+                    wrapper.style.backgroundColor = getTeamColor(team);
+            
+                    // TEXT FIELDS
                     wrapper.querySelector(".live-user-name").textContent = displayName || userId;
                     wrapper.querySelector(".live-user-time").textContent = formattedTime;
                 }
@@ -1120,6 +1216,7 @@ function sendLocationUpdate(lat, lng) {
       // displayName: localStorage.getItem("displayName") || null,
       userId: userId,   // always the GUID
       displayName: localStorage.getItem("displayName") || null,
+      team: localStorage.getItem("team") || null,
       lat,
       lng,
       timestamp: Date.now()
