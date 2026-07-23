@@ -1109,21 +1109,21 @@ console.log("map.js loaded");
 // SIMPLE LOCATION UPDATES — no heartbeat, no throttling logic
 // ---------------------------------------------------------
 
-// function sendLocationUpdate(lat, lng) {
-//   console.log("sendLocationUpdate()", lat, lng);
+function sendLocationUpdate(lat, lng) {
+  console.log("sendLocationUpdate()", lat, lng);
 
-//   fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/location/update", {
-//     method: "POST",
-//     headers: { "Content-Type": "application/json" },
-//     body: JSON.stringify({
-//       userId: localStorage.getItem("displayName") || userId,
-//       displayName: localStorage.getItem("displayName") || null,
-//       lat,
-//       lng,
-//       timestamp: Date.now()
-//     })
-//   }).catch(err => console.error("Location update failed:", err));
-// }
+  fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/location/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId: localStorage.getItem("displayName") || userId,
+      displayName: localStorage.getItem("displayName") || null,
+      lat,
+      lng,
+      timestamp: Date.now()
+    })
+  }).catch(err => console.error("Location update failed:", err));
+}
 
 // function startLocationUpdates() {
 //   console.log("startLocationUpdates() called");
