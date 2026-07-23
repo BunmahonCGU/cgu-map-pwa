@@ -253,7 +253,9 @@ const geojsonOptions = {
     const label = getFeatureLabel(feature);
     const iconDef = iconMap[prefix] || { shape: "circle-pin", color: "blue" };
     const icon = makeSvgIcon(iconDef.shape, iconDef.color, label);
-    const marker = L.marker([lat, lng], { icon: blankIcon }).addTo(layerGroups["LIVE_USERS"]);
+    const [lng, lat] = feature.geometry.coordinates;
+   return L.marker([lat, lng], { icon: blankIcon });
+}
 
 marker._icon.innerHTML = `
     <div class="live-user-wrapper">
@@ -1049,14 +1051,16 @@ async function refreshLiveUsers() {
             if (!liveUserMarkers[userId]) {
                 // Create new marker
                 const marker = L.marker([lat, lng], { icon: blankIcon }).addTo(layerGroups["LIVE_USERS"]);
-                
-                marker._icon.innerHTML = `
+
+                const wrapper = marker._icon.parentNode;
+                wrapper.innerHTML = `
                     <div class="live-user-wrapper">
                         <div class="live-user-dot"></div>
                         <div class="live-user-name">${displayName || userId}</div>
                         <div class="live-user-time">${formattedTime}</div>
                     </div>
                 `;
+
                 
                 liveUserMarkers[userId] = marker;
                 
