@@ -1038,32 +1038,16 @@ async function refreshLiveUsers() {
                 second: "2-digit"
             });
 
+            // ----------------------------------------------------
+            // NEW MARKER
+            // ----------------------------------------------------
             if (!liveUserMarkers[userId]) {
-                // Create new marker
-                const marker = L.marker([lat, lng], { icon: blankIcon }).addTo(layerGroups["LIVE_USERS"]);
 
-                const wrapper = marker._icon.parentNode;
-                wrapper.innerHTML = `
-                    <div class="live-user-wrapper">
-                        <div class="live-user-dot"></div>
-                        <div class="live-user-name">${displayName || userId}</div>
-                        <div class="live-user-time">${formattedTime}</div>
-                    </div>
-                `;
+                const marker = L.marker([lat, lng], { icon: blankIcon })
+                    .addTo(layerGroups["LIVE_USERS"]);
 
-                
-                liveUserMarkers[userId] = marker;
-                
-                // ⭐ Add to spiderfier
-                oms.addMarker(marker);
-
-
-            } else {
-                // Update existing marker position
-                liveUserMarkers[userId].setLatLng([lat, lng]);
-                
-                // Update HTML overlay ONLY if the icon exists
-                const iconEl = liveUserMarkers[userId]._icon;
+                // Safe DOM attachment (works even if parentNode not ready)
+                const iconEl = marker._icon;
                 if (iconEl) {
                     const wrapper = iconEl.parentNode || iconEl;
                     wrapper.innerHTML = `
@@ -1073,34 +1057,43 @@ async function refreshLiveUsers() {
                             <div class="live-user-time">${formattedTime}</div>
                         </div>
                     `;
-                  }
-
                 }
+
+                liveUserMarkers[userId] = marker;
+
+                // Add to spiderfier
+                oms.addMarker(marker);
+
+            // ----------------------------------------------------
+            // UPDATE EXISTING MARKER
+            // ----------------------------------------------------
+            } else {
+
+                const marker = liveUserMarkers[userId];
+
+                // Update position
+                marker.setLatLng([lat, lng]);
+
+                // Safe DOM update
+                const iconEl = marker._icon;
+                if (iconEl) {
+                    const wrapper = iconEl.parentNode || iconEl;
+                    wrapper.innerHTML = `
+                        <div class="live-user-wrapper">
+                            <div class="live-user-dot"></div>
+                            <div class="live-user-name">${displayName || userId}</div>
+                            <div class="live-user-time">${formattedTime}</div>
+                        </div>
+                    `;
+                }
+            }
         }
+
     } catch (err) {
         console.warn("Live user refresh failed:", err);
     }
 }
 
- // ---------------------------------------------------------
- // HEARTBEAT HANDLER — restart updates if throttled
- // ---------------------------------------------------------
-// heartbeatWorker.onmessage = () => {
-//   lastHeartbeat = Date.now();
-
-//   if (!locationUpdateActive) {
-//     console.log("Heartbeat detected — restarting location updates");
-//     startLocationUpdates();
-//   }
-// };
-
- // Safety monitor: detect stalled heartbeat
-// setInterval(() => {
- //  if (Date.now() - lastHeartbeat > 3000) {
- //    console.warn("Heartbeat stalled — forcing location update restart");
- //    locationUpdateActive = false;
- //  }
-// }, 2000);
 setInterval(refreshLiveUsers, 5000);
 console.log("map.js loaded");
 
