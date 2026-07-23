@@ -1154,8 +1154,7 @@ async function refreshLiveUsers() {
           
               liveUserMarkers[userId] = marker;
               oms.addMarker(marker);
-          }
-
+          
             // ----------------------------------------------------
             // UPDATE EXISTING MARKER
             // ----------------------------------------------------
