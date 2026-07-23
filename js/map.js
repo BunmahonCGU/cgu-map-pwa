@@ -1080,11 +1080,21 @@ async function refreshLiveUsers() {
             }
         }
 
-        for (const user of users) {
-            const { userId, lat, lng, displayName, team } = user;
-            if (!displayName || displayName.trim() === "") {
-                    continue;
-                }
+          for (const user of users) {
+              const { userId, lat, lng, displayName, team } = user;          
+              // ----------------------------------------------------
+              // HIDE USERS WITH NO NAME
+              // ----------------------------------------------------
+              if (!displayName || displayName.trim() === "") {          
+                  // Remove existing marker if present
+                  if (liveUserMarkers[userId]) {
+                      oms.removeMarker(liveUserMarkers[userId]);
+                      layerGroups["LIVE_USERS"].removeLayer(liveUserMarkers[userId]);
+                      delete liveUserMarkers[userId];
+                  }          
+                  continue; // Skip rendering
+              }
+
             const formattedTime = new Date(user.timestamp).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
