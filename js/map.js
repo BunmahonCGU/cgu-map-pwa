@@ -24,6 +24,11 @@ const userIcon = L.divIcon({
   iconSize: [28, 28], // size of the dot
   iconAnchor: [14, 14] // center the dot on the location
 });
+const blankIcon = L.icon({
+    iconUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2gYf8AAAAASUVORK5CYII=",
+    iconSize: [1, 1],
+    iconAnchor: [0, 0]
+});
 
 async function checkTokenStatus() {
   const el = document.getElementById("token-status");
@@ -1034,41 +1039,36 @@ async function refreshLiveUsers() {
 
             if (!liveUserMarkers[userId]) {
                 // Create new marker
-                liveUserMarkers[userId] = L.marker([lat, lng], {
-                    icon: L.divIcon({
-                        className: "live-user-icon",
-                        html: `
-                            <div class="live-user-wrapper">
-                                <div class="live-user-dot"></div>
-                                <div class="live-user-name">${displayName || userId}</div>
-                                <div class="live-user-time">${formattedTime}</div>
-                            </div>
-                        `,
-                        iconSize: [90, 40],
-                        iconAnchor: [45, 20]
-                    })
-                }).addTo(layerGroups["LIVE_USERS"]);
-                oms.addMarker(liveUserMarkers[userId]);
+                const marker = L.marker([lat, lng], { icon: blankIcon }).addTo(layerGroups["LIVE_USERS"]);
+                
+                marker._icon.innerHTML = `
+                    <div class="live-user-wrapper">
+                        <div class="live-user-dot"></div>
+                        <div class="live-user-name">${displayName || userId}</div>
+                        <div class="live-user-time">${formattedTime}</div>
+                    </div>
+                `;
+                
+                liveUserMarkers[userId] = marker;
+                
+                // ⭐ Add to spiderfier
+                oms.addMarker(marker);
+
 
             } else {
                 // Update existing marker position
-                liveUserMarkers[userId].setLatLng([lat, lng]);
 
-                // ⭐ Update icon HTML (fixes stale name + time)
-                liveUserMarkers[userId].setIcon(
-                    L.divIcon({
-                        className: "live-user-icon",
-                        html: `
-                            <div class="live-user-wrapper">
-                                <div class="live-user-dot"></div>
-                                <div class="live-user-name">${displayName || userId}</div>
-                                <div class="live-user-time">${formattedTime}</div>
-                            </div>
-                        `,
-                        iconSize: [90, 40],
-                        iconAnchor: [45, 20]
-                    })
-                );
+              liveUserMarkers[userId].setLatLng([lat, lng]);
+              
+              // Update the HTML overlay (DivIcon replacement)
+              liveUserMarkers[userId]._icon.innerHTML = `
+                  <div class="live-user-wrapper">
+                      <div class="live-user-dot"></div>
+                      <div class="live-user-name">${displayName || userId}</div>
+                      <div class="live-user-time">${formattedTime}</div>
+                  </div>
+              `;
+
             }
         }
     } catch (err) {
