@@ -255,10 +255,6 @@ const geojsonOptions = {
     const icon = makeSvgIcon(iconDef.shape, iconDef.color, label);
     const [lng, lat] = feature.geometry.coordinates;
    return L.marker([lat, lng], { icon: blankIcon });
-};
-
-
-
     // ⬅️ back to prefix-based grouping (your earlier behaviour)
     if (layerGroups[prefix]) {
       layerGroups[prefix].addLayer(marker);
