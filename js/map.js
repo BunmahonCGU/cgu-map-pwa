@@ -1038,19 +1038,14 @@ async function refreshLiveUsers() {
                 second: "2-digit"
             });
 
-            // ----------------------------------------------------
-            // NEW MARKER
-            // ----------------------------------------------------
             if (!liveUserMarkers[userId]) {
 
                 const marker = L.marker([lat, lng], { icon: blankIcon })
                     .addTo(layerGroups["LIVE_USERS"]);
 
-                // Safe DOM attachment (works even if parentNode not ready)
                 const iconEl = marker._icon;
-                if (iconEl) {
-                    const wrapper = iconEl.parentNode || iconEl;
-                    wrapper.innerHTML = `
+                if (iconEl && iconEl.parentNode) {
+                    iconEl.parentNode.innerHTML = `
                         <div class="live-user-wrapper">
                             <div class="live-user-dot"></div>
                             <div class="live-user-name">${displayName || userId}</div>
@@ -1060,25 +1055,16 @@ async function refreshLiveUsers() {
                 }
 
                 liveUserMarkers[userId] = marker;
-
-                // Add to spiderfier
                 oms.addMarker(marker);
 
-            // ----------------------------------------------------
-            // UPDATE EXISTING MARKER
-            // ----------------------------------------------------
             } else {
 
                 const marker = liveUserMarkers[userId];
-
-                // Update position
                 marker.setLatLng([lat, lng]);
 
-                // Safe DOM update
                 const iconEl = marker._icon;
-                if (iconEl) {
-                    const wrapper = iconEl.parentNode || iconEl;
-                    wrapper.innerHTML = `
+                if (iconEl && iconEl.parentNode) {
+                    iconEl.parentNode.innerHTML = `
                         <div class="live-user-wrapper">
                             <div class="live-user-dot"></div>
                             <div class="live-user-name">${displayName || userId}</div>
@@ -1093,6 +1079,7 @@ async function refreshLiveUsers() {
         console.warn("Live user refresh failed:", err);
     }
 }
+
 
 setInterval(refreshLiveUsers, 5000);
 console.log("map.js loaded");
