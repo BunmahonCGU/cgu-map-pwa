@@ -1057,19 +1057,19 @@ async function refreshLiveUsers() {
 
             } else {
                 // Update existing marker position
-
-              liveUserMarkers[userId].setLatLng([lat, lng]);
-              
-              // Update the HTML overlay (DivIcon replacement)
-              liveUserMarkers[userId]._icon.innerHTML = `
-                  <div class="live-user-wrapper">
-                      <div class="live-user-dot"></div>
-                      <div class="live-user-name">${displayName || userId}</div>
-                      <div class="live-user-time">${formattedTime}</div>
-                  </div>
-              `;
-
-            }
+                liveUserMarkers[userId].setLatLng([lat, lng]);
+                
+                // Update HTML overlay ONLY if the icon exists
+                const iconEl = liveUserMarkers[userId]._icon;
+                if (iconEl) {
+                    iconEl.innerHTML = `
+                        <div class="live-user-wrapper">
+                            <div class="live-user-dot"></div>
+                            <div class="live-user-name">${displayName || userId}</div>
+                            <div class="live-user-time">${formattedTime}</div>
+                        </div>
+                    `;
+                }
         }
     } catch (err) {
         console.warn("Live user refresh failed:", err);
