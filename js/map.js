@@ -1065,14 +1065,16 @@ async function refreshLiveUsers() {
                 // Update HTML overlay ONLY if the icon exists
                 const iconEl = liveUserMarkers[userId]._icon;
                 if (iconEl) {
-                    iconEl.innerHTML = `
+                    const wrapper = iconEl.parentNode || iconEl;
+                    wrapper.innerHTML = `
                         <div class="live-user-wrapper">
                             <div class="live-user-dot"></div>
                             <div class="live-user-name">${displayName || userId}</div>
                             <div class="live-user-time">${formattedTime}</div>
                         </div>
                     `;
-                }
+                  }
+
                 }
         }
     } catch (err) {
