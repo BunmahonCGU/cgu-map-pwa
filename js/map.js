@@ -1040,7 +1040,6 @@ async function refreshLiveUsers() {
             }
         }
 
-        // Add/update markers
         for (const user of users) {
             const { userId, lat, lng, displayName } = user;
 
@@ -1050,45 +1049,48 @@ async function refreshLiveUsers() {
                 second: "2-digit"
             });
 
+            // ----------------------------------------------------
+            // NEW MARKER
+            // ----------------------------------------------------
             if (!liveUserMarkers[userId]) {
 
                 const marker = L.marker([lat, lng], {
-                icon: L.divIcon({
-                    className: "live-user-icon",
-                    html: "...",
-                    iconSize: [80, 32],
-                    iconAnchor: [40, 16]   // ← correct way to offset
-                })
-            });
+                    icon: L.divIcon({
+                        className: "live-user-icon",
+                        html: `
+                            <div class="live-user-wrapper">
+                                <div class="live-user-dot"></div>
+                                <div class="live-user-name"></div>
+                                <div class="live-user-time"></div>
+                            </div>
+                        `,
+                        iconSize: [80, 40],
+                        iconAnchor: [40, 20]
+                    })
+                }).addTo(layerGroups["LIVE_USERS"]);
 
-                const iconEl = marker._icon;
-                if (iconEl && iconEl.parentNode) {
-                    iconEl.parentNode.innerHTML = `
-                        <div class="live-user-wrapper">
-                            <div class="live-user-dot"></div>
-                            <div class="live-user-name">${displayName || userId}</div>
-                            <div class="live-user-time">${formattedTime}</div>
-                        </div>
-                    `;
+                // Update wrapper text
+                const wrapper = marker._icon.querySelector(".live-user-wrapper");
+                if (wrapper) {
+                    wrapper.querySelector(".live-user-name").textContent = displayName || userId;
+                    wrapper.querySelector(".live-user-time").textContent = formattedTime;
                 }
 
                 liveUserMarkers[userId] = marker;
                 oms.addMarker(marker);
 
+            // ----------------------------------------------------
+            // UPDATE EXISTING MARKER
+            // ----------------------------------------------------
             } else {
 
                 const marker = liveUserMarkers[userId];
                 marker.setLatLng([lat, lng]);
 
-                const iconEl = marker._icon;
-                if (iconEl && iconEl.parentNode) {
-                    iconEl.parentNode.innerHTML = `
-                        <div class="live-user-wrapper">
-                            <div class="live-user-dot"></div>
-                            <div class="live-user-name">${displayName || userId}</div>
-                            <div class="live-user-time">${formattedTime}</div>
-                        </div>
-                    `;
+                const wrapper = marker._icon.querySelector(".live-user-wrapper");
+                if (wrapper) {
+                    wrapper.querySelector(".live-user-name").textContent = displayName || userId;
+                    wrapper.querySelector(".live-user-time").textContent = formattedTime;
                 }
             }
         }
@@ -1097,6 +1099,7 @@ async function refreshLiveUsers() {
         console.warn("Live user refresh failed:", err);
     }
 }
+
 
 
 setInterval(refreshLiveUsers, 5000);
