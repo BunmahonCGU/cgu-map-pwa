@@ -1100,39 +1100,7 @@ async function refreshLiveUsers() {
                 minute: "2-digit",
                 second: "2-digit"
             });
-
-            // // ----------------------------------------------------
-            // // NEW MARKER
-            // // ----------------------------------------------------
-            // if (!liveUserMarkers[userId]) {
-
-            //     const marker = L.marker([lat, lng], {
-            //         icon: L.divIcon({
-            //             className: "live-user-icon",
-            //             html: `
-            //                 <div class="live-user-wrapper">
-            //                     <div class="live-user-dot"></div>
-            //                     <div class="live-user-name"></div>
-            //                     <div class="live-user-time"></div>
-            //                 </div>
-            //             `,
-            //             iconSize: [80, 40],
-            //             iconAnchor: [40, 20]
-            //         })
-            //     }).addTo(layerGroups["LIVE_USERS"]);
-
-            //     // Update wrapper text
-            //     const wrapper = marker._icon.querySelector(".live-user-wrapper");
-            //     const color = getTeamColor(team);
-            //     wrapper.style.backgroundColor = color;
-            //     if (wrapper) {
-            //         wrapper.querySelector(".live-user-name").textContent = displayName || userId;
-            //         wrapper.querySelector(".live-user-time").textContent = formattedTime;
-            //     }
-                
-            //     marker._icon.querySelector(".live-user-wrapper").style.backgroundColor = getTeamColor(team);
-            //     liveUserMarkers[userId] = marker;
-            //     oms.addMarker(marker);
+         
             // ----------------------------------------------------
             // NEW MARKER
             // ----------------------------------------------------
@@ -1168,23 +1136,6 @@ async function refreshLiveUsers() {
                 liveUserMarkers[userId] = marker;
                 oms.addMarker(marker);
 
-
-         
-            // ----------------------------------------------------
-            // UPDATE EXISTING MARKER
-            // ----------------------------------------------------
-            // } else {
-
-            //     const marker = liveUserMarkers[userId];
-            //     marker.setLatLng([lat, lng]);
-
-            //     const wrapper = marker._icon.querySelector(".live-user-wrapper");
-            //     if (wrapper) {
-            //         wrapper.querySelector(".live-user-name").textContent = displayName || userId;
-            //         wrapper.querySelector(".live-user-time").textContent = formattedTime;
-            //     }
-            // }
-
             // ----------------------------------------------------
             // UPDATE EXISTING MARKER
             // ----------------------------------------------------
@@ -1205,6 +1156,7 @@ async function refreshLiveUsers() {
                     wrapper.querySelector(".live-user-time").textContent = formattedTime;
                 }
             }
+        console.log("userId", userId, "team", team, "color", getTeamColor(team));
         }
 
     } catch (err) {
