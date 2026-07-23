@@ -26,9 +26,10 @@ const userIcon = L.divIcon({
 });
 const blankIcon = L.icon({
     iconUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2gYf8AAAAASUVORK5CYII=",
-    iconSize: [1, 1],
-    iconAnchor: [0, 0]
+    iconSize: [40, 40],
+    iconAnchor: [20, 20]
 });
+
 
 async function checkTokenStatus() {
   const el = document.getElementById("token-status");
@@ -252,7 +253,15 @@ const geojsonOptions = {
     const label = getFeatureLabel(feature);
     const iconDef = iconMap[prefix] || { shape: "circle-pin", color: "blue" };
     const icon = makeSvgIcon(iconDef.shape, iconDef.color, label);
-    const marker = L.marker(latlng, { icon });
+    const marker = L.marker([lat, lng], { icon: blankIcon }).addTo(layerGroups["LIVE_USERS"]);
+
+marker._icon.innerHTML = `
+    <div class="live-user-wrapper">
+        <div class="live-user-dot"></div>
+        <div class="live-user-name">${displayName || userId}</div>
+        <div class="live-user-time">${formattedTime}</div>
+    </div>
+`;
 
     // ⬅️ back to prefix-based grouping (your earlier behaviour)
     if (layerGroups[prefix]) {
