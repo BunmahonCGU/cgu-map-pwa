@@ -257,13 +257,7 @@ const geojsonOptions = {
    return L.marker([lat, lng], { icon: blankIcon });
 }
 
-marker._icon.innerHTML = `
-    <div class="live-user-wrapper">
-        <div class="live-user-dot"></div>
-        <div class="live-user-name">${displayName || userId}</div>
-        <div class="live-user-time">${formattedTime}</div>
-    </div>
-`;
+
 
     // ⬅️ back to prefix-based grouping (your earlier behaviour)
     if (layerGroups[prefix]) {
