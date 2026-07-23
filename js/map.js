@@ -18,6 +18,18 @@ if(!userId) {
   localStorage.setItem('userId', userId);
 }
 
+const liveUserIcon = L.divIcon({
+    className: "live-user-icon",
+    html: `
+        <div class="live-user-wrapper">
+            <div class="live-user-dot"></div>
+            <div class="live-user-name"></div>
+            <div class="live-user-time"></div>
+        </div>
+    `,
+    iconSize: [80, 40],     // ⭐ REQUIRED for OMS
+    iconAnchor: [40, 20]    // ⭐ REQUIRED for OMS
+});
 
 const userIcon = L.divIcon({
   className: "user-location-icon",
