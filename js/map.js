@@ -1166,16 +1166,42 @@ function sendLocationUpdate(lat, lng) {
 function startLocationUpdates() {
   console.log("startLocationUpdates() called");
 
-  // Mobile + desktop: continuous updates only
+  let lastGPS = 0;
+
+  // Mobile + desktop: continuous updates when movement occurs
   navigator.geolocation.watchPosition(
     pos => {
       console.log("GPS callback fired", pos.coords);
+      lastGPS = Date.now();
       sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
     },
     err => console.error("GPS watch error", err),
     { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
   );
+
+  // ---------------------------------------------------------
+  // DESKTOP HEARTBEAT — prevents stale desktop icon
+  // Fires ONLY when GPS has been idle for >10 seconds
+  // ---------------------------------------------------------
+  setInterval(() => {
+    const now = Date.now();
+
+    // If no GPS callback recently → desktop is idle → send heartbeat
+    if (now - lastGPS > 10000) {
+      console.log("Desktop heartbeat (GPS idle)");
+      // Reuse last known coordinates if available
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
+          },
+          err => console.warn("Heartbeat GPS error", err)
+        );
+      }
+    }
+  }, 5000);
 }
+
 
 
 // Start updates immediately
