@@ -255,7 +255,7 @@ const geojsonOptions = {
     const icon = makeSvgIcon(iconDef.shape, iconDef.color, label);
     const [lng, lat] = feature.geometry.coordinates;
    return L.marker([lat, lng], { icon: blankIcon });
-}
+};
 
 
 
