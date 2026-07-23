@@ -1133,36 +1133,42 @@ async function refreshLiveUsers() {
             //     marker._icon.querySelector(".live-user-wrapper").style.backgroundColor = getTeamColor(team);
             //     liveUserMarkers[userId] = marker;
             //     oms.addMarker(marker);
-          // ----------------------------------------------------
-          // NEW MARKER
-          // ----------------------------------------------------
-          if (!liveUserMarkers[userId]) {
-          
-              const marker = L.marker([lat, lng], {
-                  icon: L.divIcon({
-                      className: "live-user-icon",
-                      html: `
-                          <div class="live-user-wrapper">
-                              <div class="live-user-dot"></div>
-                              <div class="live-user-name"></div>
-                              <div class="live-user-time"></div>
-                          </div>
-                      `,
-                      iconSize: [80, 40],
-                      iconAnchor: [40, 20]
-                  })
-              }).addTo(layerGroups["LIVE_USERS"]);
-          
-              const wrapper = marker._icon.querySelector(".live-user-wrapper");
-          
-              if (wrapper) {
-                  wrapper.style.backgroundColor = getTeamColor(team);
-                  wrapper.querySelector(".live-user-name").textContent = displayName;
-                  wrapper.querySelector(".live-user-time").textContent = formattedTime;
-              }
-          
-              liveUserMarkers[userId] = marker;
-              oms.addMarker(marker);
+            // ----------------------------------------------------
+            // NEW MARKER
+            // ----------------------------------------------------
+            if (!liveUserMarkers[userId]) {
+            
+                const marker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        className: "live-user-icon",
+                        html: `
+                            <div class="live-user-wrapper">
+                                <div class="live-user-dot"></div>
+                                <div class="live-user-name"></div>
+                                <div class="live-user-time"></div>
+                            </div>
+                        `,
+                        iconSize: [80, 40],
+                        iconAnchor: [40, 20]
+                    })
+                }).addTo(layerGroups["LIVE_USERS"]);
+            
+                const wrapper = marker._icon.querySelector(".live-user-wrapper");
+            
+                if (wrapper) {
+                    const color = getTeamColor(team);
+            
+                    wrapper.style.setProperty("background-color", color, "important");
+                    wrapper.querySelector(".live-user-dot").style.backgroundColor = color;
+            
+                    wrapper.querySelector(".live-user-name").textContent = displayName;
+                    wrapper.querySelector(".live-user-time").textContent = formattedTime;
+                }
+            
+                liveUserMarkers[userId] = marker;
+                oms.addMarker(marker);
+
+
          
             // ----------------------------------------------------
             // UPDATE EXISTING MARKER
@@ -1190,7 +1196,11 @@ async function refreshLiveUsers() {
                 const wrapper = marker._icon.querySelector(".live-user-wrapper");
             
                 if (wrapper) {
-                    wrapper.style.backgroundColor = getTeamColor(team);
+                    const color = getTeamColor(team);
+            
+                    wrapper.style.setProperty("background-color", color, "important");
+                    wrapper.querySelector(".live-user-dot").style.backgroundColor = color;
+            
                     wrapper.querySelector(".live-user-name").textContent = displayName;
                     wrapper.querySelector(".live-user-time").textContent = formattedTime;
                 }
