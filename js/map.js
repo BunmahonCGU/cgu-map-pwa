@@ -1040,8 +1040,14 @@ async function refreshLiveUsers() {
 
             if (!liveUserMarkers[userId]) {
 
-                const marker = L.marker([lat, lng], { icon: blankIcon })
-                    .addTo(layerGroups["LIVE_USERS"]);
+                const marker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: "live-user-icon",
+                    html: "...",
+                    iconSize: [80, 32],
+                    iconAnchor: [40, 16]   // ← correct way to offset
+                })
+            });
 
                 const iconEl = marker._icon;
                 if (iconEl && iconEl.parentNode) {
