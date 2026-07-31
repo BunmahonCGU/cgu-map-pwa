@@ -1160,9 +1160,7 @@ async function refreshLiveUsers() {
         
         }
 
-    } catch (err) {
-        console.warn("Live user refresh failed:", err);
-    }
+
         // ===============================
       // UPDATE USERS PANEL LIST
       // ===============================
@@ -1194,6 +1192,9 @@ async function refreshLiveUsers() {
       
           usersList.appendChild(li);
       });
+    } catch (err) {
+        console.warn("Live user refresh failed:", err);
+    }
 }
 
 
