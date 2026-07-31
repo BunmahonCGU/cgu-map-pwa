@@ -129,6 +129,50 @@ body {
         bottom: 120px;
     }
 }
+/* USERS PANEL */
+#users-panel {
+    position: fixed;
+    top: 110px;
+    right: 10px;
+    width: calc(100% - 20px);
+    max-width: 360px;
+    max-height: 50%;
+    overflow-y: auto;
+    background: rgba(255,255,255,0.95);
+    padding: 10px;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    z-index: 9999;
+}
+
+#users-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.user-row {
+    display: grid;
+    grid-template-columns: 1fr 80px 80px;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid #ddd;
+}
+
+.user-name {
+    font-weight: bold;
+    color: #000;
+}
+
+.user-team {
+    font-size: 12px;
+    color: #333;
+}
+
+.user-time {
+    font-size: 12px;
+    color: #555;
+}
 
 /* ============================================================
    ALERTS PANEL
@@ -318,6 +362,15 @@ body {
 
 <button id="admin-open" class="admin-button">Admin</button>
 
+<!-- LIVE USERS PANEL -->
+<div id="users-panel" class="hidden">
+  <h3>Live Users</h3>
+  <ul id="users-list"></ul>
+</div>
+
+<button id="users-open" class="admin-button" style="right: 70px;">
+  Users
+</button>
 
 <div id="admin-panel" class="hidden">
 
