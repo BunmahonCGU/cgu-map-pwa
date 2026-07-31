@@ -1162,6 +1162,36 @@ async function refreshLiveUsers() {
     } catch (err) {
         console.warn("Live user refresh failed:", err);
     }
+        // ===============================
+      // UPDATE USERS PANEL LIST
+      // ===============================
+      const usersList = document.getElementById("users-list");
+      usersList.innerHTML = ""; // clear old list
+      
+      liveUsers.forEach(user => {
+          const { displayName, team, timestamp } = user;
+      
+          const li = document.createElement("li");
+          li.className = "user-row";
+      
+          const nameEl = document.createElement("div");
+          nameEl.className = "user-name";
+          nameEl.textContent = displayName || "(no name)";
+      
+          const teamEl = document.createElement("div");
+          teamEl.className = "user-team";
+          teamEl.textContent = team || "(none)";
+      
+          const timeEl = document.createElement("div");
+          timeEl.className = "user-time";
+          timeEl.textContent = new Date(timestamp).toLocaleTimeString();
+      
+          li.appendChild(nameEl);
+          li.appendChild(teamEl);
+          li.appendChild(timeEl);
+      
+          usersList.appendChild(li);
+      });
 }
 
 
@@ -1414,6 +1444,13 @@ async function refreshAlerts() {
 const ALERT_ENDPOINT = "https://shiny-math-8471.bunmahoncgu.workers.dev/update";
 let adminPin = null;
 const LOCAL_ADMIN_PIN = "9112"; // set your real PIN here
+// USERS PANEL TOGGLE
+const usersPanel = document.getElementById("users-panel");
+const usersOpen = document.getElementById("users-open");
+
+usersOpen.addEventListener("click", () => {
+    usersPanel.classList.toggle("hidden");
+});
 
 // ------------------------------------------------------------
 // OPEN ADMIN PANEL
