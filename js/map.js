@@ -1167,28 +1167,47 @@ async function refreshLiveUsers() {
       if (!users) return;
       const usersList = document.getElementById("users-list");
       usersList.innerHTML = ""; // clear old list
-      
-      users.forEach(user => {
+
+              const sortedUsers = users
+          .filter(u => u.displayName && u.displayName.trim() !== "")
+          .sort((a, b) => {
+              const teamA = a.team || "";
+              const teamB = b.team || "";
+              if (teamA < teamB) return -1;
+              if (teamA > teamB) return 1;
+              return a.displayName.localeCompare(b.displayName);
+          });
+
+              sortedUsers
+          .filter(u => u.displayName && u.displayName.trim() !== "")
+          .forEach(user => {
+
           const { displayName, team, timestamp } = user;
       
           const li = document.createElement("li");
           li.className = "user-row";
-      
-          const nameEl = document.createElement("div");
-          nameEl.className = "user-name";
-          nameEl.textContent = displayName || "(no name)";
-      
-          const teamEl = document.createElement("div");
-          teamEl.className = "user-team";
-          teamEl.textContent = team || "(none)";
-      
-          const timeEl = document.createElement("div");
-          timeEl.className = "user-time";
-          timeEl.textContent = new Date(timestamp).toLocaleTimeString();
-      
-          li.appendChild(nameEl);
-          li.appendChild(teamEl);
-          li.appendChild(timeEl);
+            li.innerHTML = `
+          <div class="user-name">${displayName}</div>
+          <div class="user-team">
+              <span style="
+                  display:inline-block;
+                  width:12px;
+                  height:12px;
+                  border-radius:50%;
+                  background:${getTeamColor(team)};
+                  margin-right:6px;
+              "></span>
+              ${team || "(none)"}
+          </div>
+          <div class="user-time">${new Date(timestamp).toLocaleTimeString()}</div>
+      `;
+
+          li.addEventListener("click", () => {
+              const marker = liveUserMarkers[user.userId];
+              if (marker) {
+                  map.setView(marker.getLatLng(), 17, { animate: true });
+              }
+          });
       
           usersList.appendChild(li);
       });
