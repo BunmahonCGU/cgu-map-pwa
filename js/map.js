@@ -1101,7 +1101,21 @@ async function refreshLiveUsers() {
           for (const user of users) {
               const { userId, lat, lng, displayName, team } = user;     
             console.log("userId", userId, "team", team, "color", getTeamColor(team));
-              // ----------------------------------------------------
+            
+            // If team changed, remove old marker so it can be recreated cleanly
+            if (liveUserMarkers[userId]) {
+                const wrapper = liveUserMarkers[userId]._icon?.querySelector(".live-user-wrapper");
+                const currentColor = wrapper?.style.backgroundColor;
+                const newColor = getTeamColor(team);
+            
+                if (currentColor && currentColor !== newColor) {
+                    oms.removeMarker(liveUserMarkers[userId]);
+                    layerGroups["LIVE_USERS"].removeLayer(liveUserMarkers[userId]);
+                    delete liveUserMarkers[userId];
+                }
+            }
+  
+            // ----------------------------------------------------
               // HIDE USERS WITH NO NAME
               // ----------------------------------------------------
               if (!displayName || displayName.trim() === "") {          
