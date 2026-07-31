@@ -1081,7 +1081,8 @@ async function refreshLiveUsers() {
         }
 
           for (const user of users) {
-              const { userId, lat, lng, displayName, team } = user;          
+              const { userId, lat, lng, displayName, team } = user;     
+            console.log("userId", userId, "team", team, "color", getTeamColor(team));
               // ----------------------------------------------------
               // HIDE USERS WITH NO NAME
               // ----------------------------------------------------
@@ -1156,7 +1157,7 @@ async function refreshLiveUsers() {
                     wrapper.querySelector(".live-user-time").textContent = formattedTime;
                 }
             }
-        console.log("userId", userId, "team", team, "color", getTeamColor(team));
+        
         }
 
     } catch (err) {
@@ -1165,10 +1166,11 @@ async function refreshLiveUsers() {
         // ===============================
       // UPDATE USERS PANEL LIST
       // ===============================
+      if (!users) return;
       const usersList = document.getElementById("users-list");
       usersList.innerHTML = ""; // clear old list
       
-      liveUsers.forEach(user => {
+      users.forEach(user => {
           const { displayName, team, timestamp } = user;
       
           const li = document.createElement("li");
