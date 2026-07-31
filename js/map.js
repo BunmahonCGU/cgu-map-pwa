@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
+const APP_VERSION = "V1";
 
 // ===============================
 // USER ID (persistent anonymous)
@@ -734,7 +735,14 @@ nameContainer.innerHTML = `
 `;
 layerList.appendChild(nameContainer);
 
+
 const teamContainer = document.createElement("div");
+
+// Make the row split into: [Team dropdown]    [Version]
+teamContainer.style.display = "flex";
+teamContainer.style.justifyContent = "space-between";
+teamContainer.style.alignItems = "center";
+
 teamContainer.innerHTML = `
   <label>
     <select id="teamSelect">
@@ -749,8 +757,18 @@ teamContainer.innerHTML = `
       <option value="Hotel">Hotel</option>
     </select>
   </label>
+
+  <span style="
+      font-weight: bold;
+      font-size: 12px;
+      margin-left: 10px;
+  ">
+    ${APP_VERSION}
+  </span>
 `;
+
 layerList.appendChild(teamContainer);
+
     
     
 const nameInput = document.getElementById("displayNameInput");
