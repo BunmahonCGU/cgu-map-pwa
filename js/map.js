@@ -769,6 +769,12 @@ teamContainer.innerHTML = `
 
 layerList.appendChild(teamContainer);
 
+// Restore saved team on load (prevents mobile losing team)
+const savedTeam = localStorage.getItem("team");
+if (savedTeam) {
+    document.getElementById("teamSelect").value = savedTeam;
+}
+
     
     
 const nameInput = document.getElementById("displayNameInput");
@@ -1268,7 +1274,7 @@ function sendLocationUpdate(lat, lng) {
       // displayName: localStorage.getItem("displayName") || null,
       userId: userId,   // always the GUID
       displayName: localStorage.getItem("displayName") || null,
-      team: localStorage.getItem("team") || null,
+      team: localStorage.getItem("team") ?? "",
       lat,
       lng,
       timestamp: Date.now()
