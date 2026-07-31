@@ -1266,57 +1266,29 @@ console.log("map.js loaded");
 function sendLocationUpdate(lat, lng) {
   console.log("sendLocationUpdate()", lat, lng);
 
+  // ===============================
+  // SANITIZE TEAM VALUE (mobile fix)
+  // ===============================
+  let teamValue = localStorage.getItem("team");
+
+  // Mobile Safari/Chrome sometimes returns literal "undefined"
+  if (teamValue === undefined || teamValue === null || teamValue === "undefined") {
+      teamValue = "";
+  }
+
   fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/location/update", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      // userId: localStorage.getItem("displayName") || userId,
-      // displayName: localStorage.getItem("displayName") || null,
       userId: userId,   // always the GUID
       displayName: localStorage.getItem("displayName") || null,
-      team: localStorage.getItem("team") ?? "",
+      team: teamValue,  // <-- ALWAYS a valid string now
       lat,
       lng,
       timestamp: Date.now()
     })
   }).catch(err => console.error("Location update failed:", err));
 }
-
-// function startLocationUpdates() {
-//   console.log("startLocationUpdates() called");
-
-//   let lastCoords = null;
-
-//   // Get initial fix (mobile + desktop)
-//   navigator.geolocation.getCurrentPosition(
-//     pos => {
-//       console.log("Initial GPS fix", pos.coords);
-//       lastCoords = pos.coords;
-//       sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
-//     },
-//     err => console.error("Initial GPS error", err),
-//     { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-//   );
-
-//   // Mobile: continuous updates
-//   navigator.geolocation.watchPosition(
-//     pos => {
-//       console.log("GPS callback fired", pos.coords);
-//       lastCoords = pos.coords;
-//       sendLocationUpdate(pos.coords.latitude, pos.coords.longitude);
-//     },
-//     err => console.error("GPS watch error", err),
-//     { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-//   );
-
-//   // Desktop: simulate movement every 5 seconds
-//   setInterval(() => {
-//     if (lastCoords) {
-//       console.log("Synthetic desktop update", lastCoords);
-//       sendLocationUpdate(lastCoords.latitude, lastCoords.longitude);
-//     }
-//   }, 5000);
-// }
 
 function startLocationUpdates() {
   console.log("startLocationUpdates() called");
