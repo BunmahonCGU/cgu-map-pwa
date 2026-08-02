@@ -311,6 +311,15 @@ body {
     opacity: 1 !important;
     visibility: visible !important;
     display: block !important;
+    z-index: 10000 !important;
+}
+
+/* Leaflet's control corners (.leaflet-top/.leaflet-bottom) set their own
+   z-index and establish a stacking context, so raising .leaflet-control
+   alone isn't enough — the corner itself must be above the fixed panels. */
+.leaflet-top,
+.leaflet-bottom {
+    z-index: 10000 !important;
 }
 
 /* Locate button active state */
