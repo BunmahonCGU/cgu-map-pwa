@@ -1286,8 +1286,8 @@ function sendLocationUpdate(lat, lng) {
       token: localStorage.getItem("locationToken") || null
     })
   })
-    .then(res => res.json())
-    .then(data => {
+    .then(res => res.json().then(data => ({ status: res.status, data })))
+    .then(({ status, data }) => {
       // Server mints a token on this userId's first-ever update; persist it
       // so every later update can prove it's the same device.
       if (data && data.token) {
@@ -1295,6 +1295,16 @@ function sendLocationUpdate(lat, lng) {
       }
       if (data && data.status === "error") {
         console.error("Location update rejected:", data.error);
+        // 403 means the server already has a different token on file for this
+        // userId (e.g. this device's token was lost, or its very first mint
+        // was never received). There's no way to recover the old token, so
+        // re-register as a fresh device instead of retrying forever.
+        if (status === 403) {
+          console.warn("Resetting userId after rejected location token");
+          localStorage.removeItem("locationToken");
+          userId = crypto.randomUUID();
+          localStorage.setItem("userId", userId);
+        }
       }
     })
     .catch(err => console.error("Location update failed:", err));
