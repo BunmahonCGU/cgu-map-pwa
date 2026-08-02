@@ -1031,6 +1031,7 @@ nameInput.addEventListener("blur", () => {
   // 12. Alerts refresh + refresh button
   // ------------------------------------------------------------
   refreshAlerts();
+  setInterval(refreshAlerts, 15000);
   // Refresh button click feedback
 const refreshBtn = document.getElementById("refreshMapBtn");
 if (refreshBtn) {
@@ -1475,6 +1476,55 @@ function showLatestAlert(alert) {
     .openOn(map);
 }
 
+// ===============================
+// NEW ALERT SOUND
+// ===============================
+let audioCtx = null;
+function getAudioContext() {
+  if (!audioCtx) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+    audioCtx = new AudioContextClass();
+  }
+  return audioCtx;
+}
+
+// Autoplay policies block audio until the page has seen a direct user
+// gesture — unlock the context on the first click/tap/keypress so it's
+// ready by the time a background-polled alert actually needs to play.
+["click", "touchstart", "keydown"].forEach(evt => {
+  document.addEventListener(evt, () => {
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
+  }, { once: true, passive: true });
+});
+
+function playAlertSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  if (ctx.state === "suspended") {
+    ctx.resume().catch(() => {});
+  }
+  try {
+    const now = ctx.currentTime;
+    [880, 1320].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, now + i * 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.3, now + i * 0.15 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.15 + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + i * 0.15);
+      osc.stop(now + i * 0.15 + 0.3);
+    });
+  } catch (err) {
+    console.warn("Could not play alert sound:", err);
+  }
+}
+
 async function refreshAlerts() {
   try {
     //const url = "data/alerts.json?cb=" + Date.now();
@@ -1491,6 +1541,20 @@ async function refreshAlerts() {
     const recent = updates
       .filter(a => new Date(a.timestamp).getTime() >= cutoff)
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    // Play a sound only for alerts newer than the last one we've already
+    // seen — establish the baseline silently on the very first check so
+    // opening/reloading the app never triggers a sound by itself.
+    if (recent.length > 0) {
+      const newestTimestamp = new Date(recent[0].timestamp).getTime();
+      const lastSeen = localStorage.getItem("lastSeenAlertTimestamp");
+      if (lastSeen === null) {
+        localStorage.setItem("lastSeenAlertTimestamp", String(newestTimestamp));
+      } else if (newestTimestamp > Number(lastSeen)) {
+        playAlertSound();
+        localStorage.setItem("lastSeenAlertTimestamp", String(newestTimestamp));
+      }
+    }
 
     const list = document.getElementById("alerts-list");
     list.innerHTML = "";
