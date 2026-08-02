@@ -49,9 +49,32 @@ document.addEventListener("visibilitychange", () => {
 // ===============================
 // USER ID (persistent anonymous)
 // ===============================
+// crypto.randomUUID() needs Safari 15.4+/iOS 15.4+; fall back to
+// crypto.getRandomValues() (much broader support), and finally to
+// Math.random() so an unsupported browser never fails to load the app.
+function generateUUID() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, "0"));
+    return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
+  }
+  // Last-resort fallback: not cryptographically strong, but keeps the
+  // app usable on a browser/context with neither API available.
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 let userId = localStorage.getItem('userId');
 if(!userId) {
-  userId = crypto.randomUUID();
+  userId = generateUUID();
   localStorage.setItem('userId', userId);
 }
 
@@ -996,11 +1019,13 @@ nameInput.addEventListener("blur", () => {
     }
 }
 
-  navigator.serviceWorker.addEventListener("message", e => {
-    if (e.data?.type === "umap-updated") {
-      refreshUmapLayer();
-    }
-  });
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", e => {
+      if (e.data?.type === "umap-updated") {
+        refreshUmapLayer();
+      }
+    });
+  }
 
   // ------------------------------------------------------------
   // 12. Alerts refresh + refresh button
@@ -1318,7 +1343,7 @@ function sendLocationUpdate(lat, lng) {
         if (status === 403) {
           console.warn("Resetting userId after rejected location token");
           localStorage.removeItem("locationToken");
-          userId = crypto.randomUUID();
+          userId = generateUUID();
           localStorage.setItem("userId", userId);
         }
       }
