@@ -1282,9 +1282,22 @@ function sendLocationUpdate(lat, lng) {
       team: teamValue,  // <-- ALWAYS a valid string now
       lat,
       lng,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      token: localStorage.getItem("locationToken") || null
     })
-  }).catch(err => console.error("Location update failed:", err));
+  })
+    .then(res => res.json())
+    .then(data => {
+      // Server mints a token on this userId's first-ever update; persist it
+      // so every later update can prove it's the same device.
+      if (data && data.token) {
+        localStorage.setItem("locationToken", data.token);
+      }
+      if (data && data.status === "error") {
+        console.error("Location update rejected:", data.error);
+      }
+    })
+    .catch(err => console.error("Location update failed:", err));
 }
 
 function startLocationUpdates() {
@@ -1457,7 +1470,6 @@ async function refreshAlerts() {
 // ------------------------------------------------------------
 const ALERT_ENDPOINT = "https://shiny-math-8471.bunmahoncgu.workers.dev/update";
 let adminPin = null;
-const LOCAL_ADMIN_PIN = "9112"; // set your real PIN here
 // USERS PANEL TOGGLE
 const usersPanel = document.getElementById("users-panel");
 const usersOpen = document.getElementById("users-open");
@@ -1470,13 +1482,12 @@ usersOpen.addEventListener("click", () => {
 // OPEN ADMIN PANEL
 // ------------------------------------------------------------
 document.getElementById("admin-open").onclick = () => {
+  // PIN is verified server-side by the Cloudflare Worker on submit
+  // (see ADMIN_PIN check in the /alerts handler) — nothing here can
+  // be a real security boundary since it ships in client JS.
   const pin = prompt("Enter admin PIN");
   if (!pin || !pin.trim()) {
     alert("PIN required");
-    return;
-  }
-  if (pin.trim() !== LOCAL_ADMIN_PIN) {
-    alert("Incorrect PIN");
     return;
   }
   adminPin = pin.trim();
