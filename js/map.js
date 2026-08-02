@@ -180,7 +180,7 @@ function getFeaturePrefixFromName(name) {
 // *** FIX: Block the next synthetic click after submit ***
 function blockNextMapClick() {
   const blocker = e => {
-    e.stopPropagation();
+    L.DomEvent.stopPropagation(e);
     map.off("click", blocker);
   };
   map.on("click", blocker);
