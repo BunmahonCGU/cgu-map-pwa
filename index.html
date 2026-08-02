@@ -210,10 +210,11 @@ body {
 
 .alert-row {
     display: grid;
-    grid-template-columns: 60px 1fr;
+    grid-template-columns: 60px 1fr 36px;
     gap: 8px;
     padding: 4px 0;
     border-bottom: 1px solid #ddd;
+    align-items: center;
 }
 
 .alert-date {
@@ -228,6 +229,12 @@ body {
     width: calc(100% - 60px);
     word-wrap: break-word;
     padding-left: 2px;
+}
+
+.alert-directions {
+    text-align: center;
+    font-size: 18px;
+    text-decoration: none;
 }
 
 .hidden {

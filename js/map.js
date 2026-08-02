@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.1";
+const APP_VERSION = "V1.2";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -1479,6 +1479,14 @@ function showLatestAlert(alert) {
 // ===============================
 // NEW ALERT SOUND
 // ===============================
+// In-memory watermark is the real source of truth (see refreshAlerts);
+// seed it from localStorage best-effort so it survives page reloads too.
+let lastSeenAlertTimestamp = null;
+try {
+  const storedLastSeen = localStorage.getItem("lastSeenAlertTimestamp");
+  if (storedLastSeen !== null) lastSeenAlertTimestamp = Number(storedLastSeen);
+} catch (err) {}
+
 let audioCtx = null;
 function getAudioContext() {
   if (!audioCtx) {
@@ -1545,14 +1553,22 @@ async function refreshAlerts() {
     // Play a sound only for alerts newer than the last one we've already
     // seen — establish the baseline silently on the very first check so
     // opening/reloading the app never triggers a sound by itself.
+    //
+    // The in-memory watermark is the source of truth for "already
+    // notified this session" — some mobile browsers (private browsing,
+    // storage restrictions) can silently fail to persist localStorage
+    // writes, and if that write never sticks, the same "newest" alert
+    // would otherwise re-trigger the sound on every single poll forever.
+    // localStorage is only a best-effort way to remember across reloads.
     if (recent.length > 0) {
       const newestTimestamp = new Date(recent[0].timestamp).getTime();
-      const lastSeen = localStorage.getItem("lastSeenAlertTimestamp");
-      if (lastSeen === null) {
-        localStorage.setItem("lastSeenAlertTimestamp", String(newestTimestamp));
-      } else if (newestTimestamp > Number(lastSeen)) {
+      if (lastSeenAlertTimestamp === null) {
+        lastSeenAlertTimestamp = newestTimestamp;
+        try { localStorage.setItem("lastSeenAlertTimestamp", String(newestTimestamp)); } catch (err) {}
+      } else if (newestTimestamp > lastSeenAlertTimestamp) {
         playAlertSound();
-        localStorage.setItem("lastSeenAlertTimestamp", String(newestTimestamp));
+        lastSeenAlertTimestamp = newestTimestamp;
+        try { localStorage.setItem("lastSeenAlertTimestamp", String(newestTimestamp)); } catch (err) {}
       }
     }
 
@@ -1570,15 +1586,23 @@ async function refreshAlerts() {
       const timeOnly = `${hh}:${mm}:${ss}`;
       const hasLocation = typeof a.lat === "number" && typeof a.lng === "number";
 
+      const directionsLink = hasLocation
+        ? `<a class="alert-directions" href="https://www.google.com/maps/dir/?api=1&destination=${a.lat},${a.lng}" target="_blank" rel="noopener" title="Get directions">🧭</a>`
+        : `<div class="alert-directions"></div>`;
+
       li.innerHTML = `
         <div class="alert-time">${timeOnly}</div>
         <div class="alert-body">${a.message}${hasLocation ? " 📍" : ""}</div>
+        ${directionsLink}
       `;
 
       if (hasLocation) {
         li.style.cursor = "pointer";
         li.addEventListener("click", () => {
           map.setView([a.lat, a.lng], 17, { animate: true });
+        });
+        li.querySelector(".alert-directions").addEventListener("click", e => {
+          e.stopPropagation();
         });
       }
 
