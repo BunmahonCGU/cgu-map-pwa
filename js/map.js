@@ -1579,6 +1579,7 @@ let pickLocationHandler = null;
 const pickLocationBtn = document.getElementById("admin-pick-location");
 const locationStatus = document.getElementById("admin-location-status");
 const pickLocationBanner = document.getElementById("pick-location-banner");
+const pickLocationCancelBtn = document.getElementById("pick-location-cancel");
 
 function cancelPickLocation() {
   if (pickLocationHandler) {
@@ -1591,7 +1592,12 @@ function cancelPickLocation() {
 
 pickLocationBtn.addEventListener("click", e => {
   e.stopPropagation();
-  adminPanel.classList.add("hidden");
+  // Same mobile-safe sequence adminSubmit uses before hiding this panel —
+  // without it, Leaflet can fail to register the very next tap on the map
+  // as a real click on some mobile browsers.
+  resetMapTransform();
+  resetLeafletTouchState();
+  closeAdminPanel();
   pickLocationBanner.classList.remove("hidden");
 
   pickLocationHandler = mapEvent => {
@@ -1601,11 +1607,15 @@ pickLocationBtn.addEventListener("click", e => {
     pickLocationHandler = null;
     pickLocationBanner.classList.add("hidden");
     adminPanel.classList.remove("hidden");
+    checkTokenStatus();
   };
   map.once("click", pickLocationHandler);
 });
 
-pickLocationBanner.addEventListener("click", cancelPickLocation);
+pickLocationCancelBtn.addEventListener("click", e => {
+  e.stopPropagation();
+  cancelPickLocation();
+});
 
 locationStatus.addEventListener("click", () => {
   if (pendingAlertLocation) {
