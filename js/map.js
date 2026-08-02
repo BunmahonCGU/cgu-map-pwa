@@ -11,6 +11,42 @@ let map;
 const APP_VERSION = "V1.1";
 
 // ===============================
+// SCREEN WAKE LOCK (keeps location updates flowing while sharing)
+// ===============================
+let wakeLock = null;
+
+async function requestWakeLock() {
+  if (!("wakeLock" in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+    wakeLock.addEventListener("release", () => {
+      console.log("Wake Lock released");
+    });
+    console.log("Wake Lock acquired");
+  } catch (err) {
+    console.warn("Wake Lock request failed:", err);
+  }
+}
+
+async function releaseWakeLock() {
+  if (!wakeLock) return;
+  try {
+    await wakeLock.release();
+  } catch (err) {
+    // already released
+  }
+  wakeLock = null;
+}
+
+// Browsers auto-release the lock once the tab is hidden/backgrounded;
+// re-acquire it when the tab becomes visible again, if still sharing.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && localStorage.getItem("shareLocation") === "true") {
+    requestWakeLock();
+  }
+});
+
+// ===============================
 // USER ID (persistent anonymous)
 // ===============================
 let userId = localStorage.getItem('userId');
@@ -690,12 +726,20 @@ oms.addListener('unspiderfy', function(markers) {
     
     const shareOptIn = document.getElementById("shareLocationOptIn");
     shareOptIn.checked = localStorage.getItem("shareLocation") === "true";
-    
+    if (shareOptIn.checked) {
+        requestWakeLock();
+    }
+
     shareOptIn.addEventListener("change", () => {
         localStorage.setItem("shareLocation", shareOptIn.checked ? "true" : "false");
+        if (shareOptIn.checked) {
+            requestWakeLock();
+        } else {
+            releaseWakeLock();
+        }
 
       localStorage.setItem("displayName", nameInput.value.trim());
-      
+
     });
 
         // ===============================
