@@ -1504,11 +1504,20 @@ async function refreshAlerts() {
       const mm = ts.getMinutes().toString().padStart(2, "0");
       const ss = ts.getSeconds().toString().padStart(2, "0");
       const timeOnly = `${hh}:${mm}:${ss}`;
+      const hasLocation = typeof a.lat === "number" && typeof a.lng === "number";
 
       li.innerHTML = `
         <div class="alert-time">${timeOnly}</div>
-        <div class="alert-body">${a.message}</div>
+        <div class="alert-body">${a.message}${hasLocation ? " 📍" : ""}</div>
       `;
+
+      if (hasLocation) {
+        li.style.cursor = "pointer";
+        li.addEventListener("click", () => {
+          map.setView([a.lat, a.lng], 17, { animate: true });
+        });
+      }
+
       list.appendChild(li);
     });
   } catch (err) {
@@ -1560,6 +1569,50 @@ adminPanel.addEventListener(
   },
   { passive: false }
 );
+
+// ------------------------------------------------------------
+// PICK ALERT LOCATION ON MAP
+// ------------------------------------------------------------
+let pendingAlertLocation = null;
+let pickLocationHandler = null;
+
+const pickLocationBtn = document.getElementById("admin-pick-location");
+const locationStatus = document.getElementById("admin-location-status");
+const pickLocationBanner = document.getElementById("pick-location-banner");
+
+function cancelPickLocation() {
+  if (pickLocationHandler) {
+    map.off("click", pickLocationHandler);
+    pickLocationHandler = null;
+  }
+  pickLocationBanner.classList.add("hidden");
+  adminPanel.classList.remove("hidden");
+}
+
+pickLocationBtn.addEventListener("click", e => {
+  e.stopPropagation();
+  adminPanel.classList.add("hidden");
+  pickLocationBanner.classList.remove("hidden");
+
+  pickLocationHandler = mapEvent => {
+    pendingAlertLocation = { lat: mapEvent.latlng.lat, lng: mapEvent.latlng.lng };
+    locationStatus.textContent =
+      `Location set: ${pendingAlertLocation.lat.toFixed(5)}, ${pendingAlertLocation.lng.toFixed(5)} (tap to clear)`;
+    pickLocationHandler = null;
+    pickLocationBanner.classList.add("hidden");
+    adminPanel.classList.remove("hidden");
+  };
+  map.once("click", pickLocationHandler);
+});
+
+pickLocationBanner.addEventListener("click", cancelPickLocation);
+
+locationStatus.addEventListener("click", () => {
+  if (pendingAlertLocation) {
+    pendingAlertLocation = null;
+    locationStatus.textContent = "No location set";
+  }
+});
 
 // ------------------------------------------------------------
 // CLOSE ADMIN PANEL (mobile + desktop safe)
@@ -1657,7 +1710,9 @@ adminSubmit.addEventListener("click", async e => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: fullMessage,
-        pin: adminPin
+        pin: adminPin,
+        lat: pendingAlertLocation ? pendingAlertLocation.lat : null,
+        lng: pendingAlertLocation ? pendingAlertLocation.lng : null
       })
     });
 
@@ -1671,6 +1726,8 @@ adminSubmit.addEventListener("click", async e => {
     alert("Update posted");
     document.getElementById("admin-title").value = "";
     document.getElementById("admin-message").value = "";
+    pendingAlertLocation = null;
+    locationStatus.textContent = "No location set";
     refreshAlerts();
     closeAdminPanel();
 

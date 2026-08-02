@@ -132,7 +132,7 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/alerts") {
       try {
-        const { message, pin } = await request.json();
+        const { message, pin, lat, lng } = await request.json();
         if (!message || !pin) {
           return Response.json({ status: "error", error: "Missing message or pin" }, { status: 400, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
         }
@@ -147,7 +147,12 @@ export default {
             if (parsed && Array.isArray(parsed.updates)) { existing = parsed; }
           } catch (err) {}
         }
-        existing.updates.unshift({ message, timestamp: new Date().toISOString() });
+        const update = { message, timestamp: new Date().toISOString() };
+        if (typeof lat === "number" && typeof lng === "number") {
+          update.lat = lat;
+          update.lng = lng;
+        }
+        existing.updates.unshift(update);
         await env.ALERTS_KV.put("alerts.json", JSON.stringify(existing, null, 2));
         return Response.json({ status: "ok" }, { headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
       } catch (err) {
