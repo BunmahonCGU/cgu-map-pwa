@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1";
+const APP_VERSION = "V1.1";
 
 // ===============================
 // USER ID (persistent anonymous)
