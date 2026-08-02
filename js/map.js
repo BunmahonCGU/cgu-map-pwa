@@ -1077,6 +1077,26 @@ map.on("blur", () => {
 // ===============================
 let liveUserMarkers  = {};
 
+// Builds the icon with name/color/time baked in, rather than patching
+// marker._icon's DOM after the fact — that internal node doesn't exist
+// until Leaflet actually renders the marker (i.e. once its layer group
+// is on the map), which isn't guaranteed at update time.
+function buildLiveUserIcon(displayName, team, formattedTime) {
+    const color = getTeamColor(team);
+    return L.divIcon({
+        className: "live-user-icon",
+        html: `
+            <div class="live-user-wrapper" style="background-color:${color} !important;">
+                <div class="live-user-dot" style="background-color:${color};"></div>
+                <div class="live-user-name">${displayName}</div>
+                <div class="live-user-time">${formattedTime}</div>
+            </div>
+        `,
+        iconSize: [80, 40],
+        iconAnchor: [40, 20]
+    });
+}
+
 async function refreshLiveUsers() {
     try {
         const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/location/all");
@@ -1096,19 +1116,6 @@ async function refreshLiveUsers() {
           for (const user of users) {
               const { userId, lat, lng, displayName, team } = user;
 
-            // If team changed, remove old marker so it can be recreated cleanly
-            if (liveUserMarkers[userId]) {
-                const wrapper = liveUserMarkers[userId]._icon?.querySelector(".live-user-wrapper");
-                const currentColor = wrapper?.style.backgroundColor;
-                const newColor = getTeamColor(team);
-            
-                if (currentColor && currentColor !== newColor) {
-                    oms.removeMarker(liveUserMarkers[userId]);
-                    layerGroups["LIVE_USERS"].removeLayer(liveUserMarkers[userId]);
-                    delete liveUserMarkers[userId];
-                }
-            }
-  
             // ----------------------------------------------------
               // HIDE USERS WITH NO NAME
               // ----------------------------------------------------
@@ -1132,34 +1139,11 @@ async function refreshLiveUsers() {
             // NEW MARKER
             // ----------------------------------------------------
             if (!liveUserMarkers[userId]) {
-            
+
                 const marker = L.marker([lat, lng], {
-                    icon: L.divIcon({
-                        className: "live-user-icon",
-                        html: `
-                            <div class="live-user-wrapper">
-                                <div class="live-user-dot"></div>
-                                <div class="live-user-name"></div>
-                                <div class="live-user-time"></div>
-                            </div>
-                        `,
-                        iconSize: [80, 40],
-                        iconAnchor: [40, 20]
-                    })
+                    icon: buildLiveUserIcon(displayName, team, formattedTime)
                 }).addTo(layerGroups["LIVE_USERS"]);
-            
-                const wrapper = marker._icon.querySelector(".live-user-wrapper");
-            
-                if (wrapper) {
-                    const color = getTeamColor(team);
-            
-                    wrapper.style.setProperty("background-color", color, "important");
-                    wrapper.querySelector(".live-user-dot").style.backgroundColor = color;
-            
-                    wrapper.querySelector(".live-user-name").textContent = displayName;
-                    wrapper.querySelector(".live-user-time").textContent = formattedTime;
-                }
-            
+
                 liveUserMarkers[userId] = marker;
                 oms.addMarker(marker);
 
@@ -1167,21 +1151,10 @@ async function refreshLiveUsers() {
             // UPDATE EXISTING MARKER
             // ----------------------------------------------------
             } else {
-            
+
                 const marker = liveUserMarkers[userId];
                 marker.setLatLng([lat, lng]);
-            
-                const wrapper = marker._icon.querySelector(".live-user-wrapper");
-            
-                if (wrapper) {
-                    const color = getTeamColor(team);
-            
-                    wrapper.style.setProperty("background-color", color, "important");
-                    wrapper.querySelector(".live-user-dot").style.backgroundColor = color;
-            
-                    wrapper.querySelector(".live-user-name").textContent = displayName;
-                    wrapper.querySelector(".live-user-time").textContent = formattedTime;
-                }
+                marker.setIcon(buildLiveUserIcon(displayName, team, formattedTime));
             }
         
         }
