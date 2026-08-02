@@ -1264,6 +1264,8 @@ console.log("map.js loaded");
 // ---------------------------------------------------------
 
 function sendLocationUpdate(lat, lng) {
+  if (localStorage.getItem("shareLocation") !== "true") return;
+
   console.log("sendLocationUpdate()", lat, lng);
 
   // ===============================
