@@ -280,8 +280,7 @@ const geojsonOptions = {
     const iconDef = iconMap[prefix] || { shape: "circle-pin", color: "blue" };
     const icon = makeSvgIcon(iconDef.shape, iconDef.color, label);
     const [lng, lat] = feature.geometry.coordinates;
-   return L.marker([lat, lng], { icon: blankIcon });
-    // ⬅️ back to prefix-based grouping (your earlier behaviour)
+    const marker = L.marker([lat, lng], { icon });
     if (layerGroups[prefix]) {
       layerGroups[prefix].addLayer(marker);
     }
@@ -873,22 +872,12 @@ nameInput.addEventListener("blur", () => {
     }
 
     // ===============================
-    // LOCATION PUBLISHING
+    // LOCATION PUBLISHING (also feeds the desktop heartbeat below)
     // ===============================
-    if (localStorage.getItem("shareLocation") === "true") {
-        fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/location/update", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-            userId,
-            displayName: localStorage.getItem("displayName") || null,
-            lat: e.latlng.lat,
-            lng: e.latlng.lng,
-            timestamp: Date.now()
-            })
-
-        }).catch(err => console.warn("Location publish failed:", err));
-    }
+    lastGPS = Date.now();
+    lastLat = e.latlng.lat;
+    lastLng = e.latlng.lng;
+    sendLocationUpdate(lastLat, lastLng);
 
 
     // Follow mode
@@ -1260,11 +1249,17 @@ setInterval(refreshLiveUsers, 5000);
 console.log("map.js loaded");
 
 // ---------------------------------------------------------
-// SIMPLE LOCATION UPDATES — no heartbeat, no throttling logic
+// SIMPLE LOCATION UPDATES — driven by Leaflet's own GPS watch
+// (see "8. GPS locationfound handler" above); no separate
+// navigator.geolocation.watchPosition() call.
 // ---------------------------------------------------------
 
+let lastGPS = 0;
+let lastLat = null;
+let lastLng = null;
+
 function sendLocationUpdate(lat, lng) {
-  if (localStorage.getItem("shareLocation") !== "true") return;
+  if (!tracking || localStorage.getItem("shareLocation") !== "true") return;
 
   console.log("sendLocationUpdate()", lat, lng);
 
@@ -1295,21 +1290,6 @@ function sendLocationUpdate(lat, lng) {
 function startLocationUpdates() {
   console.log("startLocationUpdates() called");
 
-  let lastGPS = 0;
-  let lastLat = null;
-  let lastLng = null;
-  
-  navigator.geolocation.watchPosition(
-    pos => {
-      lastGPS = Date.now();
-      lastLat = pos.coords.latitude;
-      lastLng = pos.coords.longitude;
-      sendLocationUpdate(lastLat, lastLng);
-    },
-    err => console.error("GPS watch error", err),
-    { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-  );
-  
   // Desktop heartbeat (GPS idle)
   setInterval(() => {
     const now = Date.now();
