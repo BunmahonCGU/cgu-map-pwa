@@ -8,34 +8,91 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.2";
+const APP_VERSION = "V1.3";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
 // ===============================
+// Runs both the native Wake Lock API AND a silent looping video at the
+// same time — not an either/or. iOS can report navigator.wakeLock as
+// supported yet still not reliably prevent auto-lock in a home-screen-
+// installed PWA, so the video runs as a belt-and-braces fallback rather
+// than only when the native API is detected as absent.
 let wakeLock = null;
+let noSleepVideo = null;
+
+function getNoSleepVideo() {
+  if (!noSleepVideo) {
+    noSleepVideo = document.getElementById("nosleep-video");
+    if (noSleepVideo) {
+      // A short muted video's loop attribute isn't reliable on iOS;
+      // jump back before it ends instead so it keeps "playing" forever.
+      noSleepVideo.addEventListener("timeupdate", () => {
+        if (noSleepVideo.currentTime > 0.5) {
+          noSleepVideo.currentTime = Math.random();
+        }
+      });
+    }
+  }
+  return noSleepVideo;
+}
+
+function updateWakeLockStatus(text, color) {
+  const el = document.getElementById("wakelock-status");
+  if (el) {
+    el.textContent = text;
+    el.style.color = color;
+  }
+}
 
 async function requestWakeLock() {
-  if (!("wakeLock" in navigator)) return;
-  try {
-    wakeLock = await navigator.wakeLock.request("screen");
-    wakeLock.addEventListener("release", () => {
-      console.log("Wake Lock released");
-    });
-    console.log("Wake Lock acquired");
-  } catch (err) {
-    console.warn("Wake Lock request failed:", err);
+  let nativeOk = false;
+  let videoOk = false;
+
+  if ("wakeLock" in navigator) {
+    try {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => {
+        console.log("Wake Lock released");
+      });
+      console.log("Wake Lock acquired");
+      nativeOk = true;
+    } catch (err) {
+      console.warn("Wake Lock request failed:", err);
+    }
+  }
+
+  const video = getNoSleepVideo();
+  if (video) {
+    try {
+      await video.play();
+      videoOk = true;
+    } catch (err) {
+      console.warn("NoSleep video play failed:", err);
+    }
+  }
+
+  if (nativeOk || videoOk) {
+    updateWakeLockStatus("Screen: staying awake", "green");
+  } else {
+    updateWakeLockStatus("Screen: could not stay awake", "red");
   }
 }
 
 async function releaseWakeLock() {
-  if (!wakeLock) return;
-  try {
-    await wakeLock.release();
-  } catch (err) {
-    // already released
+  if (wakeLock) {
+    try {
+      await wakeLock.release();
+    } catch (err) {
+      // already released
+    }
+    wakeLock = null;
   }
-  wakeLock = null;
+  const video = getNoSleepVideo();
+  if (video) {
+    video.pause();
+  }
+  updateWakeLockStatus("", "");
 }
 
 // Browsers auto-release the lock once the tab is hidden/backgrounded;
@@ -744,6 +801,7 @@ oms.addListener('unspiderfy', function(markers) {
             <input type="checkbox" id="shareLocationOptIn">
             Share My Location
         </label>
+        <div id="wakelock-status" style="font-size: 11px; margin-top: 2px;"></div>
     `;
     layerList.appendChild(shareContainer);
     
