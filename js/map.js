@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.3";
+const APP_VERSION = "V1.4";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -218,6 +218,14 @@ async function checkTokenStatus() {
 
 // Disable Leaflet HTML sanitization so <img> tags are not stripped
 L.Popup.prototype.options.sanitize = false;
+
+// Safely escape user-controlled text (displayName, alert message/category)
+// before inserting it via innerHTML.
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str == null ? "" : String(str);
+  return div.innerHTML;
+}
 
 // Extract label safely (iconUrl → label → name)
 function getFeatureLabel(feature) {
@@ -913,7 +921,10 @@ const teamSelect = document.getElementById("teamSelect");
 teamSelect.value = localStorage.getItem("team") || "";
 
 teamSelect.addEventListener("change", () => {
-    localStorage.setItem("team", teamSelect.value);
+    const oldTeam = localStorage.getItem("team") || "";
+    const newTeam = teamSelect.value;
+    localStorage.setItem("team", newTeam);
+    postTeamChangeAlert(oldTeam, newTeam);
 });
 
     
@@ -1139,6 +1150,11 @@ if (refreshBtn) {
     return div;
   };
   gpsButton.addTo(map);
+
+  // ------------------------------------------------------------
+  // 15. Long-press map to mark a location Cleared
+  // ------------------------------------------------------------
+  setupLongPressClear();
 
   // Enable swipe-down-to-close for popups
   map.on("popupopen", function (e) {
@@ -1591,6 +1607,135 @@ function playAlertSound() {
   }
 }
 
+// ===============================
+// AUTO-POSTED ALERTS (Team changes, map long-press Cleared)
+// ===============================
+// Posts an alert authenticated via the per-device token rather than the
+// admin PIN — these come from ordinary users doing ordinary things
+// (switching teams, marking an area cleared), not an admin console entry.
+async function postAutoAlert(category, message, extra) {
+  try {
+    const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/alerts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        category,
+        message,
+        user: category === "Team" ? "System" : (localStorage.getItem("displayName") || "Unknown"),
+        userId,
+        token: localStorage.getItem("locationToken") || null,
+        ...(extra || {})
+      })
+    });
+    const data = await res.json();
+    if (data.token) {
+      localStorage.setItem("locationToken", data.token);
+    }
+    if (data.status === "error") {
+      console.error(`Failed to post ${category} alert:`, data.error);
+      return false;
+    }
+    refreshAlerts();
+    return true;
+  } catch (err) {
+    console.error(`Failed to post ${category} alert:`, err);
+    return false;
+  }
+}
+
+function postTeamChangeAlert(oldTeam, newTeam) {
+  if (oldTeam === newTeam) return;
+  const name = localStorage.getItem("displayName") || "Someone";
+  let message;
+  if (!oldTeam && newTeam) {
+    message = `${name} has joined ${newTeam}`;
+  } else if (oldTeam && !newTeam) {
+    message = `${name} has left ${oldTeam}`;
+  } else {
+    message = `${name} has moved from ${oldTeam} to ${newTeam}`;
+  }
+  postAutoAlert("Team", message);
+}
+
+// ===============================
+// LONG-PRESS MAP TO MARK A LOCATION CLEARED
+// ===============================
+// No native "long press" event exists in the DOM — detected manually via
+// a timer started on press, cancelled on release or on moving too far.
+function setupLongPressClear() {
+  const LONG_PRESS_MS = 550;
+  const MOVE_CANCEL_PX = 12;
+  let pressTimer = null;
+  let startX = 0;
+  let startY = 0;
+
+  function cancelPress() {
+    clearTimeout(pressTimer);
+    pressTimer = null;
+  }
+
+  function startPress(clientX, clientY) {
+    startX = clientX;
+    startY = clientY;
+    cancelPress();
+    pressTimer = setTimeout(() => {
+      pressTimer = null;
+      const rect = map.getContainer().getBoundingClientRect();
+      const latlng = map.containerPointToLatLng([clientX - rect.left, clientY - rect.top]);
+      handleLongPressClear(latlng.lat, latlng.lng);
+    }, LONG_PRESS_MS);
+  }
+
+  function moved(clientX, clientY) {
+    if (!pressTimer) return;
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+    if (Math.sqrt(dx * dx + dy * dy) > MOVE_CANCEL_PX) {
+      cancelPress();
+    }
+  }
+
+  const container = map.getContainer();
+
+  container.addEventListener("mousedown", e => {
+    if (e.button !== 0) return;
+    startPress(e.clientX, e.clientY);
+  });
+  container.addEventListener("mousemove", e => moved(e.clientX, e.clientY));
+  container.addEventListener("mouseup", cancelPress);
+  container.addEventListener("mouseleave", cancelPress);
+
+  container.addEventListener("touchstart", e => {
+    if (e.touches.length !== 1) {
+      cancelPress();
+      return;
+    }
+    startPress(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  container.addEventListener("touchmove", e => {
+    if (e.touches.length === 1) moved(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  container.addEventListener("touchend", cancelPress);
+  container.addEventListener("touchcancel", cancelPress);
+}
+
+async function handleLongPressClear(lat, lng) {
+  if (!confirm("Do you want to Clear this location?")) return;
+
+  let address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  try {
+    const res = await fetch(`https://shiny-math-8471.bunmahoncgu.workers.dev/reverse-geocode?lat=${lat}&lng=${lng}`);
+    const data = await res.json();
+    if (data.status === "ok" && data.address) {
+      address = data.address;
+    }
+  } catch (err) {
+    console.warn("Reverse geocode failed, using coordinates instead:", err);
+  }
+
+  postAutoAlert("Cleared", address, { lat, lng });
+}
+
 async function refreshAlerts() {
   try {
     //const url = "data/alerts.json?cb=" + Date.now();
@@ -1650,7 +1795,9 @@ async function refreshAlerts() {
 
       li.innerHTML = `
         <div class="alert-time">${timeOnly}</div>
-        <div class="alert-body">${a.message}${hasLocation ? " 📍" : ""}</div>
+        <div class="alert-user">${escapeHtml(a.user)}</div>
+        <div class="alert-category">${escapeHtml(a.category)}</div>
+        <div class="alert-body">${escapeHtml(a.message)}${hasLocation ? " 📍" : ""}</div>
         ${directionsLink}
       `;
 
@@ -1844,28 +1991,26 @@ adminSubmit.addEventListener("click", async e => {
   blockNextMapClick();
   
 
-  const title = document.getElementById("admin-title").value.trim();
+  const category = document.getElementById("admin-category").value;
   const message = document.getElementById("admin-message").value.trim();
 
   if (!adminPin) {
     alert("PIN not set. Use the Admin button first.");
     return;
   }
-  if (!title || !message) {
-    alert("Title and message required");
+  if (!category || !message) {
+    alert("Category and message required");
     return;
   }
 
-  const combinedMessage = `${title}: ${message}`;
-
   try {
-    const fullMessage = combinedMessage; // already title + message
-
     const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/alerts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        message: fullMessage,
+        category,
+        message,
+        user: localStorage.getItem("displayName") || "Unknown",
         pin: adminPin,
         lat: pendingAlertLocation ? pendingAlertLocation.lat : null,
         lng: pendingAlertLocation ? pendingAlertLocation.lng : null
@@ -1880,7 +2025,7 @@ adminSubmit.addEventListener("click", async e => {
     }
 
     alert("Update posted");
-    document.getElementById("admin-title").value = "";
+    document.getElementById("admin-category").value = "";
     document.getElementById("admin-message").value = "";
     pendingAlertLocation = null;
     locationStatus.textContent = "No location set";

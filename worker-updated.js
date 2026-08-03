@@ -74,6 +74,30 @@ export class LiveUsersDO {
 
 
 
+    if (url.pathname.endsWith("/verify-token")) {
+      const data = await request.json();
+      if (!data.userId) {
+        return cors(Response.json({ valid: false, error: "Missing userId" }, { status: 400 }));
+      }
+
+      const tokenKey = "token:" + data.userId;
+      const storedToken = await this.state.storage.get(tokenKey);
+
+      if (!storedToken) {
+        // First-ever contact for this userId via ANY authenticated action
+        // (not just /location/update) — mint and persist a token now.
+        const issuedToken = crypto.randomUUID();
+        await this.state.storage.put(tokenKey, issuedToken);
+        return cors(Response.json({ valid: true, token: issuedToken }));
+      }
+
+      if (data.token !== storedToken) {
+        return cors(Response.json({ valid: false, error: "Invalid or missing token" }));
+      }
+
+      return cors(Response.json({ valid: true }));
+    }
+
     if (url.pathname.endsWith("/all")) {
       const now = Date.now();
       const users = [];
@@ -132,13 +156,50 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/alerts") {
       try {
-        const { message, pin, lat, lng } = await request.json();
-        if (!message || !pin) {
-          return Response.json({ status: "error", error: "Missing message or pin" }, { status: 400, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
+        const { message, pin, category, user, userId, token, lat, lng } = await request.json();
+
+        if (!message || !category) {
+          return Response.json({ status: "error", error: "Missing message or category" }, { status: 400, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
         }
-        if (pin !== env.ADMIN_PIN) {
-          return Response.json({ status: "error", error: "Invalid PIN" }, { status: 403, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
+
+        // Scenario/Description/Sighting/Other (and anything not explicitly
+        // listed below) require the admin PIN. Team is posted automatically
+        // by the app itself and only ever uses the per-device token, never
+        // a PIN. Cleared can come from either the admin console (PIN) or
+        // the map long-press flow (token).
+        const TOKEN_ONLY_CATEGORIES = ["Team"];
+        const PIN_OR_TOKEN_CATEGORIES = ["Cleared"];
+
+        let authorized = false;
+        let mintedToken = null;
+
+        if (TOKEN_ONLY_CATEGORIES.includes(category)) {
+          const result = await verifyDeviceToken(env, userId, token);
+          authorized = result.valid;
+          mintedToken = result.mintedToken;
+          if (!authorized) {
+            return Response.json({ status: "error", error: "Invalid or missing token" }, { status: 403, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
+          }
+        } else if (PIN_OR_TOKEN_CATEGORIES.includes(category)) {
+          if (pin === env.ADMIN_PIN) {
+            authorized = true;
+          } else if (userId) {
+            const result = await verifyDeviceToken(env, userId, token);
+            authorized = result.valid;
+            mintedToken = result.mintedToken;
+          }
+          if (!authorized) {
+            return Response.json({ status: "error", error: "Invalid PIN or token" }, { status: 403, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
+          }
+        } else {
+          // PIN-only categories (Scenario, Description, Sighting, Other, and
+          // any future addition not explicitly listed above).
+          if (pin !== env.ADMIN_PIN) {
+            return Response.json({ status: "error", error: "Invalid PIN" }, { status: 403, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
+          }
+          authorized = true;
         }
+
         let existing = { updates: [] };
         const raw = await env.ALERTS_KV.get("alerts.json");
         if (raw) {
@@ -147,16 +208,56 @@ export default {
             if (parsed && Array.isArray(parsed.updates)) { existing = parsed; }
           } catch (err) {}
         }
-        const update = { message, timestamp: new Date().toISOString() };
+        const update = {
+          message,
+          category,
+          user: user || "Unknown",
+          timestamp: new Date().toISOString()
+        };
         if (typeof lat === "number" && typeof lng === "number") {
           update.lat = lat;
           update.lng = lng;
         }
         existing.updates.unshift(update);
         await env.ALERTS_KV.put("alerts.json", JSON.stringify(existing, null, 2));
-        return Response.json({ status: "ok" }, { headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
+
+        // Surface a freshly-minted token (first-ever contact for this
+        // userId via any authenticated action) so the client can save it.
+        const responseBody = { status: "ok" };
+        if (mintedToken) responseBody.token = mintedToken;
+
+        return Response.json(responseBody, { headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
       } catch (err) {
         return Response.json({ status: "error", error: err.toString() }, { status: 500, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
+      }
+    }
+
+    // REVERSE GEOCODE (used by the map's long-press-to-clear flow)
+    if (request.method === "GET" && url.pathname === "/reverse-geocode") {
+      const lat = url.searchParams.get("lat");
+      const lng = url.searchParams.get("lng");
+      if (!lat || !lng) {
+        return Response.json({ status: "error", error: "Missing lat or lng" }, {
+          status: 400,
+          headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" }
+        });
+      }
+      try {
+        // Browser fetch can't set a custom User-Agent; Nominatim's usage
+        // policy expects one, so this proxies the request server-side.
+        const nominatimRes = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=json`,
+          { headers: { "User-Agent": "BunmahonCGUAccessMap/1.0" } }
+        );
+        const data = await nominatimRes.json();
+        return Response.json({ status: "ok", address: data.display_name || null }, {
+          headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" }
+        });
+      } catch (err) {
+        return Response.json({ status: "error", error: err.toString() }, {
+          status: 500,
+          headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" }
+        });
       }
     }
 
@@ -238,6 +339,24 @@ export default {
     );
   }
 };
+
+// Verifies a userId+token pair against the LiveUsersDO, which mints a
+// token on a userId's first-ever contact (so a device that has never
+// shared its location can still authenticate a Team/Cleared post).
+// Returns { valid, mintedToken } — mintedToken is only set on first contact.
+async function verifyDeviceToken(env, userId, token) {
+  if (!userId) return { valid: false };
+  const id = env.LIVE_USERS_DO.idFromName("global");
+  const stub = env.LIVE_USERS_DO.get(id);
+  const req = new Request("http://internal/verify-token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, token })
+  });
+  const res = await stub.fetch(req);
+  const data = await res.json();
+  return { valid: !!data.valid, mintedToken: data.token || null };
+}
 
 async function checkPatHealth(env) {
   try {
