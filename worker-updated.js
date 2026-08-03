@@ -208,6 +208,17 @@ export default {
             if (parsed && Array.isArray(parsed.updates)) { existing = parsed; }
           } catch (err) {}
         }
+
+        // Prune anything older than 24h before appending — this used to be
+        // a client-side-only display filter, so the stored file grew
+        // forever. This piggybacks on the write this endpoint already
+        // does, so it costs nothing extra.
+        const pruneCutoff = Date.now() - 24 * 60 * 60 * 1000;
+        existing.updates = existing.updates.filter(u => {
+          const t = new Date(u.timestamp).getTime();
+          return !isNaN(t) && t >= pruneCutoff;
+        });
+
         const update = {
           message,
           category,

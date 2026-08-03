@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.4";
+const APP_VERSION = "V1.5";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -1668,21 +1668,38 @@ function setupLongPressClear() {
   let pressTimer = null;
   let startX = 0;
   let startY = 0;
+  let draggingWasEnabled = false;
+
+  // Leaflet's own drag handler reacts to the same mousedown/touchstart and
+  // has a much smaller move threshold than ours, so without suspending it
+  // here, panning kicks in before our long-press timer ever gets a chance
+  // to decide whether this was a hold or a drag.
+  function suspendDragging() {
+    draggingWasEnabled = map.dragging.enabled();
+    if (draggingWasEnabled) map.dragging.disable();
+  }
+
+  function restoreDragging() {
+    if (draggingWasEnabled) map.dragging.enable();
+    draggingWasEnabled = false;
+  }
 
   function cancelPress() {
     clearTimeout(pressTimer);
     pressTimer = null;
+    restoreDragging();
   }
 
   function startPress(clientX, clientY) {
     startX = clientX;
     startY = clientY;
-    cancelPress();
+    clearTimeout(pressTimer);
+    suspendDragging();
     pressTimer = setTimeout(() => {
       pressTimer = null;
       const rect = map.getContainer().getBoundingClientRect();
       const latlng = map.containerPointToLatLng([clientX - rect.left, clientY - rect.top]);
-      handleLongPressClear(latlng.lat, latlng.lng);
+      handleLongPressClear(latlng.lat, latlng.lng).finally(restoreDragging);
     }, LONG_PRESS_MS);
   }
 
@@ -1779,7 +1796,7 @@ async function refreshAlerts() {
     list.innerHTML = "";
     recent.forEach(a => {
       const li = document.createElement("li");
-      li.className = "alert-row";
+      li.className = "alert-row" + (a.category === "Sighting" ? " category-sighting" : "");
 
       // --- Format timestamp as hh:mm:ss ---
       const ts = new Date(a.timestamp);

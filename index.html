@@ -210,43 +210,39 @@ body {
 
 .alert-row {
     display: grid;
-    grid-template-columns: 50px 55px 68px 1fr 30px;
+    grid-template-columns: 58px 68px 68px 1fr 28px;
     gap: 6px;
     padding: 4px 0;
     border-bottom: 1px solid #ddd;
     align-items: center;
 }
 
-.alert-date {
+.alert-time,
+.alert-user,
+.alert-category,
+.alert-body {
     font-size: 12px;
-    font-weight: bold;
-    color: #555;
-}
-
-.alert-user {
-    font-size: 12px;
+    font-weight: normal;
     color: #333;
     word-wrap: break-word;
 }
 
 .alert-category {
-    font-size: 11px;
-    font-weight: bold;
     color: #0078ff;
-    word-wrap: break-word;
-}
-
-.alert-body {
-    font-size: 14px;
-    color: #333;
-    word-wrap: break-word;
-    padding-left: 2px;
 }
 
 .alert-directions {
     text-align: center;
     font-size: 18px;
     text-decoration: none;
+}
+
+/* Sighting entries are flagged in red across the whole row */
+.alert-row.category-sighting .alert-time,
+.alert-row.category-sighting .alert-user,
+.alert-row.category-sighting .alert-category,
+.alert-row.category-sighting .alert-body {
+    color: red;
 }
 
 .hidden {
