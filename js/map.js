@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.7";
+const APP_VERSION = "V1.8";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -314,9 +314,18 @@ function formatUmapPopup(raw) {
 // ------------------------------------------------------------
 // SVG Icon Factory (40×40, minified SVG strings)
 // ------------------------------------------------------------
-function makeSvgIcon(shape, color, label, fontSize) {
+function makeSvgIcon(shape, color, label, options) {
   let svg = "";
-  fontSize = fontSize || 12;
+  const fontSize = (options && options.fontSize) || 12;
+  const textColor = (options && options.textColor) || "white";
+  // A thick white stroke drawn UNDER the text fill (paint-order) acts as a
+  // halo, keeping the label legible over the pin's own border regardless
+  // of where the text happens to fall — used for longer labels like the
+  // Cleared pins' elapsed-time text.
+  const textHaloAttrs = (options && options.halo)
+    ? ' stroke="white" stroke-width="3" paint-order="stroke" stroke-linejoin="round"'
+    : '';
+  const textAttrs = 'font-size="' + fontSize + '" fill="' + textColor + '"' + textHaloAttrs;
 
   if (shape === "circle-pin") {
     svg =
@@ -324,7 +333,7 @@ function makeSvgIcon(shape, color, label, fontSize) {
       '<path d="M20 3 C11 3 5 9 5 17 C5 27 20 38 20 38 C20 38 35 27 35 17 C35 9 29 3 20 3 Z" fill="' +
       color +
       '" stroke="black" stroke-width="2"/>' +
-      '<text x="20" y="17" text-anchor="middle" font-size="' + fontSize + '" fill="white" font-family="sans-serif">' +
+      '<text x="20" y="17" text-anchor="middle" ' + textAttrs + ' font-family="sans-serif">' +
       label +
       "</text></svg>";
   }
@@ -335,7 +344,7 @@ function makeSvgIcon(shape, color, label, fontSize) {
       '<path d="M10 5 H30 V17 C30 27 20 38 20 38 C20 38 10 27 10 17 Z" fill="' +
       color +
       '" stroke="black" stroke-width="2"/>' +
-      '<text x="20" y="15" text-anchor="middle" font-size="' + fontSize + '" fill="white" font-family="sans-serif">' +
+      '<text x="20" y="15" text-anchor="middle" ' + textAttrs + ' font-family="sans-serif">' +
       label +
       "</text></svg>";
   }
@@ -347,7 +356,7 @@ function makeSvgIcon(shape, color, label, fontSize) {
       color +
       '" stroke="black" stroke-width="2"/>' +
       '<path d="M12 22l4-6 2 4 2-3 6 5" stroke="white" stroke-width="2" fill="none"/>' +
-      '<text x="20" y="17" text-anchor="middle" font-size="' + fontSize + '" fill="white" font-family="sans-serif">' +
+      '<text x="20" y="17" text-anchor="middle" ' + textAttrs + ' font-family="sans-serif">' +
       label +
       "</text></svg>";
   }
@@ -1844,7 +1853,9 @@ async function refreshAlerts() {
       .forEach(a => {
         const color = getTeamColor(a.team);
         const elapsedLabel = formatElapsedTime(a.timestamp);
-        const marker = L.marker([a.lat, a.lng], { icon: makeSvgIcon("circle-pin", color, elapsedLabel, 9) });
+        const marker = L.marker([a.lat, a.lng], {
+          icon: makeSvgIcon("circle-pin", color, elapsedLabel, { fontSize: 11, textColor: "black", halo: true })
+        });
         marker.bindPopup(
           `<strong>Cleared by ${escapeHtml(a.user)}</strong><br>${escapeHtml(a.message)}<br><small>${new Date(a.timestamp).toLocaleString()}</small>`,
           { className: "custom-popup" }
