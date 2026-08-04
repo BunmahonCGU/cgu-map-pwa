@@ -156,7 +156,7 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/alerts") {
       try {
-        const { message, pin, category, user, team, userId, token, lat, lng } = await request.json();
+        const { message, pin, category, user, team, userId, token, lat, lng, points } = await request.json();
 
         if (!message || !category) {
           return Response.json({ status: "error", error: "Missing message or category" }, { status: 400, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
@@ -165,10 +165,11 @@ export default {
         // Scenario/Description/Sighting/Other (and anything not explicitly
         // listed below) require the admin PIN. Team is posted automatically
         // by the app itself and only ever uses the per-device token, never
-        // a PIN. Cleared can come from either the admin console (PIN) or
-        // the map long-press flow (token).
+        // a PIN. Cleared and Zone can come from either the admin console
+        // (PIN) or a direct map action (token) — Cleared via long-press,
+        // Zone via the multi-point "Mark Zone" draw tool.
         const TOKEN_ONLY_CATEGORIES = ["Team"];
-        const PIN_OR_TOKEN_CATEGORIES = ["Cleared"];
+        const PIN_OR_TOKEN_CATEGORIES = ["Cleared", "Zone"];
 
         let authorized = false;
         let mintedToken = null;
@@ -229,6 +230,13 @@ export default {
         if (typeof lat === "number" && typeof lng === "number") {
           update.lat = lat;
           update.lng = lng;
+        }
+        if (
+          Array.isArray(points) &&
+          points.length >= 3 &&
+          points.every(p => Array.isArray(p) && p.length === 2 && typeof p[0] === "number" && typeof p[1] === "number")
+        ) {
+          update.points = points;
         }
         existing.updates.unshift(update);
         await env.ALERTS_KV.put("alerts.json", JSON.stringify(existing, null, 2));

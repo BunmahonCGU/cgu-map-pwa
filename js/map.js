@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.9";
+const APP_VERSION = "V1.10";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -141,7 +141,15 @@ function getTeamColor(team) {
     if (!team) return "#ffffff"; // white for no-team
 
     if (!teamColors[team]) {
-        const hue = Math.floor(Math.random() * 360);
+        // Deterministic hash of the team name -> hue, so every device shows
+        // the same team the same color without needing to sync anything
+        // (this used to be Math.random(), so two phones could show "Bravo"
+        // in two different colors).
+        let hash = 0;
+        for (let i = 0; i < team.length; i++) {
+            hash = (hash * 31 + team.charCodeAt(i)) >>> 0;
+        }
+        const hue = hash % 360;
         teamColors[team] = `hsl(${hue}, 70%, 80%)`;
     }
 
@@ -577,6 +585,11 @@ layerGroups["LIVE_USERS"] = L.layerGroup();
 // ===============================
 layerGroups["CLEARED"] = L.layerGroup();
 
+// ===============================
+// MARKED ZONES LAYER (shaded areas, colored by the poster's team)
+// ===============================
+layerGroups["ZONES"] = L.layerGroup();
+
 
 // ------------------------------------------------------------
 // Enable GPS tracking
@@ -957,6 +970,56 @@ showClearedToggle.addEventListener("change", () => {
     }
 });
 
+// ===============================
+// SHOW ZONES TOGGLE + MARK ZONE BUTTON
+// ===============================
+const showZonesContainer = document.createElement("div");
+showZonesContainer.style.marginTop = "6px";
+showZonesContainer.innerHTML = `
+    <label style="cursor:pointer;">
+        <input type="checkbox" id="showZonesToggle">
+        Show Zones
+    </label>
+`;
+layerList.appendChild(showZonesContainer);
+
+const showZonesToggle = document.getElementById("showZonesToggle");
+showZonesToggle.checked = false;
+
+showZonesToggle.addEventListener("change", () => {
+    if (showZonesToggle.checked) {
+        map.addLayer(layerGroups["ZONES"]);
+    } else {
+        map.removeLayer(layerGroups["ZONES"]);
+    }
+});
+
+const markZoneContainer = document.createElement("div");
+markZoneContainer.style.marginTop = "6px";
+markZoneContainer.innerHTML = `
+    <button id="markZoneBtn" type="button" style="
+        width:100%;
+        background:#0078ff;
+        color:white;
+        border:none;
+        padding:6px;
+        border-radius:4px;
+        cursor:pointer;
+    ">✏️ Mark Zone</button>
+`;
+layerList.appendChild(markZoneContainer);
+
+// Wired up right here (not at the bottom of the file with the rest of the
+// zone-drawing logic) because this button is created dynamically inside
+// initMap() — grabbing it via getElementById any earlier, at top-level
+// script scope, runs before initMap() ever creates it and silently
+// captures null. startZoneDrawing() itself is a plain top-level function
+// declaration (hoisted), so it's already safe to call from here.
+document.getElementById("markZoneBtn").addEventListener("click", e => {
+  e.stopPropagation();
+  startZoneDrawing();
+});
+
 
 
 const nameInput = document.getElementById("displayNameInput");
@@ -1205,6 +1268,10 @@ if (refreshBtn) {
   // 15. Long-press map to mark a location Cleared
   // ------------------------------------------------------------
   setupLongPressClear();
+
+  // Mark Zone drawing preview layer — created at top level (map doesn't
+  // exist yet then), attached here now that it does.
+  zonePreviewLayer.addTo(map);
 
   // Enable swipe-down-to-close for popups
   map.on("popupopen", function (e) {
@@ -1798,6 +1865,99 @@ async function handleLongPressClear(lat, lng) {
   postAutoAlert("Cleared", address, { lat, lng });
 }
 
+// ===============================
+// MARK ZONE — tap 3+ points on the map, shade the shape they enclose in
+// the poster's current team color. Shared to every device the same way
+// Cleared/Team alerts are (posted via postAutoAlert, category "Zone").
+// ===============================
+let zoneDrawing = false;
+let zonePoints = []; // array of [lat, lng]
+let zoneClickHandler = null;
+// NOT .addTo(map) here — `map` isn't assigned until initMap() runs on
+// DOMContentLoaded, which is after this top-level script finishes. It's
+// added to the map once from inside initMap() instead (see below).
+const zonePreviewLayer = L.layerGroup();
+
+const zoneDrawBanner = document.getElementById("zone-draw-banner");
+const zoneDrawStatus = document.getElementById("zone-draw-status");
+const zoneDrawFinishBtn = document.getElementById("zone-draw-finish");
+const zoneDrawCancelBtn = document.getElementById("zone-draw-cancel");
+
+function redrawZonePreview() {
+  zonePreviewLayer.clearLayers();
+  const color = getTeamColor(localStorage.getItem("team"));
+  if (zonePoints.length >= 2) {
+    zonePreviewLayer.addLayer(
+      L.polygon(zonePoints, { color, fillColor: color, fillOpacity: 0.25, weight: 2, dashArray: "6,6" })
+    );
+  }
+  zonePoints.forEach(p => {
+    zonePreviewLayer.addLayer(L.circleMarker(p, { radius: 5, color, fillColor: color, fillOpacity: 1, weight: 1 }));
+  });
+}
+
+function updateZoneDrawStatus() {
+  const n = zonePoints.length;
+  zoneDrawStatus.textContent = n < 3
+    ? `Tap the map to add points (${n} placed, need 3+)`
+    : `Tap the map to add points (${n} placed) — or tap Finish`;
+  zoneDrawFinishBtn.disabled = n < 3;
+  zoneDrawFinishBtn.style.opacity = n < 3 ? "0.5" : "1";
+}
+
+function startZoneDrawing() {
+  if (zoneDrawing) return;
+  zoneDrawing = true;
+  zonePoints = [];
+  redrawZonePreview();
+  updateZoneDrawStatus();
+  zoneDrawBanner.classList.remove("hidden");
+
+  zoneClickHandler = mapEvent => {
+    zonePoints.push([mapEvent.latlng.lat, mapEvent.latlng.lng]);
+    redrawZonePreview();
+    updateZoneDrawStatus();
+  };
+  map.on("click", zoneClickHandler);
+}
+
+function stopZoneDrawing() {
+  zoneDrawing = false;
+  if (zoneClickHandler) {
+    map.off("click", zoneClickHandler);
+    zoneClickHandler = null;
+  }
+  zonePreviewLayer.clearLayers();
+  zoneDrawBanner.classList.add("hidden");
+}
+
+async function finishZoneDrawing() {
+  if (zonePoints.length < 3) return;
+  const points = zonePoints.slice();
+  stopZoneDrawing();
+
+  const label = (prompt("Optional label for this zone (or leave blank):") || "").trim();
+  const message = label || `Zone marked (${points.length} points)`;
+
+  // Centroid so this reuses the alerts list's existing "tap to jump there" /
+  // directions-link logic completely unchanged — it only ever looks for
+  // a plain lat/lng on the record.
+  const centroidLat = points.reduce((sum, p) => sum + p[0], 0) / points.length;
+  const centroidLng = points.reduce((sum, p) => sum + p[1], 0) / points.length;
+
+  postAutoAlert("Zone", message, { points, lat: centroidLat, lng: centroidLng });
+}
+
+zoneDrawFinishBtn.addEventListener("click", e => {
+  e.stopPropagation();
+  finishZoneDrawing();
+});
+
+zoneDrawCancelBtn.addEventListener("click", e => {
+  e.stopPropagation();
+  stopZoneDrawing();
+});
+
 async function refreshAlerts() {
   try {
     //const url = "data/alerts.json?cb=" + Date.now();
@@ -1861,6 +2021,23 @@ async function refreshAlerts() {
           { className: "custom-popup" }
         );
         layerGroups["CLEARED"].addLayer(marker);
+      });
+
+    // ===============================
+    // "Show Zones" shaded areas — same rebuild-fresh-every-refresh pattern
+    // as "Show Cleared" pins above; colored by the poster's team.
+    // ===============================
+    layerGroups["ZONES"].clearLayers();
+    recent
+      .filter(a => a.category === "Zone" && Array.isArray(a.points) && a.points.length >= 3)
+      .forEach(a => {
+        const color = getTeamColor(a.team);
+        const polygon = L.polygon(a.points, { color, fillColor: color, fillOpacity: 0.35, weight: 2 });
+        polygon.bindPopup(
+          `<strong>Zone marked by ${escapeHtml(a.user)}</strong><br>${escapeHtml(a.message)}<br><small>${new Date(a.timestamp).toLocaleString()}</small>`,
+          { className: "custom-popup" }
+        );
+        layerGroups["ZONES"].addLayer(polygon);
       });
 
     const list = document.getElementById("alerts-list");
