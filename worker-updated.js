@@ -156,7 +156,7 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/alerts") {
       try {
-        const { message, pin, category, user, userId, token, lat, lng } = await request.json();
+        const { message, pin, category, user, team, userId, token, lat, lng } = await request.json();
 
         if (!message || !category) {
           return Response.json({ status: "error", error: "Missing message or category" }, { status: 400, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
@@ -223,6 +223,7 @@ export default {
           message,
           category,
           user: user || "Unknown",
+          team: team || "",
           timestamp: new Date().toISOString()
         };
         if (typeof lat === "number" && typeof lng === "number") {

@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.6";
+const APP_VERSION = "V1.7";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -227,6 +227,17 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// Compact "time since" label for Cleared pins, e.g. "45m" or "2h15m".
+// Recomputed fresh every time the Cleared layer rebuilds (every refresh),
+// so it stays live without any extra polling of its own.
+function formatElapsedTime(fromTimestamp) {
+  const ms = Date.now() - new Date(fromTimestamp).getTime();
+  const totalMinutes = Math.max(0, Math.floor(ms / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours}h${minutes}m` : `${minutes}m`;
+}
+
 // Extract label safely (iconUrl → label → name)
 function getFeatureLabel(feature) {
   const props = feature.properties || {};
@@ -303,8 +314,9 @@ function formatUmapPopup(raw) {
 // ------------------------------------------------------------
 // SVG Icon Factory (40×40, minified SVG strings)
 // ------------------------------------------------------------
-function makeSvgIcon(shape, color, label) {
+function makeSvgIcon(shape, color, label, fontSize) {
   let svg = "";
+  fontSize = fontSize || 12;
 
   if (shape === "circle-pin") {
     svg =
@@ -312,7 +324,7 @@ function makeSvgIcon(shape, color, label) {
       '<path d="M20 3 C11 3 5 9 5 17 C5 27 20 38 20 38 C20 38 35 27 35 17 C35 9 29 3 20 3 Z" fill="' +
       color +
       '" stroke="black" stroke-width="2"/>' +
-      '<text x="20" y="17" text-anchor="middle" font-size="12" fill="white" font-family="sans-serif">' +
+      '<text x="20" y="17" text-anchor="middle" font-size="' + fontSize + '" fill="white" font-family="sans-serif">' +
       label +
       "</text></svg>";
   }
@@ -323,7 +335,7 @@ function makeSvgIcon(shape, color, label) {
       '<path d="M10 5 H30 V17 C30 27 20 38 20 38 C20 38 10 27 10 17 Z" fill="' +
       color +
       '" stroke="black" stroke-width="2"/>' +
-      '<text x="20" y="15" text-anchor="middle" font-size="12" fill="white" font-family="sans-serif">' +
+      '<text x="20" y="15" text-anchor="middle" font-size="' + fontSize + '" fill="white" font-family="sans-serif">' +
       label +
       "</text></svg>";
   }
@@ -335,7 +347,7 @@ function makeSvgIcon(shape, color, label) {
       color +
       '" stroke="black" stroke-width="2"/>' +
       '<path d="M12 22l4-6 2 4 2-3 6 5" stroke="white" stroke-width="2" fill="none"/>' +
-      '<text x="20" y="17" text-anchor="middle" font-size="12" fill="white" font-family="sans-serif">' +
+      '<text x="20" y="17" text-anchor="middle" font-size="' + fontSize + '" fill="white" font-family="sans-serif">' +
       label +
       "</text></svg>";
   }
@@ -550,6 +562,11 @@ const layerGroups = {
 // LIVE USER LOCATIONS LAYER
 // ===============================
 layerGroups["LIVE_USERS"] = L.layerGroup();
+
+// ===============================
+// CLEARED LOCATIONS LAYER
+// ===============================
+layerGroups["CLEARED"] = L.layerGroup();
 
 
 // ------------------------------------------------------------
@@ -907,8 +924,32 @@ if (savedTeam) {
     document.getElementById("teamSelect").value = savedTeam;
 }
 
-    
-    
+// ===============================
+// SHOW CLEARED TOGGLE
+// ===============================
+const showClearedContainer = document.createElement("div");
+showClearedContainer.style.marginTop = "6px";
+showClearedContainer.innerHTML = `
+    <label style="cursor:pointer;">
+        <input type="checkbox" id="showClearedToggle">
+        Show Cleared
+    </label>
+`;
+layerList.appendChild(showClearedContainer);
+
+const showClearedToggle = document.getElementById("showClearedToggle");
+showClearedToggle.checked = false;
+
+showClearedToggle.addEventListener("change", () => {
+    if (showClearedToggle.checked) {
+        map.addLayer(layerGroups["CLEARED"]);
+    } else {
+        map.removeLayer(layerGroups["CLEARED"]);
+    }
+});
+
+
+
 const nameInput = document.getElementById("displayNameInput");
 nameInput.value = localStorage.getItem("displayName") || "";
 console.log("nameInput exists:", !!nameInput);
@@ -1622,6 +1663,7 @@ async function postAutoAlert(category, message, extra) {
         category,
         message,
         user: category === "Team" ? "System" : (localStorage.getItem("displayName") || "Unknown"),
+        team: localStorage.getItem("team") || "",
         userId,
         token: localStorage.getItem("locationToken") || null,
         ...(extra || {})
@@ -1785,6 +1827,30 @@ async function refreshAlerts() {
         try { localStorage.setItem("lastSeenAlertTimestamp", String(newestTimestamp)); } catch (err) {}
       }
     }
+
+    // ===============================
+    // "Show Cleared" pins — rebuilt fresh each refresh, same as the list
+    // below. Only entries with both a real location and a real name are
+    // shown; team color mirrors the same getTeamColor() used for live users.
+    // ===============================
+    layerGroups["CLEARED"].clearLayers();
+    recent
+      .filter(a =>
+        a.category === "Cleared" &&
+        typeof a.lat === "number" &&
+        typeof a.lng === "number" &&
+        a.user && a.user !== "Unknown"
+      )
+      .forEach(a => {
+        const color = getTeamColor(a.team);
+        const elapsedLabel = formatElapsedTime(a.timestamp);
+        const marker = L.marker([a.lat, a.lng], { icon: makeSvgIcon("circle-pin", color, elapsedLabel, 9) });
+        marker.bindPopup(
+          `<strong>Cleared by ${escapeHtml(a.user)}</strong><br>${escapeHtml(a.message)}<br><small>${new Date(a.timestamp).toLocaleString()}</small>`,
+          { className: "custom-popup" }
+        );
+        layerGroups["CLEARED"].addLayer(marker);
+      });
 
     const list = document.getElementById("alerts-list");
     list.innerHTML = "";
@@ -2022,6 +2088,7 @@ adminSubmit.addEventListener("click", async e => {
         category,
         message,
         user: localStorage.getItem("displayName") || "Unknown",
+        team: localStorage.getItem("team") || "",
         pin: adminPin,
         lat: pendingAlertLocation ? pendingAlertLocation.lat : null,
         lng: pendingAlertLocation ? pendingAlertLocation.lng : null
