@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.5";
+const APP_VERSION = "V1.6";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -1668,38 +1668,30 @@ function setupLongPressClear() {
   let pressTimer = null;
   let startX = 0;
   let startY = 0;
-  let draggingWasEnabled = false;
 
-  // Leaflet's own drag handler reacts to the same mousedown/touchstart and
-  // has a much smaller move threshold than ours, so without suspending it
-  // here, panning kicks in before our long-press timer ever gets a chance
-  // to decide whether this was a hold or a drag.
-  function suspendDragging() {
-    draggingWasEnabled = map.dragging.enabled();
-    if (draggingWasEnabled) map.dragging.disable();
-  }
-
-  function restoreDragging() {
-    if (draggingWasEnabled) map.dragging.enable();
-    draggingWasEnabled = false;
-  }
-
+  // Leaflet's own dragging is never touched/disabled — it stays fully live
+  // the whole time. Leaflet fires its own "dragstart" the moment IT decides
+  // real movement occurred, which is what actually cancels our timer; the
+  // manual moved() check below is just a redundant safety net on top of
+  // that, not the primary signal. (An earlier version disabled
+  // map.dragging during the hold, which broke panning entirely — Leaflet's
+  // drag handler attaches its own listeners at mousedown time, so
+  // re-enabling it mid-gesture doesn't let it pick a drag back up.)
   function cancelPress() {
     clearTimeout(pressTimer);
     pressTimer = null;
-    restoreDragging();
   }
 
   function startPress(clientX, clientY) {
     startX = clientX;
     startY = clientY;
     clearTimeout(pressTimer);
-    suspendDragging();
     pressTimer = setTimeout(() => {
       pressTimer = null;
       const rect = map.getContainer().getBoundingClientRect();
       const latlng = map.containerPointToLatLng([clientX - rect.left, clientY - rect.top]);
-      handleLongPressClear(latlng.lat, latlng.lng).finally(restoreDragging);
+      blockNextMapClick(); // swallow the click Leaflet fires on release
+      handleLongPressClear(latlng.lat, latlng.lng);
     }, LONG_PRESS_MS);
   }
 
@@ -1711,6 +1703,8 @@ function setupLongPressClear() {
       cancelPress();
     }
   }
+
+  map.on("dragstart", cancelPress);
 
   const container = map.getContainer();
 
