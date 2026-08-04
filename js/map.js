@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.8";
+const APP_VERSION = "V1.9";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -1411,7 +1411,7 @@ async function refreshLiveUsers() {
 
 
 
-setInterval(refreshLiveUsers, 5000);
+setInterval(refreshLiveUsers, 10000);
 console.log("map.js loaded");
 
 // ---------------------------------------------------------
@@ -1487,7 +1487,7 @@ function startLocationUpdates() {
       console.log("Desktop heartbeat (GPS idle)");
       sendLocationUpdate(lastLat, lastLng);   // <-- NO geolocation call
     }
-  }, 5000);
+  }, 10000);
 }
 
 
