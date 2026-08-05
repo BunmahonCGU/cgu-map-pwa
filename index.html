@@ -342,10 +342,18 @@ body {
     background: #0078ff !important;
     color: white !important;
 }
-#admin-panel,
-#alerts-panel {
+#admin-panel {
     pointer-events: auto;
     touch-action: none;      /* don't let gestures propagate as scroll/zoom */
+}
+
+#alerts-panel {
+    pointer-events: auto;
+    /* pan-y (not none) — this panel needs native vertical touch-scrolling
+       for its list; touch-action: none blocked that entirely on mobile
+       while still preventing pinch-zoom/horizontal-pan from bleeding
+       through to the map underneath. */
+    touch-action: pan-y;
 }
 
 #map {

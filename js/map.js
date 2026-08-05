@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.13";
+const APP_VERSION = "V1.14";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -1866,7 +1866,22 @@ function setupLongPressClear() {
 }
 
 async function handleLongPressClear(lat, lng) {
-  if (!confirm("Do you want to Clear this location?")) return;
+  const proceed = confirm("Do you want to Clear this location?");
+
+  // confirm() blocks the JS thread while it's open, and the long-press
+  // timer fires it mid-hold — the mouse button is very likely still
+  // physically down at that moment. Browsers can fail to deliver the
+  // eventual mouseup to Leaflet's own drag-tracking listeners in that
+  // case, leaving map.dragging's internal state stuck as if a drag were
+  // still in progress (symptom: the cursor keeps "panning" after
+  // release). Disabling/re-enabling here forces Leaflet to fully reset
+  // that state — safe here specifically because it runs strictly AFTER
+  // the gesture has already concluded, unlike disabling it mid-hold
+  // (which is what broke panning entirely the first time this was hit).
+  map.dragging.disable();
+  map.dragging.enable();
+
+  if (!proceed) return;
 
   let address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   try {
