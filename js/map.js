@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.11";
+const APP_VERSION = "V1.12";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -1921,31 +1921,78 @@ function startZoneDrawing() {
   map.on("click", zoneClickHandler);
 }
 
-function stopZoneDrawing() {
+// Stops listening for further vertex taps and hides the "tap to add
+// points" banner, but leaves the preview shape on the map — used by
+// finishZoneDrawing() so the drawn shape stays visible while the
+// team-selection dialog below is open.
+function stopZoneListening() {
   zoneDrawing = false;
   if (zoneClickHandler) {
     map.off("click", zoneClickHandler);
     zoneClickHandler = null;
   }
-  zonePreviewLayer.clearLayers();
   zoneDrawBanner.classList.add("hidden");
 }
 
-async function finishZoneDrawing() {
-  if (zonePoints.length < 3) return;
-  const points = zonePoints.slice();
-  stopZoneDrawing();
+// Full abort — used by the drawing banner's own Cancel button, before a
+// shape is even finished.
+function cancelZoneDrawing() {
+  stopZoneListening();
+  zonePreviewLayer.clearLayers();
+}
 
-  const label = (prompt("Optional label for this zone (or leave blank):") || "").trim();
-  const message = label || `Zone marked (${points.length} points)`;
+// Team-selection dialog shown after tapping Finish. The chosen team both
+// labels the zone and drives its shading color (via getTeamColor()) once
+// synced back from the server — replaces what used to be a plain
+// prompt() for a free-text name.
+const zoneFinishDialog = document.getElementById("zone-finish-dialog");
+const zoneFinishTeam = document.getElementById("zone-finish-team");
+const zoneFinishLabel = document.getElementById("zone-finish-label");
+const zoneFinishConfirmBtn = document.getElementById("zone-finish-confirm");
+const zoneFinishCancelBtn = document.getElementById("zone-finish-cancel");
 
-  // Centroid so this reuses the alerts list's existing "tap to jump there" /
-  // directions-link logic completely unchanged — it only ever looks for
-  // a plain lat/lng on the record.
+function openZoneFinishDialog(points) {
   const centroidLat = points.reduce((sum, p) => sum + p[0], 0) / points.length;
   const centroidLng = points.reduce((sum, p) => sum + p[1], 0) / points.length;
 
-  postAutoAlert("Zone", message, { points, lat: centroidLat, lng: centroidLng });
+  zoneFinishTeam.value = localStorage.getItem("team") || "";
+  zoneFinishLabel.value = "";
+  zoneFinishDialog.classList.remove("hidden");
+
+  function cleanup() {
+    zoneFinishDialog.classList.add("hidden");
+    zonePreviewLayer.clearLayers();
+    zoneFinishConfirmBtn.removeEventListener("click", onConfirm);
+    zoneFinishCancelBtn.removeEventListener("click", onCancel);
+  }
+
+  function onConfirm(e) {
+    e.stopPropagation();
+    const team = zoneFinishTeam.value;
+    const label = zoneFinishLabel.value.trim();
+    const message = label || `Zone marked (${points.length} points)`;
+    cleanup();
+    // Centroid so this reuses the alerts list's existing "tap to jump
+    // there" / directions-link logic completely unchanged — it only ever
+    // looks for a plain lat/lng on the record. `team` overrides the
+    // poster's own current team (postAutoAlert spreads `extra` last).
+    postAutoAlert("Zone", message, { points, lat: centroidLat, lng: centroidLng, team });
+  }
+
+  function onCancel(e) {
+    e.stopPropagation();
+    cleanup();
+  }
+
+  zoneFinishConfirmBtn.addEventListener("click", onConfirm);
+  zoneFinishCancelBtn.addEventListener("click", onCancel);
+}
+
+function finishZoneDrawing() {
+  if (zonePoints.length < 3) return;
+  const points = zonePoints.slice();
+  stopZoneListening();
+  openZoneFinishDialog(points);
 }
 
 zoneDrawFinishBtn.addEventListener("click", e => {
@@ -1955,7 +2002,45 @@ zoneDrawFinishBtn.addEventListener("click", e => {
 
 zoneDrawCancelBtn.addEventListener("click", e => {
   e.stopPropagation();
-  stopZoneDrawing();
+  cancelZoneDrawing();
+});
+
+// ===============================
+// DELETE ZONE — button injected into each zone's popup (see
+// refreshAlerts() below). Delegated on document since Leaflet rebuilds
+// popup content fresh each time, so a direct listener would never stick.
+// ===============================
+async function deleteZone(id) {
+  try {
+    const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/alerts/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, userId, token: localStorage.getItem("locationToken") || null })
+    });
+    const data = await res.json();
+    if (data.token) {
+      localStorage.setItem("locationToken", data.token);
+    }
+    if (data.status === "error") {
+      console.error("Failed to delete zone:", data.error);
+      alert("Failed to delete the zone: " + data.error);
+      return;
+    }
+    map.closePopup();
+    refreshAlerts();
+  } catch (err) {
+    console.error("Failed to delete zone:", err);
+    alert("Failed to delete the zone — check your connection and try again.");
+  }
+}
+
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".zone-delete-btn");
+  if (!btn) return;
+  const id = btn.getAttribute("data-zone-id");
+  if (!id) return;
+  if (!confirm("Delete this zone for everyone?")) return;
+  deleteZone(id);
 });
 
 async function refreshAlerts() {
@@ -2034,7 +2119,8 @@ async function refreshAlerts() {
         const color = getTeamColor(a.team);
         const polygon = L.polygon(a.points, { color, fillColor: color, fillOpacity: 0.35, weight: 2 });
         polygon.bindPopup(
-          `<strong>Zone marked by ${escapeHtml(a.user)}</strong><br>${escapeHtml(a.message)}<br><small>${new Date(a.timestamp).toLocaleString()}</small>`,
+          `<strong>Zone marked by ${escapeHtml(a.user)}</strong><br>${escapeHtml(a.message)}<br><small>${new Date(a.timestamp).toLocaleString()}</small><br>` +
+          `<button class="zone-delete-btn" data-zone-id="${escapeHtml(a.id || "")}" style="margin-top:6px; background:#c0392b; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer;">🗑 Delete Zone</button>`,
           { className: "custom-popup" }
         );
         layerGroups["ZONES"].addLayer(polygon);

@@ -221,6 +221,7 @@ export default {
         });
 
         const update = {
+          id: crypto.randomUUID(),
           message,
           category,
           user: user || "Unknown",
@@ -244,6 +245,57 @@ export default {
         // Surface a freshly-minted token (first-ever contact for this
         // userId via any authenticated action) so the client can save it.
         const responseBody = { status: "ok" };
+        if (mintedToken) responseBody.token = mintedToken;
+
+        return Response.json(responseBody, { headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
+      } catch (err) {
+        return Response.json({ status: "error", error: err.toString() }, { status: 500, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
+      }
+    }
+
+    // DELETE AN ALERT BY ID (currently only used for zones — the "Delete
+    // Zone" button in a zone's map popup). Same PIN-or-token auth as
+    // Cleared/Zone: any admin, or any device with a valid per-device token,
+    // can delete — there's no per-owner restriction, matching how loosely
+    // everything else in this app is authorized.
+    if (request.method === "POST" && url.pathname === "/alerts/delete") {
+      try {
+        const { id, pin, userId, token } = await request.json();
+
+        if (!id) {
+          return Response.json({ status: "error", error: "Missing id" }, { status: 400, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
+        }
+
+        let authorized = false;
+        let mintedToken = null;
+
+        if (pin === env.ADMIN_PIN) {
+          authorized = true;
+        } else if (userId) {
+          const result = await verifyDeviceToken(env, userId, token);
+          authorized = result.valid;
+          mintedToken = result.mintedToken;
+        }
+        if (!authorized) {
+          return Response.json({ status: "error", error: "Invalid PIN or token" }, { status: 403, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
+        }
+
+        let existing = { updates: [] };
+        const raw = await env.ALERTS_KV.get("alerts.json");
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed && Array.isArray(parsed.updates)) { existing = parsed; }
+          } catch (err) {}
+        }
+
+        const beforeCount = existing.updates.length;
+        existing.updates = existing.updates.filter(u => u.id !== id);
+        const deleted = existing.updates.length < beforeCount;
+
+        await env.ALERTS_KV.put("alerts.json", JSON.stringify(existing, null, 2));
+
+        const responseBody = { status: "ok", deleted };
         if (mintedToken) responseBody.token = mintedToken;
 
         return Response.json(responseBody, { headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
