@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.14";
+const APP_VERSION = "V1.15";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -1051,7 +1051,18 @@ nameInput.addEventListener("blur", () => {
       panel.classList.toggle("hidden", !e.target.checked);
       if (!panel.classList.contains("hidden")) {
         enableAlertsOutsideClose();
+        // Verbose is meant to reset every time the panel is reopened,
+        // not persist across a close/reopen — only while it stays open.
+        const verboseToggle = document.getElementById("alerts-verbose-toggle");
+        if (verboseToggle) {
+          verboseToggle.checked = false;
+        }
+        refreshAlerts();
       }
+    });
+
+    document.getElementById("alerts-verbose-toggle").addEventListener("change", () => {
+      refreshAlerts();
     });
   }
 
@@ -2068,6 +2079,34 @@ async function deleteZone(id) {
 // (the button itself is wired up in the popupopen handler above, since
 // this app's popups block click bubbling — see the comment there)
 
+// ===============================
+// DELETE ANY ALERT ROW (list icon) — always PIN-only, unlike deleteZone()
+// above, regardless of the alert's own category or any token this device
+// already holds. Wired directly per-row in refreshAlerts(), since the
+// alerts panel is plain DOM (not a Leaflet popup), so a direct listener
+// sticks fine without needing the popupopen workaround.
+// ===============================
+async function deleteAlertWithPin(id) {
+  const pin = prompt("Enter admin PIN to delete this alert:");
+  if (!pin || !pin.trim()) return;
+  try {
+    const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/alerts/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, pin: pin.trim(), pinOnly: true, userId })
+    });
+    const data = await res.json();
+    if (data.status === "error") {
+      alert("Failed to delete: " + data.error);
+      return;
+    }
+    refreshAlerts();
+  } catch (err) {
+    console.error("Failed to delete alert:", err);
+    alert("Failed to delete the alert — check your connection and try again.");
+  }
+}
+
 async function refreshAlerts() {
   try {
     //const url = "data/alerts.json?cb=" + Date.now();
@@ -2151,9 +2190,21 @@ async function refreshAlerts() {
         layerGroups["ZONES"].addLayer(polygon);
       });
 
+    // "Verbose" checkbox: off by default, hides Team/Zone/Cleared noise
+    // from the list. Deliberately re-read fresh each refresh rather than
+    // cached, and explicitly reset to unchecked whenever the panel is
+    // reopened (see the alerts-toggle handler) — it's meant to reset
+    // each time the panel is closed and reopened, not persist.
+    const verboseToggle = document.getElementById("alerts-verbose-toggle");
+    const isVerbose = !!(verboseToggle && verboseToggle.checked);
+    const NOISY_CATEGORIES = ["Team", "Zone", "Cleared"];
+    const visibleAlerts = isVerbose
+      ? recent
+      : recent.filter(a => !NOISY_CATEGORIES.includes(a.category));
+
     const list = document.getElementById("alerts-list");
     list.innerHTML = "";
-    recent.forEach(a => {
+    visibleAlerts.forEach(a => {
       const li = document.createElement("li");
       li.className = "alert-row" + (a.category === "Sighting" ? " category-sighting" : "");
 
@@ -2169,12 +2220,18 @@ async function refreshAlerts() {
         ? `<a class="alert-directions" href="https://www.google.com/maps/dir/?api=1&destination=${a.lat},${a.lng}" target="_blank" rel="noopener" title="Get directions">🧭</a>`
         : `<div class="alert-directions"></div>`;
 
+      // Pre-existing alerts posted before ids existed won't have one —
+      // the button still renders (consistent with the Zone popup button)
+      // but its click handler below no-ops when there's nothing to target.
+      const deleteBtn = `<button class="alert-delete-btn" title="Delete this alert (requires PIN)">🗑</button>`;
+
       li.innerHTML = `
         <div class="alert-time">${timeOnly}</div>
         <div class="alert-user">${escapeHtml(a.user)}</div>
         <div class="alert-category">${escapeHtml(a.category)}</div>
         <div class="alert-body">${escapeHtml(a.message)}${hasLocation ? " 📍" : ""}</div>
         ${directionsLink}
+        <div class="alert-delete">${deleteBtn}</div>
       `;
 
       if (hasLocation) {
@@ -2186,6 +2243,12 @@ async function refreshAlerts() {
           e.stopPropagation();
         });
       }
+
+      li.querySelector(".alert-delete-btn").addEventListener("click", e => {
+        e.stopPropagation();
+        if (!a.id) return;
+        deleteAlertWithPin(a.id);
+      });
 
       list.appendChild(li);
     });

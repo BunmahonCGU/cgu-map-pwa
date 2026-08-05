@@ -253,14 +253,16 @@ export default {
       }
     }
 
-    // DELETE AN ALERT BY ID (currently only used for zones — the "Delete
-    // Zone" button in a zone's map popup). Same PIN-or-token auth as
-    // Cleared/Zone: any admin, or any device with a valid per-device token,
-    // can delete — there's no per-owner restriction, matching how loosely
-    // everything else in this app is authorized.
+    // DELETE AN ALERT BY ID. Two callers share this endpoint with two
+    // different policies:
+    //  - the "Delete Zone" button in a zone's map popup: PIN-or-token
+    //    (same as posting a Zone/Cleared), no pinOnly flag sent.
+    //  - the per-row delete icon in the alerts list: always PIN-only,
+    //    regardless of category or any token the device already holds —
+    //    sends pinOnly: true, which skips the token fallback entirely.
     if (request.method === "POST" && url.pathname === "/alerts/delete") {
       try {
-        const { id, pin, userId, token } = await request.json();
+        const { id, pin, userId, token, pinOnly } = await request.json();
 
         if (!id) {
           return Response.json({ status: "error", error: "Missing id" }, { status: 400, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
@@ -271,13 +273,13 @@ export default {
 
         if (pin === env.ADMIN_PIN) {
           authorized = true;
-        } else if (userId) {
+        } else if (!pinOnly && userId) {
           const result = await verifyDeviceToken(env, userId, token);
           authorized = result.valid;
           mintedToken = result.mintedToken;
         }
         if (!authorized) {
-          return Response.json({ status: "error", error: "Invalid PIN or token" }, { status: 403, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
+          return Response.json({ status: "error", error: pinOnly ? "Invalid PIN" : "Invalid PIN or token" }, { status: 403, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
         }
 
         let existing = { updates: [] };
