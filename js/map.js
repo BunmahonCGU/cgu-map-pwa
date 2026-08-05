@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.12";
+const APP_VERSION = "V1.13";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -1283,6 +1283,23 @@ if (refreshBtn) {
       popupEl.insertAdjacentHTML("afterbegin", "<div class='popup-grab'></div>");
     }
 
+    // Wire the "Delete Zone" button, if this popup has one. Must be a
+    // direct listener on the button itself, not a document-level
+    // delegated one — Leaflet calls L.DomEvent.disableClickPropagation()
+    // on every popup container, which stops clicks from ever bubbling
+    // out to a listener on document.
+    const zoneDeleteBtn = popupEl.querySelector(".zone-delete-btn");
+    if (zoneDeleteBtn && !zoneDeleteBtn._wired) {
+      zoneDeleteBtn._wired = true;
+      zoneDeleteBtn.addEventListener("click", ev => {
+        ev.stopPropagation();
+        const id = zoneDeleteBtn.getAttribute("data-zone-id");
+        if (!id) return;
+        if (!confirm("Delete this zone for everyone?")) return;
+        deleteZone(id);
+      });
+    }
+
     // -------------------------------
     // Swipe‑down‑to‑close (only when at top)
     // -------------------------------
@@ -2033,15 +2050,8 @@ async function deleteZone(id) {
     alert("Failed to delete the zone — check your connection and try again.");
   }
 }
-
-document.addEventListener("click", e => {
-  const btn = e.target.closest(".zone-delete-btn");
-  if (!btn) return;
-  const id = btn.getAttribute("data-zone-id");
-  if (!id) return;
-  if (!confirm("Delete this zone for everyone?")) return;
-  deleteZone(id);
-});
+// (the button itself is wired up in the popupopen handler above, since
+// this app's popups block click bubbling — see the comment there)
 
 async function refreshAlerts() {
   try {
