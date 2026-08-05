@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect x="0" y="0" width="200" height="200" fill="#0d3e91"/>
+  <g transform="translate(20,20) scale(0.8)">
+    <path d="M20,168 L20,100 Q28,78 55,74 L150,60 L156,86 L142,92 L162,120 L172,168 Z" fill="#f7931e"/>
+    <path d="M20,100 Q28,78 55,74 L150,60 L150,74 L56,88 Q30,92 20,114 Z" fill="#4caf50"/>
+    <path d="M156,86 L142,92 L162,120 L172,168 L165,168 L148,124 L136,96 Z" fill="#d9770f" opacity="0.55"/>
+    <path d="M26,112 Q70,102 110,98 Q135,95 150,90" stroke="#c2680f" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.8"/>
+    <path d="M22,138 Q75,128 120,122 Q145,119 162,116" stroke="#c2680f" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.8"/>
+    <path d="M20,160 Q80,152 130,148 Q150,146 170,144" stroke="#c2680f" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.8"/>
+    <path d="M18,150 Q50,138 82,150 T146,150 T182,150" stroke="#ffffff" stroke-width="9" fill="none" stroke-linecap="round"/>
+
+    <circle cx="132" cy="68" r="5" fill="#0d3e91" stroke="#c9a876" stroke-width="2.5"/>
+    <path d="M132,72 L120,112" stroke="#0d3e91" stroke-width="6.5" fill="none" stroke-linecap="round"/>
+    <path d="M132,72 L120,112" stroke="#c9a876" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+    <g font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="42" text-anchor="middle">
+      <text x="45" y="80" fill="none" stroke="#0d3e91" stroke-width="6" stroke-linejoin="round" paint-order="stroke">B</text>
+      <text x="85" y="80" fill="none" stroke="#0d3e91" stroke-width="6" stroke-linejoin="round" paint-order="stroke">C</text>
+      <text x="45" y="80" fill="none" stroke="#ffffff" stroke-width="3">B</text>
+      <text x="85" y="80" fill="none" stroke="#ffffff" stroke-width="3">C</text>
+    </g>
+
+    <g transform="rotate(-30 132 140)" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="42" text-anchor="middle">
+      <text x="132" y="140" fill="none" stroke="#0d3e91" stroke-width="6" stroke-linejoin="round" paint-order="stroke">G</text>
+      <text x="132" y="140" fill="none" stroke="#ffffff" stroke-width="3">G</text>
+    </g>
+
+    <path d="M105,136 L120,126" stroke="#0d3e91" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M105,136 L120,126" stroke="#c9a876" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>

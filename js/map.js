@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.15";
+const APP_VERSION = "V1.16";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
