@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.17";
+const APP_VERSION = "V1.18";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -1317,6 +1317,22 @@ if (refreshBtn) {
       });
     }
 
+    // Wire the "Edit Zone" button the same way — direct listener, same
+    // reason as above. The full record lives on the layer itself
+    // (e.pop up._source._zoneData), not a data-* attribute, since it
+    // needs to carry team/message/points, not just an id.
+    const zoneEditBtn = popupEl.querySelector(".zone-edit-btn");
+    if (zoneEditBtn && !zoneEditBtn._wired) {
+      zoneEditBtn._wired = true;
+      zoneEditBtn.addEventListener("click", ev => {
+        ev.stopPropagation();
+        const zoneData = e.popup._source && e.popup._source._zoneData;
+        if (!zoneData) return;
+        map.closePopup();
+        startZoneEdit(zoneData);
+      });
+    }
+
     // -------------------------------
     // Swipe‑down‑to‑close (only when at top)
     // -------------------------------
@@ -1995,6 +2011,34 @@ function stopZoneListening() {
 function cancelZoneDrawing() {
   stopZoneListening();
   zonePreviewLayer.clearLayers();
+  clearZoneEditState();
+}
+
+// ===============================
+// EDIT ZONE ("full redraw") — reopens the same draw flow pre-filled
+// with the zone's existing team/label. Saving posts the new shape
+// first and only deletes the old record after that succeeds, so
+// cancelling at any point always leaves the original zone untouched.
+// ===============================
+let editingZone = null; // { id, team, message } of the zone being replaced, or null
+let editingZoneGhost = null; // faint outline of the old shape while redrawing
+
+function clearZoneEditState() {
+  editingZone = null;
+  if (editingZoneGhost) {
+    map.removeLayer(editingZoneGhost);
+    editingZoneGhost = null;
+  }
+}
+
+function startZoneEdit(zone) {
+  editingZone = { id: zone.id, team: zone.team || "", message: zone.message || "" };
+  if (Array.isArray(zone.points) && zone.points.length >= 3) {
+    editingZoneGhost = L.polygon(zone.points, {
+      color: "#888", weight: 1, dashArray: "4,4", fillOpacity: 0, interactive: false
+    }).addTo(map);
+  }
+  startZoneDrawing();
 }
 
 // Team-selection dialog shown after tapping Finish. The chosen team both
@@ -2002,6 +2046,7 @@ function cancelZoneDrawing() {
 // synced back from the server — replaces what used to be a plain
 // prompt() for a free-text name.
 const zoneFinishDialog = document.getElementById("zone-finish-dialog");
+const zoneFinishHeading = document.getElementById("zone-finish-heading");
 const zoneFinishTeam = document.getElementById("zone-finish-team");
 const zoneFinishLabel = document.getElementById("zone-finish-label");
 const zoneFinishConfirmBtn = document.getElementById("zone-finish-confirm");
@@ -2011,8 +2056,17 @@ function openZoneFinishDialog(points) {
   const centroidLat = points.reduce((sum, p) => sum + p[0], 0) / points.length;
   const centroidLng = points.reduce((sum, p) => sum + p[1], 0) / points.length;
 
-  zoneFinishTeam.value = localStorage.getItem("team") || "";
-  zoneFinishLabel.value = "";
+  if (editingZone) {
+    zoneFinishHeading.textContent = "Edit Zone";
+    zoneFinishTeam.value = editingZone.team;
+    zoneFinishLabel.value = editingZone.message;
+    zoneFinishConfirmBtn.textContent = "Save Changes";
+  } else {
+    zoneFinishHeading.textContent = "Mark Zone";
+    zoneFinishTeam.value = localStorage.getItem("team") || "";
+    zoneFinishLabel.value = "";
+    zoneFinishConfirmBtn.textContent = "Post Zone";
+  }
   zoneFinishDialog.classList.remove("hidden");
 
   function cleanup() {
@@ -2022,22 +2076,31 @@ function openZoneFinishDialog(points) {
     zoneFinishCancelBtn.removeEventListener("click", onCancel);
   }
 
-  function onConfirm(e) {
+  async function onConfirm(e) {
     e.stopPropagation();
     const team = zoneFinishTeam.value;
     const label = zoneFinishLabel.value.trim();
     const message = label || `Zone marked (${points.length} points)`;
+    const replacingId = editingZone ? editingZone.id : null;
     cleanup();
+    clearZoneEditState();
     // Centroid so this reuses the alerts list's existing "tap to jump
     // there" / directions-link logic completely unchanged — it only ever
     // looks for a plain lat/lng on the record. `team` overrides the
     // poster's own current team (postAutoAlert spreads `extra` last).
-    postAutoAlert("Zone", message, { points, lat: centroidLat, lng: centroidLng, team });
+    const ok = await postAutoAlert("Zone", message, { points, lat: centroidLat, lng: centroidLng, team });
+    // Delete the old zone only AFTER the new one is confirmed posted —
+    // if this ran the other way round, a failed post would silently
+    // lose the original shape with nothing to show for it.
+    if (ok && replacingId) {
+      deleteZone(replacingId);
+    }
   }
 
   function onCancel(e) {
     e.stopPropagation();
     cleanup();
+    clearZoneEditState();
   }
 
   zoneFinishConfirmBtn.addEventListener("click", onConfirm);
@@ -2195,8 +2258,13 @@ async function refreshAlerts() {
       .forEach(a => {
         const color = getTeamColor(a.team);
         const polygon = L.polygon(a.points, { color, fillColor: color, fillOpacity: 0.35, weight: 2 });
+        // Full record attached directly to the layer (not just a data-*
+        // attribute) so the Edit button can seed a redraw with the
+        // existing team/label/points without needing a separate lookup.
+        polygon._zoneData = a;
         polygon.bindPopup(
           `<strong>Zone marked by ${escapeHtml(a.user)}</strong><br>${escapeHtml(a.message)}<br><small>${new Date(a.timestamp).toLocaleString()}</small><br>` +
+          `<button class="zone-edit-btn" style="margin-top:6px; background:#0078ff; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer;">✏️ Edit Zone</button> ` +
           `<button class="zone-delete-btn" data-zone-id="${escapeHtml(a.id || "")}" style="margin-top:6px; background:#c0392b; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer;">🗑 Delete Zone</button>`,
           { className: "custom-popup" }
         );
