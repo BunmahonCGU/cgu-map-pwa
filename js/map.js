@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.18";
+const APP_VERSION = "V1.19";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -2011,7 +2011,11 @@ function stopZoneListening() {
 function cancelZoneDrawing() {
   stopZoneListening();
   zonePreviewLayer.clearLayers();
+  const wasEditing = !!editingZone;
   clearZoneEditState();
+  // The real zone was hidden (not deleted) while editing — bring it back
+  // right away rather than waiting for the next 15s poll.
+  if (wasEditing) refreshAlerts();
 }
 
 // ===============================
@@ -2032,7 +2036,26 @@ function clearZoneEditState() {
 }
 
 function startZoneEdit(zone) {
+  // Guards against a second edit session starting mid-edit (e.g. if the
+  // real zone's popup somehow reopens and Edit Zone gets tapped again) --
+  // without this, a second ghost would overwrite the reference to the
+  // first, orphaning it on the map permanently.
+  if (editingZone) return;
+
   editingZone = { id: zone.id, team: zone.team || "", message: zone.message || "" };
+
+  // Hide the real zone (not just overlay a ghost) while redrawing.
+  // Leaflet layers bubble their own click events up to the map's click
+  // listeners by default, so leaving it clickable meant a new vertex
+  // landing inside the old shape would also reopen its popup mid-edit.
+  // refreshAlerts() is taught to keep excluding this id for as long as
+  // editingZone is set, so an automatic poll mid-edit can't undo this.
+  layerGroups["ZONES"].eachLayer(layer => {
+    if (layer._zoneData && layer._zoneData.id === zone.id) {
+      layerGroups["ZONES"].removeLayer(layer);
+    }
+  });
+
   if (Array.isArray(zone.points) && zone.points.length >= 3) {
     editingZoneGhost = L.polygon(zone.points, {
       color: "#888", weight: 1, dashArray: "4,4", fillOpacity: 0, interactive: false
@@ -2094,13 +2117,20 @@ function openZoneFinishDialog(points) {
     // lose the original shape with nothing to show for it.
     if (ok && replacingId) {
       deleteZone(replacingId);
+    } else if (!ok && replacingId) {
+      // Post failed — the old zone was only hidden, not deleted, so
+      // bring it back immediately rather than leaving it missing until
+      // the next 15s poll.
+      refreshAlerts();
     }
   }
 
   function onCancel(e) {
     e.stopPropagation();
     cleanup();
+    const wasEditing = !!editingZone;
     clearZoneEditState();
+    if (wasEditing) refreshAlerts();
   }
 
   zoneFinishConfirmBtn.addEventListener("click", onConfirm);
@@ -2255,6 +2285,9 @@ async function refreshAlerts() {
     layerGroups["ZONES"].clearLayers();
     recent
       .filter(a => a.category === "Zone" && Array.isArray(a.points) && a.points.length >= 3)
+      // Skip the zone currently being redrawn (see startZoneEdit) so an
+      // automatic poll mid-edit can't re-add the very thing we hid.
+      .filter(a => !editingZone || a.id !== editingZone.id)
       .forEach(a => {
         const color = getTeamColor(a.team);
         const polygon = L.polygon(a.points, { color, fillColor: color, fillOpacity: 0.35, weight: 2 });
