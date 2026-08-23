@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.16";
+const APP_VERSION = "V1.17";
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -753,6 +753,12 @@ async function initMap() {
   
   map = L.map("map").setView([52.1031, -7.3498], 12);
     // Add base map tiles
+
+  // CC-BY 4.0 requires attribution — the worker's /reverse-geocode
+  // townland lookup uses Tailte Eireann's open townland boundary data,
+  // even though it never appears as a visible map layer itself.
+  map.attributionControl.addAttribution('Townland data © Tailte Éireann');
+
   // Spiderfier for overlapping markers
 
 const oms = new OverlappingMarkerSpiderfier(map, {
@@ -1898,8 +1904,15 @@ async function handleLongPressClear(lat, lng) {
   try {
     const res = await fetch(`https://shiny-math-8471.bunmahoncgu.workers.dev/reverse-geocode?lat=${lat}&lng=${lng}`);
     const data = await res.json();
-    if (data.status === "ok" && data.address) {
-      address = data.address;
+    if (data.status === "ok") {
+      // Nominatim gives a nearby road / coarse Electoral Division; the
+      // worker also checks the tapped point against real townland
+      // boundaries (Tailte Eireann open data) for genuine local
+      // precision. Combine both when present.
+      const parts = [];
+      if (data.address) parts.push(data.address);
+      if (data.townland) parts.push(`townland: ${data.townland}`);
+      if (parts.length) address = parts.join(" — ");
     }
   } catch (err) {
     console.warn("Reverse geocode failed, using coordinates instead:", err);
