@@ -2,7 +2,7 @@
 // Bunmahon CGU PWA Service Worker (patched for alerts + freshness)
 // ------------------------------------------------------------
 
-const CACHE_NAME = "cgu-map-cache-v16";
+const CACHE_NAME = "cgu-map-cache-v17";
 
 // Only cache the app shell — NOT dynamic data
 const APP_SHELL = [
