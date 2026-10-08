@@ -133,7 +133,7 @@ function defaultReplayFrom() {
   replayFromInput.value = start.toISOString().slice(0, 16);
 }
 
-document.getElementById("admin-open").addEventListener("click", () => {
+document.addEventListener("admin-opened", () => {
   replayFromPicked = false;
   defaultReplayFrom();
 });
