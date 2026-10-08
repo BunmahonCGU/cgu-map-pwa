@@ -1,0 +1,12 @@
+# Not part of the app: keep these out of the V2 Worker's static files.
+.git
+.github
+.claude
+.wrangler
+node_modules
+docs
+tools
+worker-updated.js
+wrangler.jsonc
+.assetsignore
+*.md
