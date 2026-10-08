@@ -7,6 +7,53 @@ function cors(response) {
   return new Response(response.body, { status: response.status, headers });
 }
 
+// Origins allowed to call this Worker. Extra ones (such as the V2 test
+// site) go in the EXTRA_ORIGINS variable, comma-separated, in the
+// Worker's settings; the default fetch handler swaps them in.
+const DEFAULT_ORIGIN = "https://bunmahoncgu.github.io";
+
+function allowedOrigin(request, env) {
+  const origin = request.headers.get("Origin");
+  const extra = (env.EXTRA_ORIGINS || "").split(",").map(o => o.trim()).filter(Boolean);
+  return origin && extra.includes(origin) ? origin : DEFAULT_ORIGIN;
+}
+
+// ===============================================================
+// HISTORY ARCHIVE (V2 historical replay)
+// A second, separately named instance of LiveUsersDO ("archive") keeps
+// every alert post/delete and a 30-second snapshot of everyone on the
+// map, for ARCHIVE_RETENTION_DAYS. Only the admin-only /archive/range
+// endpoint reads it; nothing syncs it to the app otherwise.
+// ===============================================================
+const ARCHIVE_RETENTION_DAYS = 30;
+const SNAPSHOT_EVERY_MS = 30 * 1000;
+const MAX_REPLAY_SPAN_MS = 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Zero-padded so storage keys sort in time order.
+const pad = t => String(Math.max(0, Math.floor(t))).padStart(13, "0");
+
+// Ignore stray spaces on either side (easy to paste into the dashboard secret).
+function pinMatches(pin, env) {
+  return typeof pin === "string" && typeof env.ADMIN_PIN === "string" &&
+    pin.trim() !== "" && pin.trim() === env.ADMIN_PIN.trim();
+}
+
+function archiveStub(env) {
+  return env.LIVE_USERS_DO.get(env.LIVE_USERS_DO.idFromName("archive"));
+}
+
+async function archiveEvent(env, event) {
+  try {
+    await archiveStub(env).fetch("https://internal/archive/append-event", {
+      method: "POST",
+      body: JSON.stringify(event)
+    });
+  } catch (err) {
+    console.warn("Archive write failed:", err);
+  }
+}
+
 
 // ===============================================================
 // TOWNLAND LOOKUP (Tailte Eireann / OSi "Townland Boundaries
@@ -62,10 +109,15 @@ function titleCaseTownland(name) {
 export class LiveUsersDO {
   constructor(state, env) {
     this.state = state;
+    this.env = env;
   }
 
   async fetch(request) {
     const url = new URL(request.url);
+
+    if (url.pathname.startsWith("/archive/")) {
+      return this.handleArchive(url, request);
+    }
 
  if (url.pathname.endsWith("/update")) {
   const data = await request.json();
@@ -118,6 +170,11 @@ export class LiveUsersDO {
   };
 
   await this.state.storage.put(recordKey, safeRecord);
+
+  // Start (or keep) the 30-second history snapshots while anyone is active.
+  if (!(await this.state.storage.getAlarm())) {
+    await this.state.storage.setAlarm(Date.now() + SNAPSHOT_EVERY_MS);
+  }
 
   const responseBody = { status: "ok" };
   if (issuedToken) responseBody.token = issuedToken;
@@ -175,10 +232,95 @@ export class LiveUsersDO {
 
     return cors(new Response("Not found", { status: 404 }));
   }
+
+  // Runs on both instances: the "global" one snapshots positions into the
+  // archive; the "archive" one purges anything past the retention window.
+  async alarm() {
+    if ((await this.state.storage.get("role")) === "archive") {
+      return this.purgeArchive();
+    }
+    const now = Date.now();
+    const users = [];
+    const list = await this.state.storage.list({ prefix: "user:" });
+    for (const [, u] of list) {
+      if (!u || now - new Date(u.timestamp).getTime() > 120000) continue;
+      users.push({
+        userId: u.userId,
+        displayName: u.displayName || null,
+        team: u.team || "",
+        lat: u.lat,
+        lng: u.lng,
+        timestamp: u.timestamp
+      });
+    }
+    // Nobody on the map: stop here; the next /update re-arms the alarm.
+    if (users.length === 0) return;
+    await archiveStub(this.env).fetch("https://internal/archive/append-frame", {
+      method: "POST",
+      body: JSON.stringify({ t: now, users })
+    });
+    await this.state.storage.setAlarm(now + SNAPSHOT_EVERY_MS);
+  }
+
+  async handleArchive(url, request) {
+    const storage = this.state.storage;
+
+    if (url.pathname === "/archive/append-event" || url.pathname === "/archive/append-frame") {
+      const item = await request.json();
+      if (!this.isArchive) {
+        this.isArchive = true;
+        await storage.put("role", "archive");
+      }
+      const key = url.pathname === "/archive/append-event"
+        ? `evt:${pad(item.t)}:${item.id}`
+        : `frm:${pad(item.t)}`;
+      await storage.put(key, item);
+      if (!(await storage.getAlarm())) {
+        await storage.setAlarm(Date.now() + DAY_MS);
+      }
+      return Response.json({ status: "ok" });
+    }
+
+    if (url.pathname === "/archive/range") {
+      const from = Number(url.searchParams.get("from"));
+      const to = Number(url.searchParams.get("to"));
+      // Alerts from the 24h before the window too, so the feed and map
+      // start out as they stood at its first moment (the app shows 24h).
+      const events = [...(await storage.list({ start: `evt:${pad(from - DAY_MS)}`, end: `evt:${pad(to + 1)}` })).values()];
+      // Positions from 2 minutes before, so people already out show at once.
+      const frames = [...(await storage.list({ start: `frm:${pad(from - 120000)}`, end: `frm:${pad(to + 1)}` })).values()];
+      return Response.json({ meta: { name: "Archive", start: from, end: to }, events, frames });
+    }
+
+    return Response.json({ status: "error", error: "Unknown archive route" }, { status: 404 });
+  }
+
+  async purgeArchive() {
+    const cutoff = pad(Date.now() - ARCHIVE_RETENTION_DAYS * DAY_MS);
+    for (const prefix of ["evt:", "frm:"]) {
+      for (;;) {
+        const old = await this.state.storage.list({ start: prefix, end: prefix + cutoff, limit: 128 });
+        if (old.size === 0) break;
+        await this.state.storage.delete([...old.keys()]);
+      }
+    }
+    await this.state.storage.setAlarm(Date.now() + DAY_MS);
+  }
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
+    const response = await handleRequest(request, env, ctx);
+    const origin = allowedOrigin(request, env);
+    if (origin === DEFAULT_ORIGIN) return response;
+    const headers = new Headers(response.headers);
+    headers.set("Access-Control-Allow-Origin", origin);
+    headers.set("Vary", "Origin");
+    return new Response(response.body, { status: response.status, headers });
+  }
+};
+
+async function handleRequest(request, env, ctx) {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
@@ -234,7 +376,7 @@ export default {
             return Response.json({ status: "error", error: "Invalid or missing token" }, { status: 403, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
           }
         } else if (PIN_OR_TOKEN_CATEGORIES.includes(category)) {
-          if (pin === env.ADMIN_PIN) {
+          if (pinMatches(pin, env)) {
             authorized = true;
           } else if (userId) {
             const result = await verifyDeviceToken(env, userId, token);
@@ -247,7 +389,7 @@ export default {
         } else {
           // PIN-only categories (Scenario, Description, Sighting, Other, and
           // any future addition not explicitly listed above).
-          if (pin !== env.ADMIN_PIN) {
+          if (!pinMatches(pin, env)) {
             return Response.json({ status: "error", error: "Invalid PIN" }, { status: 403, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
           }
           authorized = true;
@@ -293,6 +435,7 @@ export default {
         }
         existing.updates.unshift(update);
         await env.ALERTS_KV.put("alerts.json", JSON.stringify(existing, null, 2));
+        ctx.waitUntil(archiveEvent(env, { t: Date.now(), kind: "post", id: update.id, alert: update }));
 
         // Surface a freshly-minted token (first-ever contact for this
         // userId via any authenticated action) so the client can save it.
@@ -323,7 +466,7 @@ export default {
         let authorized = false;
         let mintedToken = null;
 
-        if (pin === env.ADMIN_PIN) {
+        if (pinMatches(pin, env)) {
           authorized = true;
         } else if (!pinOnly && userId) {
           const result = await verifyDeviceToken(env, userId, token);
@@ -348,6 +491,7 @@ export default {
         const deleted = existing.updates.length < beforeCount;
 
         await env.ALERTS_KV.put("alerts.json", JSON.stringify(existing, null, 2));
+        if (deleted) ctx.waitUntil(archiveEvent(env, { t: Date.now(), kind: "delete", id }));
 
         const responseBody = { status: "ok", deleted };
         if (mintedToken) responseBody.token = mintedToken;
@@ -469,12 +613,35 @@ export default {
       }
     }
 
+    // HISTORICAL REPLAY: admin-only read of up to 24h of archived history
+    if (request.method === "POST" && url.pathname === "/archive/range") {
+      const headers = { "Access-Control-Allow-Origin": DEFAULT_ORIGIN };
+      try {
+        const { pin, from, to } = await request.json();
+        if (!env.ADMIN_PIN) {
+          return Response.json({ status: "error", error: "This server has no ADMIN_PIN secret set" }, { status: 500, headers });
+        }
+        if (!pinMatches(pin, env)) {
+          return Response.json({ status: "error", error: "Invalid PIN" }, { status: 403, headers });
+        }
+        if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to - from > MAX_REPLAY_SPAN_MS) {
+          return Response.json({ status: "error", error: "Choose a window of up to 24 hours" }, { status: 400, headers });
+        }
+        const res = await archiveStub(env).fetch(`https://internal/archive/range?from=${from}&to=${to}`);
+        return new Response(res.body, {
+          status: res.status,
+          headers: { ...headers, "Content-Type": "application/json", "Cache-Control": "no-store" }
+        });
+      } catch (err) {
+        return Response.json({ status: "error", error: err.toString() }, { status: 500, headers });
+      }
+    }
+
     return Response.json(
       { status: "error", error: "Unknown endpoint" },
       { status: 404, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } }
     );
-  }
-};
+}
 
 // Verifies a userId+token pair against the LiveUsersDO, which mints a
 // token on a userId's first-ever contact (so a device that has never

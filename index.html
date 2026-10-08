@@ -96,12 +96,6 @@ body {
 /* ============================================================
    ADMIN PANEL
    ============================================================ */
-.admin-button {
-    position: fixed;
-    bottom: 80px;
-    right: 10px;
-    z-index: 9999;
-}
 
 #admin-panel {
     position: fixed;
@@ -113,7 +107,7 @@ body {
     padding: 12px;
     border-radius: 0;       /* ← full panel, no rounded corners needed */
     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    z-index: 9999;
+    z-index: 10003;         /* ← above the menu bar */
     overflow-y: auto;       /* ← internal scrolling */
     -webkit-overflow-scrolling: touch; /* ← smooth iOS scroll */
 }
@@ -376,6 +370,135 @@ body {
 }
 
         
+/* HISTORICAL REPLAY BAR */
+#replay-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  background: #00203f;
+  color: white;
+  padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
+  font-size: 13px;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.4);
+}
+#replay-bar.hidden { display: none; }
+.replay-head { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
+.replay-badge { background: #d9822b; color: black; padding: 1px 6px; border-radius: 3px; font-size: 12px; }
+#replay-name { color: #b8c7d6; font-size: 12px; margin: 2px 0 4px; }
+#replay-slider { width: 100%; margin: 4px 0 6px; }
+.replay-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+.replay-controls button,
+.replay-controls select {
+  flex: 1 1 auto;
+  min-width: 44px;
+  padding: 6px 4px;
+  border: none;
+  border-radius: 4px;
+  background: #e8eef4;
+  color: #003366;
+  font-size: 13px;
+}
+#replay-play { background: #d9822b; color: black; font-weight: 600; }
+#replay-exit { background: #c0392b; color: white; }
+/* Keep Refresh, Mark Zone and Admin out of the way during replay */
+body.replaying #refreshMapBtn,
+body.replaying #markZoneBtn,
+body.replaying #menu-admin { display: none; }
+
+/* MENU BAR (same look as the replay bar) */
+#menu-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #00203f;
+  color: white;
+  padding: calc(6px + env(safe-area-inset-top)) 8px 6px;
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.menu { position: relative; flex: 1 1 0; }
+.menu-btn {
+  width: 100%;
+  padding: 6px 4px;
+  border: none;
+  border-radius: 4px;
+  background: #e8eef4;
+  color: #003366;
+  font-size: 13px;
+  font-weight: 600;
+}
+.menu.open .menu-btn { background: #d9822b; color: black; }
+.menu-drop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 190px;
+  background: #00203f;
+  color: white;
+  padding: 8px 10px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.menu:last-of-type .menu-drop { left: auto; right: 0; }
+.menu.open .menu-drop { display: block; }
+.menu-drop label { display: block; padding: 5px 0; cursor: pointer; }
+.menu-drop input[type="checkbox"] { margin-right: 6px; }
+.menu-drop button {
+  display: block;
+  width: 100%;
+  margin: 4px 0;
+  padding: 7px 6px;
+  border: none;
+  border-radius: 4px;
+  background: #e8eef4;
+  color: #003366;
+  font-size: 13px;
+  text-align: left;
+}
+#wakelock-status { font-size: 11px; margin: -2px 0 2px 22px; }
+#app-version { color: #b8c7d6; font-size: 11px; font-weight: 600; padding: 0 2px; }
+
+/* Leaflet's top controls sit below the menu bar */
+.leaflet-top { top: calc(44px + env(safe-area-inset-top)); }
+
+/* PROFILE + PIN DIALOGS */
+.menu-dialog {
+  position: fixed;
+  z-index: 10002;
+  background: #00203f;
+  color: white;
+  padding: 10px 12px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  font-size: 13px;
+}
+.menu-dialog.hidden { display: none; }
+#profile-panel { top: calc(54px + env(safe-area-inset-top)); right: 8px; width: 220px; }
+#profile-panel label { display: block; margin-bottom: 8px; }
+#profile-panel input,
+#profile-panel select { width: 100%; box-sizing: border-box; margin-top: 3px; padding: 5px; }
+#pin-dialog { top: 30%; left: 50%; transform: translateX(-50%); }
+#pin-dialog input { display: block; width: 150px; box-sizing: border-box; margin: 6px 0 8px; padding: 6px; font-size: 16px; }
+.dialog-buttons { display: flex; gap: 6px; }
+.dialog-buttons button {
+  flex: 1;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  background: #e8eef4;
+  color: #003366;
+  font-size: 13px;
+}
+.dialog-buttons button.primary { background: #d9822b; color: black; font-weight: 600; }
+
 #refreshMapBtn:active,
 #refreshMapBtn.refreshing {
   transform: scale(0.85);
@@ -389,6 +512,87 @@ body {
 
     <!-- Map Container -->
     <div id="map"></div>
+
+    <!-- Menu bar: Locations / Display / Tools (wired up in js/map.js) -->
+    <nav id="menu-bar">
+      <div class="menu">
+        <button type="button" class="menu-btn">Locations</button>
+        <div class="menu-drop" id="menu-locations"></div>
+      </div>
+      <div class="menu">
+        <button type="button" class="menu-btn">Display</button>
+        <div class="menu-drop">
+          <label><input type="checkbox" id="shareLocationOptIn">Share My Location</label>
+          <div id="wakelock-status"></div>
+          <label><input type="checkbox" id="liveUsersToggle">Show Active Users</label>
+          <label><input type="checkbox" id="alerts-toggle">Show Updates</label>
+          <label><input type="checkbox" id="showClearedToggle">Show Cleared</label>
+          <label><input type="checkbox" id="showZonesToggle">Show Zones</label>
+        </div>
+      </div>
+      <div class="menu">
+        <button type="button" class="menu-btn">Tools</button>
+        <div class="menu-drop">
+          <button type="button" id="menu-profile">👤 Profile</button>
+          <button type="button" id="markZoneBtn">✏️ Mark Zone</button>
+          <button type="button" id="menu-users">👥 Users</button>
+          <button type="button" id="menu-admin">🔒 Admin</button>
+        </div>
+      </div>
+      <span id="app-version"></span>
+    </nav>
+
+    <div id="profile-panel" class="menu-dialog hidden">
+      <label>Name
+        <input type="text" id="displayNameInput" placeholder="Your name (optional)">
+      </label>
+      <label>Team
+        <select id="teamSelect">
+          <option value="">No Team</option>
+          <option value="Alpha">Alpha</option>
+          <option value="Bravo">Bravo</option>
+          <option value="Charlie">Charlie</option>
+          <option value="Delta">Delta</option>
+          <option value="Echo">Echo</option>
+          <option value="Foxtrot">Foxtrot</option>
+          <option value="Golf">Golf</option>
+          <option value="Hotel">Hotel</option>
+        </select>
+      </label>
+      <div class="dialog-buttons"><button type="button" id="profile-close" class="primary">Done</button></div>
+    </div>
+
+    <form id="pin-dialog" class="menu-dialog hidden" autocomplete="off">
+      <label for="pin-input">Admin PIN</label>
+      <input type="password" id="pin-input">
+      <div class="dialog-buttons">
+        <button type="submit" class="primary">OK</button>
+        <button type="button" id="pin-cancel">Cancel</button>
+      </div>
+    </form>
+
+    <!-- Historical replay controls (js/replay.js) -->
+    <div id="replay-bar" class="hidden">
+      <div class="replay-head">
+        <span class="replay-badge">REPLAY</span>
+        <span id="replay-time"></span>
+      </div>
+      <div id="replay-name"></div>
+      <input type="range" id="replay-slider">
+      <div class="replay-controls">
+        <button type="button" data-step="-300">−5m</button>
+        <button type="button" data-step="-30">−30s</button>
+        <button type="button" id="replay-play">▶</button>
+        <button type="button" data-step="30">+30s</button>
+        <button type="button" data-step="300">+5m</button>
+        <select id="replay-speed" aria-label="Playback speed">
+          <option value="10">10×</option>
+          <option value="60" selected>60×</option>
+          <option value="300">300×</option>
+        </select>
+        <button type="button" id="replay-exit">Exit</button>
+      </div>
+    </div>
 
    
 <button id="refreshMapBtn" style="
@@ -407,17 +611,12 @@ body {
   Refresh Map Data
 </button>
 
-<button id="admin-open" class="admin-button">Admin</button>
-
 <!-- LIVE USERS PANEL -->
 <div id="users-panel" class="hidden">
   <h3>Live Users</h3>
   <ul id="users-list"></ul>
 </div>
 
-<button id="users-open" class="admin-button" style="right: 70px;">
-  Users
-</button>
 
 <div id="admin-panel" class="hidden">
 
@@ -450,13 +649,41 @@ body {
     No location set
   </div>
 
-  <div id="token-status"
-       style="font-size: 12px; margin-top: 6px; font-weight: 600;">
-    Checking token…
-  </div>
-
   <button id="admin-submit" style="width:100%; margin-top:8px;">Submit Update</button>
 
+
+  <h3 style="margin-top:16px;">Historical Replay</h3>
+  <p style="font-size:12px; color:#555; margin:0 0 6px;">
+    Shows the map as it stood at any moment in a block of history.
+    Live updates pause on this device only while replay is on.
+  </p>
+  <label for="replay-from" style="font-size:13px;">Start</label>
+  <input type="datetime-local" id="replay-from">
+  <label for="replay-hours" style="font-size:13px;">Length</label>
+  <select id="replay-hours" style="width:100%; margin-bottom:8px;">
+    <option value="1">1 hour</option>
+    <option value="3">3 hours</option>
+    <option value="6" selected>6 hours</option>
+    <option value="12">12 hours</option>
+    <option value="24">24 hours</option>
+  </select>
+  <button id="replay-archive-btn" type="button" style="
+    width:100%;
+    background:#003366;
+    color:white;
+    border:none;
+    padding:8px;
+    border-radius:4px;
+    margin-bottom:6px;
+  ">⏪ Replay recorded history</button>
+  <button id="replay-demo-btn" type="button" style="
+    width:100%;
+    background:#e8eef4;
+    color:#003366;
+    border:none;
+    padding:8px;
+    border-radius:4px;
+  ">Replay demo history</button>
 
   <button id="admin-close" style="
     width:100%;
@@ -608,7 +835,8 @@ body {
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
 
-     <script src="js/map.js?v=13" defer></script>
+     <script src="js/map.js?v=19" defer></script>
+     <script src="js/replay.js?v=4" defer></script>
     
     <!-- Register Service Worker -->
     <script>

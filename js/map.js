@@ -8,7 +8,16 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V1.20";
+const APP_VERSION = "V2.3";
+
+// The live site (GitHub Pages) talks to the live Worker. The V2 test site
+// is served by its own Worker (wrangler.jsonc), so it talks to itself.
+const LIVE_WORKER = "https://shiny-math-8471.bunmahoncgu.workers.dev";
+const WORKER_BASE = location.hostname === "bunmahoncgu.github.io" ? LIVE_WORKER : location.origin;
+
+// True while an admin is replaying archived history on this device: live
+// polling stops, and nothing can be posted (see js/replay.js).
+let replayMode = false;
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -181,48 +190,6 @@ const blankIcon = L.icon({
 });
 
 
-async function checkTokenStatus() {
-  const el = document.getElementById("token-status");
-  const debugEl = document.getElementById("token-debug");
-  try {
-    const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/token-health", {
-      method: "POST"
-    });
-    const data = await res.json();
-    const payload = data.raw || data; // 👈 key line
-
-    if (debugEl) {
-      debugEl.textContent = JSON.stringify(payload, null, 2);
-    }
-
-    if (payload.status === "ok") {
-      const days = payload.days_remaining;
-      if (days > 14) {
-        el.textContent = `Token Status: Healthy (${days} days remaining)`;
-        el.style.color = "green";
-      } else if (days > 0) {
-        el.textContent = `Token Status: WARNING (${days} days remaining)`;
-        el.style.color = "orange";
-      } else {
-        el.textContent = "Token Status: EXPIRED — renewal required";
-        el.style.color = "red";
-      }
-      el.title = `Expires at: ${payload.expires_at}`;
-    } else if (payload.status === "unknown") {
-      el.textContent = "Token Status: Unknown — GitHub does not provide expiry for this token type";
-      el.style.color = "orange";
-      el.title = payload.message || "";
-    } else {
-      el.textContent = `Token Status: ERROR — ${payload.error || "Unknown error"}`;
-      el.style.color = "red";
-      //el.title = JSON.stringify(payload, null, 2);
-    }
-  } catch (err) {
-    el.textContent = `Token Status: ERROR — ${err.toString()}`;
-    el.style.color = "red";
-    if (debugEl) debugEl.textContent = err.toString();
-  }
-}
 
 // Disable Leaflet HTML sanitization so <img> tags are not stripped
 L.Popup.prototype.options.sanitize = false;
@@ -238,8 +205,8 @@ function escapeHtml(str) {
 // Compact "time since" label for Cleared pins, e.g. "45m" or "2h15m".
 // Recomputed fresh every time the Cleared layer rebuilds (every refresh),
 // so it stays live without any extra polling of its own.
-function formatElapsedTime(fromTimestamp) {
-  const ms = Date.now() - new Date(fromTimestamp).getTime();
+function formatElapsedTime(fromTimestamp, now = Date.now()) {
+  const ms = now - new Date(fromTimestamp).getTime();
   const totalMinutes = Math.max(0, Math.floor(ms / 60000));
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
@@ -821,259 +788,70 @@ oms.addListener('unspiderfy', function(markers) {
   }
 
   // --------------------------------------------------------
-  // 5. Add layer control to map
+  // 5. Menu bar: Locations / Display / Tools (markup in index.html)
   // --------------------------------------------------------
-  L.control.layers(null, overlays, { collapsed: true }).addTo(map);
-
-  // ------------------------------------------------------------
-  // 6. Inject Alerts Toggle into Layer List (safe retry loop)
-  // ------------------------------------------------------------
-  function attachAlertsToggle() {
-    const layerList = document.querySelector(".leaflet-control-layers-list");
-    if (!layerList) {
-      requestAnimationFrame(attachAlertsToggle);
-      return;
-    }
-
-    const toggleContainer = document.createElement("div");
-    toggleContainer.style.marginTop = "10px";
-    toggleContainer.innerHTML  = `
-      <label style="cursor:pointer;">
-        <input type="checkbox" id="alerts-toggle"> Show Updates
-      </label>
-    `;
-    layerList.appendChild(toggleContainer);
-
-    // ===============================
-    // SHARE LOCATION TOGGLE
-    // ===============================
-    const shareContainer = document.createElement("div");
-    shareContainer.style.marginTop = "6px";
-    shareContainer.innerHTML  = `
-        <label style="cursor:pointer;">
-            <input type="checkbox" id="shareLocationOptIn">
-            Share My Location
-        </label>
-        <div id="wakelock-status" style="font-size: 11px; margin-top: 2px;"></div>
-    `;
-    layerList.appendChild(shareContainer);
-    
-    const shareOptIn = document.getElementById("shareLocationOptIn");
-    shareOptIn.checked = localStorage.getItem("shareLocation") === "true";
-    if (shareOptIn.checked) {
-        requestWakeLock();
-    }
-
-    shareOptIn.addEventListener("change", () => {
-        localStorage.setItem("shareLocation", shareOptIn.checked ? "true" : "false");
-        if (shareOptIn.checked) {
-            requestWakeLock();
-        } else {
-            releaseWakeLock();
-        }
-
-      localStorage.setItem("displayName", nameInput.value.trim());
-
+  const locationsMenu = document.getElementById("menu-locations");
+  for (const [displayName, group] of Object.entries(overlays)) {
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.addEventListener("change", () => {
+      if (box.checked) map.addLayer(group);
+      else map.removeLayer(group);
     });
-
-        // ===============================
-        // LIVE USERS LAYER TOGGLE
-        // ===============================
-        const liveUsersContainer = document.createElement("div");
-        liveUsersContainer.style.marginTop = "6px";
-        liveUsersContainer.innerHTML  = `
-            <label style="cursor:pointer;">
-                <input type="checkbox" id="liveUsersToggle">
-                Show Active Users
-            </label>
-        `;
-        layerList.appendChild(liveUsersContainer);
-        
-        const liveUsersToggle = document.getElementById("liveUsersToggle");
-        liveUsersToggle.checked = false;
-        
-        liveUsersToggle.addEventListener("change", () => {
-            if (liveUsersToggle.checked) {
-                map.addLayer(layerGroups["LIVE_USERS"]);
-            } else {
-                map.removeLayer(layerGroups["LIVE_USERS"]);
-            }
-        });
-
-// ===============================
-// DISPLAY NAME INPUT
-// ===============================
-const nameContainer = document.createElement("div");
-nameContainer.style.marginTop = "6px";
-nameContainer.innerHTML = `
-    <label style="cursor:pointer;">
-        <input type="text" id="displayNameInput" placeholder="Your name (optional)" style="width: 140px;">
-    </label>
-`;
-layerList.appendChild(nameContainer);
-
-
-const teamContainer = document.createElement("div");
-
-// Make the row split into: [Team dropdown]    [Version]
-teamContainer.style.display = "flex";
-teamContainer.style.justifyContent = "space-between";
-teamContainer.style.alignItems = "center";
-
-teamContainer.innerHTML = `
-  <label>
-    <select id="teamSelect">
-      <option value="">No Team</option>
-      <option value="Alpha">Alpha</option>
-      <option value="Bravo">Bravo</option>
-      <option value="Charlie">Charlie</option>
-      <option value="Delta">Delta</option>
-      <option value="Echo">Echo</option>
-      <option value="Foxtrot">Foxtrot</option>
-      <option value="Golf">Golf</option>
-      <option value="Hotel">Hotel</option>
-    </select>
-  </label>
-
-  <span style="
-      font-weight: bold;
-      font-size: 12px;
-      margin-left: 10px;
-  ">
-    ${APP_VERSION}
-  </span>
-`;
-
-layerList.appendChild(teamContainer);
-
-// Restore saved team on load (prevents mobile losing team)
-const savedTeam = localStorage.getItem("team");
-if (savedTeam) {
-    document.getElementById("teamSelect").value = savedTeam;
-}
-
-// ===============================
-// SHOW CLEARED TOGGLE
-// ===============================
-const showClearedContainer = document.createElement("div");
-showClearedContainer.style.marginTop = "6px";
-showClearedContainer.innerHTML = `
-    <label style="cursor:pointer;">
-        <input type="checkbox" id="showClearedToggle">
-        Show Cleared
-    </label>
-`;
-layerList.appendChild(showClearedContainer);
-
-const showClearedToggle = document.getElementById("showClearedToggle");
-showClearedToggle.checked = false;
-
-showClearedToggle.addEventListener("change", () => {
-    if (showClearedToggle.checked) {
-        map.addLayer(layerGroups["CLEARED"]);
-    } else {
-        map.removeLayer(layerGroups["CLEARED"]);
-    }
-});
-
-// ===============================
-// SHOW ZONES TOGGLE + MARK ZONE BUTTON
-// ===============================
-const showZonesContainer = document.createElement("div");
-showZonesContainer.style.marginTop = "6px";
-showZonesContainer.innerHTML = `
-    <label style="cursor:pointer;">
-        <input type="checkbox" id="showZonesToggle">
-        Show Zones
-    </label>
-`;
-layerList.appendChild(showZonesContainer);
-
-const showZonesToggle = document.getElementById("showZonesToggle");
-showZonesToggle.checked = false;
-
-showZonesToggle.addEventListener("change", () => {
-    if (showZonesToggle.checked) {
-        map.addLayer(layerGroups["ZONES"]);
-    } else {
-        map.removeLayer(layerGroups["ZONES"]);
-    }
-});
-
-const markZoneContainer = document.createElement("div");
-markZoneContainer.style.marginTop = "6px";
-markZoneContainer.innerHTML = `
-    <button id="markZoneBtn" type="button" style="
-        width:100%;
-        background:#0078ff;
-        color:white;
-        border:none;
-        padding:6px;
-        border-radius:4px;
-        cursor:pointer;
-    ">✏️ Mark Zone</button>
-`;
-layerList.appendChild(markZoneContainer);
-
-// Wired up right here (not at the bottom of the file with the rest of the
-// zone-drawing logic) because this button is created dynamically inside
-// initMap() — grabbing it via getElementById any earlier, at top-level
-// script scope, runs before initMap() ever creates it and silently
-// captures null. startZoneDrawing() itself is a plain top-level function
-// declaration (hoisted), so it's already safe to call from here.
-document.getElementById("markZoneBtn").addEventListener("click", e => {
-  e.stopPropagation();
-  startZoneDrawing();
-});
-
-
-
-const nameInput = document.getElementById("displayNameInput");
-nameInput.value = localStorage.getItem("displayName") || "";
-console.log("nameInput exists:", !!nameInput);
-    
-nameInput.addEventListener("input", () => {
-    localStorage.setItem("displayName", nameInput.value.trim());
-});
-
-const teamSelect = document.getElementById("teamSelect");
-teamSelect.value = localStorage.getItem("team") || "";
-
-teamSelect.addEventListener("change", () => {
-    const oldTeam = localStorage.getItem("team") || "";
-    const newTeam = teamSelect.value;
-    localStorage.setItem("team", newTeam);
-    postTeamChangeAlert(oldTeam, newTeam);
-});
-
-    
-// ⭐ FIX 2 — mobile‑safe fallback
-nameInput.addEventListener("blur", () => {
-    localStorage.setItem("displayName", nameInput.value.trim());
-});
-    
-      document.getElementById("alerts-toggle").addEventListener("change", (e) => {
-      const panel = document.getElementById("alerts-panel");
-      panel.classList.toggle("hidden", !e.target.checked);
-      if (!panel.classList.contains("hidden")) {
-        enableAlertsOutsideClose();
-        // Verbose is meant to reset every time the panel is reopened,
-        // not persist across a close/reopen — only while it stays open.
-        const verboseToggle = document.getElementById("alerts-verbose-toggle");
-        if (verboseToggle) {
-          verboseToggle.checked = false;
-        }
-        refreshAlerts();
-      }
-    });
-
-    document.getElementById("alerts-verbose-toggle").addEventListener("change", () => {
-      refreshAlerts();
-    });
+    label.append(box, displayName);
+    locationsMenu.appendChild(label);
   }
 
-  map.whenReady(() => {
-    requestAnimationFrame(attachAlertsToggle);
+  // ------------------------------------------------------------
+  // 6. Display menu toggles
+  // ------------------------------------------------------------
+  const shareOptIn = document.getElementById("shareLocationOptIn");
+  shareOptIn.checked = localStorage.getItem("shareLocation") === "true";
+  if (shareOptIn.checked) {
+    requestWakeLock();
+  }
+  shareOptIn.addEventListener("change", () => {
+    localStorage.setItem("shareLocation", shareOptIn.checked ? "true" : "false");
+    if (shareOptIn.checked) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+  });
+
+  // Each "Show ..." box adds or removes one map layer.
+  [
+    ["liveUsersToggle", "LIVE_USERS"],
+    ["showClearedToggle", "CLEARED"],
+    ["showZonesToggle", "ZONES"],
+  ].forEach(([id, layerKey]) => {
+    const toggle = document.getElementById(id);
+    toggle.checked = false;
+    toggle.addEventListener("change", () => {
+      if (toggle.checked) map.addLayer(layerGroups[layerKey]);
+      else map.removeLayer(layerGroups[layerKey]);
+    });
+  });
+
+  document.getElementById("alerts-toggle").addEventListener("change", (e) => {
+    const panel = document.getElementById("alerts-panel");
+    panel.classList.toggle("hidden", !e.target.checked);
+    if (!panel.classList.contains("hidden")) {
+      closeMenus(); // the panel opens where the menu was
+      enableAlertsOutsideClose();
+      // Verbose is meant to reset every time the panel is reopened,
+      // not persist across a close/reopen — only while it stays open.
+      const verboseToggle = document.getElementById("alerts-verbose-toggle");
+      if (verboseToggle) {
+        verboseToggle.checked = false;
+      }
+      refreshAlerts();
+    }
+  });
+
+  document.getElementById("alerts-verbose-toggle").addEventListener("change", () => {
+    refreshAlerts();
   });
 
   // ------------------------------------------------------------
@@ -1413,16 +1191,37 @@ function buildLiveUserIcon(displayName, team, formattedTime) {
 }
 
 async function refreshLiveUsers() {
+    if (replayMode) return;
     try {
-        const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/location/all");
+        const res = await fetch(WORKER_BASE + "/location/all");
         const { users } = await res.json();
-        const now = Date.now();
+        renderLiveUsers(users, Date.now());
+    } catch (err) {
+        console.warn("Live user refresh failed:", err);
+    }
+}
+
+function clearLiveUserMarkers() {
+    for (const uid in liveUserMarkers) {
+        oms.removeMarker(liveUserMarkers[uid]);
+        layerGroups["LIVE_USERS"].removeLayer(liveUserMarkers[uid]);
+        delete liveUserMarkers[uid];
+    }
+}
+
+// These live inside initMap(); js/replay.js is outside it, so hand them over.
+window.liveUsersApi = { renderLiveUsers, clearLiveUserMarkers, refreshLiveUsers };
+
+// Draws the users' markers and panel list as of `now` (the real time, or
+// the moment being replayed).
+function renderLiveUsers(users, now) {
 
         // Remove stale markers (> 2 minutes)
         for (const uid in liveUserMarkers) {
             const user = users.find(u => u.userId === uid);
 
             if (!user || (now - user.timestamp) > 120000) {
+                oms.removeMarker(liveUserMarkers[uid]);
                 layerGroups["LIVE_USERS"].removeLayer(liveUserMarkers[uid]);
                 delete liveUserMarkers[uid];
             }
@@ -1525,9 +1324,6 @@ async function refreshLiveUsers() {
       
           usersList.appendChild(li);
       });
-    } catch (err) {
-        console.warn("Live user refresh failed:", err);
-    }
 }
 
 
@@ -1565,7 +1361,7 @@ function sendLocationUpdate(lat, lng) {
       teamValue = "";
   }
 
-  fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/location/update", {
+  fetch(WORKER_BASE + "/location/update", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -1695,7 +1491,7 @@ async function loadAlerts() {
    //   "https://raw.githubusercontent.com/BunmahonCGU/cgu-map-pwa/main/data/alerts.json?cb=" +
    //   Date.now();
    // const res = await fetch(url, { cache: "no-store" });
-const url = "https://shiny-math-8471.bunmahoncgu.workers.dev/alerts?cb=" + Date.now();
+const url = WORKER_BASE + "/alerts?cb=" + Date.now();
 const res = await fetch(url, { cache: "no-store" });
 
     if (!res.ok) {
@@ -1790,8 +1586,12 @@ function playAlertSound() {
 // admin PIN — these come from ordinary users doing ordinary things
 // (switching teams, marking an area cleared), not an admin console entry.
 async function postAutoAlert(category, message, extra) {
+  if (replayMode) {
+    alert("Not available during replay. Exit replay first.");
+    return false;
+  }
   try {
-    const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/alerts", {
+    const res = await fetch(WORKER_BASE + "/alerts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1927,7 +1727,7 @@ async function handleLongPressClear(lat, lng) {
 
   let address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   try {
-    const res = await fetch(`https://shiny-math-8471.bunmahoncgu.workers.dev/reverse-geocode?lat=${lat}&lng=${lng}`);
+    const res = await fetch(`${WORKER_BASE}/reverse-geocode?lat=${lat}&lng=${lng}`);
     const data = await res.json();
     if (data.status === "ok") {
       // Nominatim gives a nearby road / coarse Electoral Division; the
@@ -1988,6 +1788,10 @@ function updateZoneDrawStatus() {
 
 function startZoneDrawing() {
   if (zoneDrawing) return;
+  if (replayMode) {
+    alert("Not available during replay. Exit replay first.");
+    return;
+  }
   zoneDrawing = true;
   zonePoints = [];
   redrawZonePreview();
@@ -2170,7 +1974,7 @@ zoneDrawCancelBtn.addEventListener("click", e => {
 // ===============================
 async function deleteZone(id) {
   try {
-    const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/alerts/delete", {
+    const res = await fetch(WORKER_BASE + "/alerts/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, userId, token: localStorage.getItem("locationToken") || null })
@@ -2205,7 +2009,7 @@ async function deleteAlertWithPin(id) {
   const pin = prompt("Enter admin PIN to delete this alert:");
   if (!pin || !pin.trim()) return;
   try {
-    const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/alerts/delete", {
+    const res = await fetch(WORKER_BASE + "/alerts/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, pin: pin.trim(), pinOnly: true, userId })
@@ -2223,10 +2027,11 @@ async function deleteAlertWithPin(id) {
 }
 
 async function refreshAlerts() {
+  if (replayMode) return;
   try {
     //const url = "data/alerts.json?cb=" + Date.now();
     //const url = "https://raw.githubusercontent.com/BunmahonCGU/cgu-map-pwa/main/data/alerts.json?cb=" + Date.now();
-    const url = "https://shiny-math-8471.bunmahoncgu.workers.dev/alerts?cb=" + Date.now();
+    const url = WORKER_BASE + "/alerts?cb=" + Date.now();
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return;
     const json = await res.json();
@@ -2261,6 +2066,21 @@ async function refreshAlerts() {
       }
     }
 
+    renderAlerts(updates, now);
+  } catch (err) {
+    console.error("Error loading alerts:", err);
+  }
+}
+
+// Draws Cleared pins, zones and the updates list as of `now` (the real
+// time, or the moment being replayed). readOnly drops the edit/delete
+// buttons, so nothing in a replay can change live data.
+function renderAlerts(updates, now, { readOnly = false } = {}) {
+    const cutoff = now - 24 * 60 * 60 * 1000;
+    const recent = updates
+      .filter(a => new Date(a.timestamp).getTime() >= cutoff)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
     // ===============================
     // "Show Cleared" pins — rebuilt fresh each refresh, same as the list
     // below. Only entries with both a real location and a real name are
@@ -2276,7 +2096,7 @@ async function refreshAlerts() {
       )
       .forEach(a => {
         const color = getTeamColor(a.team);
-        const elapsedLabel = formatElapsedTime(a.timestamp);
+        const elapsedLabel = formatElapsedTime(a.timestamp, now);
         const marker = L.marker([a.lat, a.lng], {
           icon: makeSvgIcon("circle-pin", color, elapsedLabel, { fontSize: 11, textColor: "black", halo: true })
         });
@@ -2305,9 +2125,10 @@ async function refreshAlerts() {
         // existing team/label/points without needing a separate lookup.
         polygon._zoneData = a;
         polygon.bindPopup(
-          `<strong>Zone marked by ${escapeHtml(a.user)}</strong><br>${escapeHtml(a.message)}<br><small>${new Date(a.timestamp).toLocaleString()}</small><br>` +
-          `<button class="zone-edit-btn" style="margin-top:6px; background:#0078ff; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer;">✏️ Edit Zone</button> ` +
-          `<button class="zone-delete-btn" data-zone-id="${escapeHtml(a.id || "")}" style="margin-top:6px; background:#c0392b; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer;">🗑 Delete Zone</button>`,
+          `<strong>Zone marked by ${escapeHtml(a.user)}</strong><br>${escapeHtml(a.message)}<br><small>${new Date(a.timestamp).toLocaleString()}</small>` +
+          (readOnly ? "" :
+          `<br><button class="zone-edit-btn" style="margin-top:6px; background:#0078ff; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer;">✏️ Edit Zone</button> ` +
+          `<button class="zone-delete-btn" data-zone-id="${escapeHtml(a.id || "")}" style="margin-top:6px; background:#c0392b; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer;">🗑 Delete Zone</button>`),
           { className: "custom-popup" }
         );
         layerGroups["ZONES"].addLayer(polygon);
@@ -2346,7 +2167,7 @@ async function refreshAlerts() {
       // Pre-existing alerts posted before ids existed won't have one —
       // the button still renders (consistent with the Zone popup button)
       // but its click handler below no-ops when there's nothing to target.
-      const deleteBtn = `<button class="alert-delete-btn" title="Delete this alert (requires PIN)">🗑</button>`;
+      const deleteBtn = readOnly ? "" : `<button class="alert-delete-btn" title="Delete this alert (requires PIN)">🗑</button>`;
 
       li.innerHTML = `
         <div class="alert-time">${timeOnly}</div>
@@ -2367,48 +2188,126 @@ async function refreshAlerts() {
         });
       }
 
-      li.querySelector(".alert-delete-btn").addEventListener("click", e => {
-        e.stopPropagation();
-        if (!a.id) return;
-        deleteAlertWithPin(a.id);
-      });
+      if (!readOnly) {
+        li.querySelector(".alert-delete-btn").addEventListener("click", e => {
+          e.stopPropagation();
+          if (!a.id) return;
+          deleteAlertWithPin(a.id);
+        });
+      }
 
       list.appendChild(li);
     });
-  } catch (err) {
-    console.error("Error loading alerts:", err);
-  }
 }
 
 // ------------------------------------------------------------
 // Admin panel → Cloudflare Worker → GitHub alerts.json
 // ------------------------------------------------------------
-const ALERT_ENDPOINT = "https://shiny-math-8471.bunmahoncgu.workers.dev/update";
+const ALERT_ENDPOINT = WORKER_BASE + "/update";
 let adminPin = null;
-// USERS PANEL TOGGLE
-const usersPanel = document.getElementById("users-panel");
-const usersOpen = document.getElementById("users-open");
+// ------------------------------------------------------------
+// MENU BAR — one dropdown open at a time; tapping elsewhere closes it
+// ------------------------------------------------------------
+function closeMenus() {
+  document.querySelectorAll("#menu-bar .menu.open").forEach(m => m.classList.remove("open"));
+}
 
-usersOpen.addEventListener("click", () => {
-    usersPanel.classList.toggle("hidden");
+function wireMenuBar() {
+  const bar = document.getElementById("menu-bar");
+  document.getElementById("app-version").textContent = APP_VERSION;
+  bar.querySelectorAll(".menu").forEach(menu => {
+    menu.querySelector(".menu-btn").addEventListener("click", () => {
+      const wasOpen = menu.classList.contains("open");
+      closeMenus();
+      if (!wasOpen) menu.classList.add("open");
+    });
+  });
+  document.addEventListener("click", e => {
+    if (!bar.contains(e.target)) closeMenus();
+  });
+}
+wireMenuBar();
+
+// ------------------------------------------------------------
+// TOOLS MENU: Profile, Mark Zone, Users, Admin
+// ------------------------------------------------------------
+const profilePanel = document.getElementById("profile-panel");
+document.getElementById("menu-profile").addEventListener("click", e => {
+  e.stopPropagation();
+  closeMenus();
+  profilePanel.classList.toggle("hidden");
+});
+document.getElementById("profile-close").addEventListener("click", () => {
+  profilePanel.classList.add("hidden");
+});
+
+const nameInput = document.getElementById("displayNameInput");
+nameInput.value = localStorage.getItem("displayName") || "";
+nameInput.addEventListener("input", () => {
+  localStorage.setItem("displayName", nameInput.value.trim());
+});
+// Mobile-safe fallback
+nameInput.addEventListener("blur", () => {
+  localStorage.setItem("displayName", nameInput.value.trim());
+});
+
+const teamSelect = document.getElementById("teamSelect");
+teamSelect.value = localStorage.getItem("team") || "";
+teamSelect.addEventListener("change", () => {
+  const oldTeam = localStorage.getItem("team") || "";
+  const newTeam = teamSelect.value;
+  localStorage.setItem("team", newTeam);
+  postTeamChangeAlert(oldTeam, newTeam);
+});
+
+document.getElementById("markZoneBtn").addEventListener("click", e => {
+  e.stopPropagation();
+  closeMenus();
+  startZoneDrawing();
+});
+
+const usersPanel = document.getElementById("users-panel");
+document.getElementById("menu-users").addEventListener("click", e => {
+  e.stopPropagation();
+  closeMenus();
+  usersPanel.classList.toggle("hidden");
 });
 
 // ------------------------------------------------------------
-// OPEN ADMIN PANEL
+// OPEN ADMIN PANEL (after a small PIN dialog)
 // ------------------------------------------------------------
-document.getElementById("admin-open").onclick = () => {
-  // PIN is verified server-side by the Cloudflare Worker on submit
-  // (see ADMIN_PIN check in the /alerts handler) — nothing here can
-  // be a real security boundary since it ships in client JS.
-  const pin = prompt("Enter admin PIN");
-  if (!pin || !pin.trim()) {
-    alert("PIN required");
+// PIN is verified server-side by the Cloudflare Worker on submit
+// (see ADMIN_PIN check in the /alerts handler) — nothing here can
+// be a real security boundary since it ships in client JS.
+const pinDialog = document.getElementById("pin-dialog");
+const pinInput = document.getElementById("pin-input");
+
+document.getElementById("menu-admin").addEventListener("click", e => {
+  e.stopPropagation();
+  closeMenus();
+  pinInput.value = "";
+  pinDialog.classList.remove("hidden");
+  pinInput.focus();
+});
+
+pinDialog.addEventListener("submit", e => {
+  e.preventDefault();
+  const pin = pinInput.value.trim();
+  if (!pin) {
+    pinInput.focus();
     return;
   }
-  adminPin = pin.trim();
+  adminPin = pin;
+  pinDialog.classList.add("hidden");
+  pinInput.blur();
   document.getElementById("admin-panel").classList.remove("hidden");
-  checkTokenStatus();
-};
+  document.dispatchEvent(new Event("admin-opened"));
+});
+
+document.getElementById("pin-cancel").addEventListener("click", () => {
+  pinDialog.classList.add("hidden");
+  pinInput.blur();
+});
 
 // ------------------------------------------------------------
 // CLOSE ADMIN PANEL (mobile‑safe)
@@ -2462,7 +2361,6 @@ pickLocationBtn.addEventListener("click", e => {
     pickLocationHandler = null;
     pickLocationBanner.classList.add("hidden");
     adminPanel.classList.remove("hidden");
-    checkTokenStatus();
   };
   map.once("click", pickLocationHandler);
 });
@@ -2564,9 +2462,13 @@ adminSubmit.addEventListener("click", async e => {
     alert("Category and message required");
     return;
   }
+  if (replayMode) {
+    alert("Not available during replay. Exit replay first.");
+    return;
+  }
 
   try {
-    const res = await fetch("https://shiny-math-8471.bunmahoncgu.workers.dev/alerts", {
+    const res = await fetch(WORKER_BASE + "/alerts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

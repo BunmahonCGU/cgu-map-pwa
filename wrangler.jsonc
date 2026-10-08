@@ -1,0 +1,23 @@
+// V2 test deployment: one Worker that serves the app's files AND its API
+// (live users, alerts, history archive), deployed by Cloudflare Workers
+// Builds from the v2-replay branch. The live V1 app is unaffected: it stays
+// on GitHub Pages and its own Worker. Setup steps: docs/V2-SETUP.md.
+{
+  "name": "cgu-map-v2",
+  "main": "worker-updated.js",
+  "compatibility_date": "2026-09-01",
+
+  // The app's own files. Requests that match a file are served as-is;
+  // everything else (/alerts, /location/..., /archive/...) reaches the
+  // Worker. .assetsignore keeps the Worker code and tooling out.
+  "assets": { "directory": "./" },
+
+  "durable_objects": {
+    "bindings": [{ "name": "LIVE_USERS_DO", "class_name": "LiveUsersDO" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveUsersDO"] }],
+
+  // No id: Wrangler creates this KV namespace on first deploy and keeps
+  // it linked afterwards.
+  "kv_namespaces": [{ "binding": "ALERTS_KV" }]
+}
