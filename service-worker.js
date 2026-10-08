@@ -2,15 +2,20 @@
 // Bunmahon CGU PWA Service Worker (patched for alerts + freshness)
 // ------------------------------------------------------------
 
-const CACHE_NAME = "cgu-map-cache-v18";
+const CACHE_NAME = "cgu-map-cache-v19";
+
+// Where the app is served from: "/cgu-map-pwa/" on GitHub Pages, "/" on a
+// separate host such as the V2 test site.
+const BASE = new URL("./", self.location).pathname;
 
 // Only cache the app shell — NOT dynamic data
 const APP_SHELL = [
- "/cgu-map-pwa/",
-  "/cgu-map-pwa/index.html",
-  "/cgu-map-pwa/manifest.json",
-  "/cgu-map-pwa/favicon.png",
-  "/cgu-map-pwa/js/map.js",
+  BASE,
+  BASE + "index.html",
+  BASE + "manifest.json",
+  BASE + "favicon.png",
+  BASE + "js/map.js",
+  BASE + "js/replay.js",
   "https://unpkg.com/leaflet/dist/leaflet.css",
   "https://unpkg.com/leaflet/dist/leaflet.js"
 ];
