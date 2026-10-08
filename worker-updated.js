@@ -33,6 +33,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // Zero-padded so storage keys sort in time order.
 const pad = t => String(Math.max(0, Math.floor(t))).padStart(13, "0");
 
+// Ignore stray spaces on either side (easy to paste into the dashboard secret).
+function pinMatches(pin, env) {
+  return typeof pin === "string" && typeof env.ADMIN_PIN === "string" &&
+    pin.trim() !== "" && pin.trim() === env.ADMIN_PIN.trim();
+}
+
 function archiveStub(env) {
   return env.LIVE_USERS_DO.get(env.LIVE_USERS_DO.idFromName("archive"));
 }
@@ -370,7 +376,7 @@ async function handleRequest(request, env, ctx) {
             return Response.json({ status: "error", error: "Invalid or missing token" }, { status: 403, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
           }
         } else if (PIN_OR_TOKEN_CATEGORIES.includes(category)) {
-          if (pin === env.ADMIN_PIN) {
+          if (pinMatches(pin, env)) {
             authorized = true;
           } else if (userId) {
             const result = await verifyDeviceToken(env, userId, token);
@@ -383,7 +389,7 @@ async function handleRequest(request, env, ctx) {
         } else {
           // PIN-only categories (Scenario, Description, Sighting, Other, and
           // any future addition not explicitly listed above).
-          if (pin !== env.ADMIN_PIN) {
+          if (!pinMatches(pin, env)) {
             return Response.json({ status: "error", error: "Invalid PIN" }, { status: 403, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
           }
           authorized = true;
@@ -460,7 +466,7 @@ async function handleRequest(request, env, ctx) {
         let authorized = false;
         let mintedToken = null;
 
-        if (pin === env.ADMIN_PIN) {
+        if (pinMatches(pin, env)) {
           authorized = true;
         } else if (!pinOnly && userId) {
           const result = await verifyDeviceToken(env, userId, token);
@@ -612,7 +618,7 @@ async function handleRequest(request, env, ctx) {
       const headers = { "Access-Control-Allow-Origin": DEFAULT_ORIGIN };
       try {
         const { pin, from, to } = await request.json();
-        if (pin !== env.ADMIN_PIN) {
+        if (!pinMatches(pin, env)) {
           return Response.json({ status: "error", error: "Invalid PIN" }, { status: 403, headers });
         }
         if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to - from > MAX_REPLAY_SPAN_MS) {
