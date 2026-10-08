@@ -1143,7 +1143,11 @@ nameInput.addEventListener("blur", () => {
     lastGPS = Date.now();
     lastLat = e.latlng.lat;
     lastLng = e.latlng.lng;
-    sendLocationUpdate(lastLat, lastLng);
+    // GPS can fire every second or two on a moving phone; cap sends so
+    // each device posts at most once per LOCATION_SEND_INTERVAL.
+    if (lastGPS - lastLocationSent >= LOCATION_SEND_INTERVAL) {
+      sendLocationUpdate(lastLat, lastLng);
+    }
 
 
     // Follow mode
@@ -1540,11 +1544,16 @@ console.log("map.js loaded");
 let lastGPS = 0;
 let lastLat = null;
 let lastLng = null;
+let lastLocationSent = 0;
+
+const LOCATION_SEND_INTERVAL = 15000;  // min gap between GPS-driven sends
+const GPS_IDLE_THRESHOLD = 20000;      // no fix for this long -> heartbeat takes over
 
 function sendLocationUpdate(lat, lng) {
   if (!tracking || localStorage.getItem("shareLocation") !== "true") return;
 
   console.log("sendLocationUpdate()", lat, lng);
+  lastLocationSent = Date.now();
 
   // ===============================
   // SANITIZE TEAM VALUE (mobile fix)
@@ -1600,11 +1609,11 @@ function startLocationUpdates() {
   setInterval(() => {
     const now = Date.now();
   
-    if (now - lastGPS > 10000 && lastLat !== null && lastLng !== null) {
+    if (now - lastGPS > GPS_IDLE_THRESHOLD && lastLat !== null && lastLng !== null) {
       console.log("Desktop heartbeat (GPS idle)");
       sendLocationUpdate(lastLat, lastLng);   // <-- NO geolocation call
     }
-  }, 10000);
+  }, LOCATION_SEND_INTERVAL);
 }
 
 
