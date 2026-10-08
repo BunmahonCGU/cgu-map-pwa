@@ -133,7 +133,7 @@ function defaultReplayFrom() {
   replayFromInput.value = start.toISOString().slice(0, 16);
 }
 
-document.addEventListener("admin-opened", () => {
+document.addEventListener("replay-panel-opened", () => {
   replayFromPicked = false;
   defaultReplayFrom();
 });
@@ -155,10 +155,10 @@ document.getElementById("replay-archive-btn").addEventListener("click", async ()
     return;
   }
   try {
-    const res = await fetch(WORKER_BASE + "/archive/range", {
+    const res = await apiFetch("/archive/range", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin: adminPin, from, to })
+      body: JSON.stringify({ pinHash: replayPinHash, from, to })
     });
     const history = await res.json();
     if (!res.ok) {
@@ -172,7 +172,7 @@ document.getElementById("replay-archive-btn").addEventListener("click", async ()
     history.meta.name = "Recorded history from " + new Date(from).toLocaleString([], {
       weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
     });
-    closeAdminPanel();
+    closeReplayPanel();
     startReplay(history);
   } catch (err) {
     console.error("Could not load archived history:", err);
@@ -184,7 +184,7 @@ document.getElementById("replay-demo-btn").addEventListener("click", async () =>
   try {
     const res = await fetch("data/replay-demo.json", { cache: "no-store" });
     if (!res.ok) throw new Error(res.status);
-    closeAdminPanel();
+    closeReplayPanel();
     startReplay(await res.json());
   } catch (err) {
     console.error("Could not load demo history:", err);

@@ -405,7 +405,8 @@ body {
 /* Keep Refresh, Mark Zone and Admin out of the way during replay */
 body.replaying #refreshMapBtn,
 body.replaying #markZoneBtn,
-body.replaying #menu-admin { display: none; }
+body.replaying #menu-admin,
+body.replaying #menu-replay { display: none; }
 
 /* Panel heading with a Close button on the right */
 .panel-head { display: flex; align-items: center; justify-content: space-between; }
@@ -481,6 +482,74 @@ body.replaying #menu-admin { display: none; }
 /* Leaflet's top controls sit below the menu bar */
 .leaflet-top { top: calc(44px + env(safe-area-inset-top)); }
 
+/* REPLAY + DEVICES PANELS (full-screen sheets like the admin panel) */
+.sheet {
+  position: fixed;
+  inset: 0;
+  background: white;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  z-index: 10003;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.sheet.hidden { display: none; }
+.sheet input, .sheet select { width: 100%; box-sizing: border-box; margin-bottom: 8px; }
+.sheet-note { font-size: 12px; color: #555; margin: 0 0 6px; }
+.sheet-btn, .sheet-close {
+  width: 100%;
+  padding: 8px;
+  border: none;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  background: #e8eef4;
+  color: #003366;
+  font-size: 14px;
+}
+.sheet-btn.primary { background: #003366; color: white; }
+.sheet-close { background: #444; color: white; margin-top: 12px; }
+#enrol-box { text-align: center; margin: 8px 0 4px; }
+#enrol-qr svg { width: 220px; height: 220px; }
+#enrol-code { font: 600 26px/1.2 monospace; letter-spacing: 2px; color: #003366; }
+#enrol-expiry { font-size: 12px; color: #555; }
+#enrol-box.expired #enrol-qr, #enrol-box.expired #enrol-code { opacity: 0.25; }
+#devices-list { list-style: none; padding: 0; margin: 6px 0; }
+.device-row { border-bottom: 1px solid #ddd; padding: 6px 0; }
+.device-detail { font-size: 12px; color: #555; margin: 2px 0 4px; }
+.device-row.state-expired strong, .device-row.state-terminated strong { color: #888; }
+.device-actions { display: flex; gap: 6px; }
+.device-actions button { padding: 4px 10px; border: none; border-radius: 4px; font-size: 12px; background: #e8eef4; color: #003366; }
+.device-actions .device-terminate, .device-actions .device-remove { background: #c0392b; color: white; }
+.device-actions .device-renew { background: #d9822b; color: black; }
+
+/* SIGN-IN SCREEN */
+#signin-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10010;
+  background: rgba(0, 32, 63, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#signin-overlay.hidden { display: none; }
+#signin-box { position: static; width: min(300px, calc(100vw - 32px)); }
+#signin-box h3 { margin: 0 0 4px; }
+#signin-box p { margin: 0 0 10px; color: #b8c7d6; font-size: 12px; }
+#signin-box label { display: block; margin-bottom: 6px; }
+#signin-box input { display: block; width: 100%; box-sizing: border-box; margin-top: 3px; padding: 6px; font-size: 16px; }
+#signin-box button {
+  width: 100%;
+  padding: 7px;
+  border: none;
+  border-radius: 4px;
+  background: #e8eef4;
+  color: #003366;
+  font-size: 14px;
+}
+#signin-box button.primary { background: #d9822b; color: black; font-weight: 600; }
+.signin-or { text-align: center; color: #b8c7d6; margin: 10px 0 6px; }
+#signin-error { color: #ff8a80; margin-top: 8px; min-height: 1em; }
+
 /* PROFILE + PIN DIALOGS */
 .menu-dialog {
   position: fixed;
@@ -497,7 +566,7 @@ body.replaying #menu-admin { display: none; }
 #profile-panel label { display: block; margin-bottom: 8px; }
 #profile-panel input,
 #profile-panel select { width: 100%; box-sizing: border-box; margin-top: 3px; padding: 5px; }
-#pin-dialog { top: 30%; left: 50%; transform: translateX(-50%); }
+#pin-dialog { z-index: 10011; top: 30%; left: 50%; transform: translateX(-50%); }
 #pin-dialog input { display: block; width: 150px; box-sizing: border-box; margin: 6px 0 8px; padding: 6px; font-size: 16px; }
 .dialog-buttons { display: flex; gap: 6px; }
 .dialog-buttons button {
@@ -549,7 +618,9 @@ body.replaying #menu-admin { display: none; }
           <button type="button" id="menu-profile">👤 Profile</button>
           <button type="button" id="markZoneBtn">✏️ Mark Zone</button>
           <button type="button" id="menu-users">👥 Users</button>
-          <button type="button" id="menu-admin">🔒 Admin</button>
+          <button type="button" id="menu-admin">📝 Post Update</button>
+          <button type="button" id="menu-replay">⏪ Replay</button>
+          <button type="button" id="menu-devices">📱 Devices</button>
         </div>
       </div>
       <span id="app-version"></span>
@@ -576,7 +647,7 @@ body.replaying #menu-admin { display: none; }
     </div>
 
     <form id="pin-dialog" class="menu-dialog hidden" autocomplete="off">
-      <label for="pin-input">Admin PIN</label>
+      <label for="pin-input" id="pin-title">Admin PIN</label>
       <input type="password" id="pin-input">
       <div class="dialog-buttons">
         <button type="submit" class="primary">OK</button>
@@ -665,7 +736,22 @@ body.replaying #menu-admin { display: none; }
   <button id="admin-submit" style="width:100%; margin-top:8px;">Submit Update</button>
 
 
-  <h3 style="margin-top:16px;">Historical Replay</h3>
+  <button id="admin-close" style="
+    width:100%;
+    margin-top:8px;
+    background:#444;
+    color:white;
+    padding:8px;
+    border:none;
+    border-radius:4px;
+  ">
+    Close
+  </button>
+</div>
+
+<!-- REPLAY PANEL (Tools → Replay, admin PIN; js/devices.js + js/replay.js) -->
+<div id="replay-panel" class="sheet hidden">
+  <h3>Replay</h3>
   <p style="font-size:12px; color:#555; margin:0 0 6px;">
     Shows the map as it stood at any moment in a block of history.
     Live updates pause on this device only while replay is on.
@@ -698,17 +784,48 @@ body.replaying #menu-admin { display: none; }
     border-radius:4px;
   ">Replay demo history</button>
 
-  <button id="admin-close" style="
-    width:100%;
-    margin-top:8px;
-    background:#444;
-    color:white;
-    padding:8px;
-    border:none;
-    border-radius:4px;
-  ">
-    Close
-  </button>
+  <button id="replay-close" type="button" class="sheet-close">Close</button>
+</div>
+
+<!-- DEVICES PANEL (Tools → Devices; js/devices.js) -->
+<div id="devices-panel" class="sheet hidden">
+  <h3>Enrol a device</h3>
+  <p class="sheet-note">Scan this on the new phone or laptop, or type the code on its sign-in screen.
+    On an iPhone using the home-screen app, type the code in the app.</p>
+  <button id="enrol-btn" type="button" class="sheet-btn primary">Show enrolment code</button>
+  <div id="enrol-box" class="hidden">
+    <div id="enrol-qr"></div>
+    <div id="enrol-code"></div>
+    <div id="enrol-expiry"></div>
+  </div>
+
+  <h3>Signed-in devices</h3>
+  <p class="sheet-note">Each device stays signed in for 90 days from when it was last used.</p>
+  <button id="devices-load-btn" type="button" class="sheet-btn">Show devices (admin PIN)</button>
+  <ul id="devices-list"></ul>
+
+  <button id="devices-close" type="button" class="sheet-close">Close</button>
+</div>
+
+<!-- SIGN-IN SCREEN (js/devices.js) -->
+<div id="signin-overlay" class="hidden">
+  <form id="signin-box" class="menu-dialog" autocomplete="off" onsubmit="return false">
+    <h3>Sign in this device</h3>
+    <p id="signin-note"></p>
+    <label>Your name
+      <input type="text" id="signin-name" placeholder="Name shown to others">
+    </label>
+    <label>Enrolment code
+      <input type="text" id="signin-code" autocapitalize="characters" placeholder="e.g. BM3T-SB7D">
+    </label>
+    <button type="button" id="signin-code-btn" class="primary">Use code</button>
+    <div class="signin-or">or</div>
+    <label>Admin PIN
+      <input type="password" id="signin-pin">
+    </label>
+    <button type="button" id="signin-pin-btn">Sign in with PIN</button>
+    <div id="signin-error"></div>
+  </form>
 </div>
 
 <!-- Silent looping video: a belt-and-braces fallback alongside the Screen
@@ -851,8 +968,10 @@ body.replaying #menu-admin { display: none; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
 
-     <script src="js/map.js?v=20" defer></script>
-     <script src="js/replay.js?v=4" defer></script>
+     <script src="js/map.js?v=21" defer></script>
+     <script src="js/replay.js?v=5" defer></script>
+     <script src="js/vendor/qrcode.js?v=1" defer></script>
+     <script src="js/devices.js?v=1" defer></script>
     
     <!-- Register Service Worker -->
     <script>
