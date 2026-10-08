@@ -121,6 +121,65 @@ replayBar.querySelectorAll("[data-step]").forEach(btn => {
   btn.addEventListener("click", () => replaySeek(replay.t + Number(btn.dataset.step) * 1000));
 });
 
+// The archive picker defaults to "the last N hours": its start follows the
+// Length choice until the admin picks a start time themselves.
+const replayFromInput = document.getElementById("replay-from");
+const replayHoursSelect = document.getElementById("replay-hours");
+let replayFromPicked = false;
+
+function defaultReplayFrom() {
+  const start = new Date(Date.now() - Number(replayHoursSelect.value) * 3600000);
+  start.setMinutes(start.getMinutes() - start.getTimezoneOffset()); // datetime-local wants local time
+  replayFromInput.value = start.toISOString().slice(0, 16);
+}
+
+document.getElementById("admin-open").addEventListener("click", () => {
+  replayFromPicked = false;
+  defaultReplayFrom();
+});
+replayFromInput.addEventListener("change", () => { replayFromPicked = true; });
+replayHoursSelect.addEventListener("change", () => { if (!replayFromPicked) defaultReplayFrom(); });
+
+document.getElementById("replay-archive-btn").addEventListener("click", async () => {
+  const from = new Date(replayFromInput.value).getTime();
+  if (!Number.isFinite(from)) {
+    alert("Pick a start time first.");
+    return;
+  }
+  // "The last N hours" runs right up to now (the picker only has whole minutes).
+  const to = replayFromPicked
+    ? Math.min(Date.now(), from + Number(replayHoursSelect.value) * 3600000)
+    : Date.now();
+  if (to <= from) {
+    alert("That start time is in the future.");
+    return;
+  }
+  try {
+    const res = await fetch(WORKER_BASE + "/archive/range", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: adminPin, from, to })
+    });
+    const history = await res.json();
+    if (!res.ok) {
+      alert("Could not load history: " + (history.error || res.status));
+      return;
+    }
+    if (history.events.length === 0 && history.frames.length === 0) {
+      alert("Nothing was recorded in that window.");
+      return;
+    }
+    history.meta.name = "Recorded history from " + new Date(from).toLocaleString([], {
+      weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+    });
+    closeAdminPanel();
+    startReplay(history);
+  } catch (err) {
+    console.error("Could not load archived history:", err);
+    alert("Could not load history — check your connection and try again.");
+  }
+});
+
 document.getElementById("replay-demo-btn").addEventListener("click", async () => {
   try {
     const res = await fetch("data/replay-demo.json", { cache: "no-store" });

@@ -10,8 +10,11 @@ let lastLocation = null;
 let map;
 const APP_VERSION = "V2.0";
 
-// One place to point the app at its Worker (V2 will get its own).
-const WORKER_BASE = "https://shiny-math-8471.bunmahoncgu.workers.dev";
+// The live site talks to the live Worker; anywhere else (the V2 test
+// site, a local copy) talks to the separate V2 test Worker.
+const LIVE_WORKER = "https://shiny-math-8471.bunmahoncgu.workers.dev";
+const V2_TEST_WORKER = "https://cgu-map-v2.bunmahoncgu.workers.dev";
+const WORKER_BASE = location.hostname === "bunmahoncgu.github.io" ? LIVE_WORKER : V2_TEST_WORKER;
 
 // True while an admin is replaying archived history on this device: live
 // polling stops, and nothing can be posted (see js/replay.js).

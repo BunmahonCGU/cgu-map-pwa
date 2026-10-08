@@ -523,14 +523,33 @@ body.replaying #users-open { bottom: 150px; }
     Shows the map as it stood at any moment in a block of history.
     Live updates pause on this device only while replay is on.
   </p>
-  <button id="replay-demo-btn" type="button" style="
+  <label for="replay-from" style="font-size:13px;">Start</label>
+  <input type="datetime-local" id="replay-from">
+  <label for="replay-hours" style="font-size:13px;">Length</label>
+  <select id="replay-hours" style="width:100%; margin-bottom:8px;">
+    <option value="1">1 hour</option>
+    <option value="3">3 hours</option>
+    <option value="6" selected>6 hours</option>
+    <option value="12">12 hours</option>
+    <option value="24">24 hours</option>
+  </select>
+  <button id="replay-archive-btn" type="button" style="
     width:100%;
     background:#003366;
     color:white;
     border:none;
     padding:8px;
     border-radius:4px;
-  ">⏪ Replay demo history</button>
+    margin-bottom:6px;
+  ">⏪ Replay recorded history</button>
+  <button id="replay-demo-btn" type="button" style="
+    width:100%;
+    background:#e8eef4;
+    color:#003366;
+    border:none;
+    padding:8px;
+    border-radius:4px;
+  ">Replay demo history</button>
 
   <button id="admin-close" style="
     width:100%;
@@ -682,8 +701,8 @@ body.replaying #users-open { bottom: 150px; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
 
-     <script src="js/map.js?v=14" defer></script>
-     <script src="js/replay.js?v=1" defer></script>
+     <script src="js/map.js?v=15" defer></script>
+     <script src="js/replay.js?v=2" defer></script>
     
     <!-- Register Service Worker -->
     <script>
