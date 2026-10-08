@@ -32,12 +32,22 @@ screen, the step order still applies.
    - **Branch:** `v2-replay`, if the screen offers a branch choice
 5. Select **Save and Deploy**.
 
-If the screen didn't offer a branch, the first build runs from `main` and
-fails (main has no `wrangler.jsonc`). That's expected. Then:
+The import screen usually doesn't offer a branch, so the first build runs
+from `main`. Main has no `wrangler.jsonc`, so Cloudflare deploys the repo as
+a files-only site, and the dashboard says bindings can't be added to an
+application with only static assets. That's expected and fixed by the next
+build:
 
-6. Open the `cgu-map-v2` Worker, go to **Settings → Build**, set the
-   **Git branch** to `v2-replay`, save, and select **Retry build** on the
-   failed build (or ask Claude to push a small change to `v2-replay`).
+6. Open the new application, go to **Settings → Build**, set the
+   **Git branch** to `v2-replay`, and save. Check the deploy command is
+   `npx wrangler deploy`.
+7. Note the application's name at the top of the page. It must match
+   `"name"` in `wrangler.jsonc` (`cgu-map-v2`); if it differs, ask Claude to
+   change `wrangler.jsonc` to match.
+8. Go to **Deployments** and select **Retry build** on the latest build (or
+   ask Claude to push a small change to `v2-replay`). This build deploys the
+   real Worker, with its Durable Object and KV store, and the static-only
+   message goes away.
 
 From then on, every push to `v2-replay` rebuilds and redeploys V2.
 
