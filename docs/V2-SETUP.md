@@ -53,13 +53,28 @@ From then on, every push to `v2-replay` rebuilds and redeploys V2.
 
 ## 2. Add the admin PIN (once)
 
-1. Open the `cgu-map-v2` Worker and select **Settings**.
-2. Under **Variables and Secrets**, select **Add**.
-3. Type **Secret**, name `ADMIN_PIN`, value: the PIN to use on V2 (the
-   live one or a test one).
-4. Select **Deploy**.
+If the first build ran from `main`, the dashboard keeps treating the Worker
+as static-only and refuses runtime variables ("Variables cannot be added to
+a Worker that only has static assets"), even though the Worker code runs.
+So the build sets the secret instead:
 
-Optional: a `GITHUB_TOKEN` secret the same way, only needed for the admin
+1. Open the Worker, go to **Settings → Build → Variables and secrets**, and
+   add a **Secret** named `ADMIN_PIN` with the PIN to use on V2.
+2. In **Settings → Build**, set the **Deploy command** to:
+
+   ```
+   npx wrangler deploy && printf '%s' "$ADMIN_PIN" | npx wrangler secret put ADMIN_PIN
+   ```
+
+3. Retry the latest build (or push to `v2-replay`). Every build now copies
+   the PIN onto the running Worker. To change the PIN, change the build
+   secret and rebuild.
+
+If the dashboard does let you add runtime secrets, adding `ADMIN_PIN` under
+**Settings → Variables and Secrets** works too, and the deploy command can
+stay `npx wrangler deploy`.
+
+Optional: a `GITHUB_TOKEN` secret, set up the same way, only needed for the admin
 panel's token health line. Without it, that line shows a warning on V2.
 
 ## 3. Check it
