@@ -10,3 +10,4 @@ worker-updated.js
 wrangler.jsonc
 .assetsignore
 *.md
+.gitignore

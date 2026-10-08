@@ -85,6 +85,86 @@ document.getElementById("signin-pin-btn").addEventListener("click", async () => 
   finishSignIn("/auth/pin-login", { pinHash: await hashPin(pin) });
 });
 
+// ---- Scan QR in the app (mainly for iPhone home-screen apps, which
+// don't share sign-in with Safari). The decoder loads only when needed.
+const scanBox = document.getElementById("signin-scan");
+const scanVideo = document.getElementById("signin-video");
+let scanStream = null;
+
+function loadQrReader() {
+  if (window.jsQR) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "js/vendor/jsqr.min.js";
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+// An enrolment QR holds the app link with ?enrol=CODE; accept a bare code too.
+function enrolCodeFrom(text) {
+  try {
+    return new URL(text).searchParams.get("enrol");
+  } catch (err) {
+    return /^[A-Z0-9]{4}-?[A-Z0-9]{4}$/i.test(text.trim()) ? text.trim() : null;
+  }
+}
+
+function stopScan() {
+  if (scanStream) scanStream.getTracks().forEach(track => track.stop());
+  scanStream = null;
+  scanVideo.srcObject = null;
+  scanBox.classList.add("hidden");
+}
+
+async function startScan() {
+  signinError.textContent = "";
+  try {
+    await loadQrReader();
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+  } catch (err) {
+    console.warn("Camera unavailable:", err);
+    signinError.textContent = "Couldn't open the camera. Type the code instead.";
+    stopScan();
+    return;
+  }
+  scanVideo.srcObject = scanStream;
+  scanBox.classList.remove("hidden");
+  await scanVideo.play().catch(() => {});
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  const look = () => {
+    if (!scanStream) return;
+    if (scanVideo.readyState >= 2 && scanVideo.videoWidth) {
+      const scale = Math.min(1, 640 / scanVideo.videoWidth);
+      canvas.width = Math.round(scanVideo.videoWidth * scale);
+      canvas.height = Math.round(scanVideo.videoHeight * scale);
+      ctx.drawImage(scanVideo, 0, 0, canvas.width, canvas.height);
+      const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const found = jsQR(frame.data, frame.width, frame.height, { inversionAttempts: "dontInvert" });
+      const code = found && enrolCodeFrom(found.data);
+      if (code) {
+        stopScan();
+        signinCode.value = code;
+        if (signinName.value.trim()) {
+          finishSignIn("/auth/redeem", { code });
+        } else {
+          signinNote.textContent = "Code scanned. Enter your name, then tap Use code.";
+          signinName.focus();
+        }
+        return;
+      }
+    }
+    requestAnimationFrame(look);
+  };
+  requestAnimationFrame(look);
+}
+
+document.getElementById("signin-scan-btn").addEventListener("click", startScan);
+document.getElementById("signin-scan-cancel").addEventListener("click", stopScan);
+
 // Opened from an enrolment QR code: fill in the code, then tidy the URL.
 const enrolParam = new URLSearchParams(location.search).get("enrol");
 if (enrolParam) {

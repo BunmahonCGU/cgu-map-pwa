@@ -547,6 +547,10 @@ body.replaying #menu-replay { display: none; }
   font-size: 14px;
 }
 #signin-box button.primary { background: #d9822b; color: black; font-weight: 600; }
+.signin-row { display: flex; gap: 6px; }
+#signin-scan { margin-top: 8px; }
+#signin-scan.hidden { display: none; }
+#signin-video { width: 100%; border-radius: 4px; background: black; margin-bottom: 6px; }
 .signin-or { text-align: center; color: #b8c7d6; margin: 10px 0 6px; }
 #signin-error { color: #ff8a80; margin-top: 8px; min-height: 1em; }
 
@@ -818,7 +822,14 @@ body.replaying #menu-replay { display: none; }
     <label>Enrolment code
       <input type="text" id="signin-code" autocapitalize="characters" placeholder="e.g. BM3T-SB7D">
     </label>
-    <button type="button" id="signin-code-btn" class="primary">Use code</button>
+    <div class="signin-row">
+      <button type="button" id="signin-scan-btn">📷 Scan QR</button>
+      <button type="button" id="signin-code-btn" class="primary">Use code</button>
+    </div>
+    <div id="signin-scan" class="hidden">
+      <video id="signin-video" playsinline muted></video>
+      <button type="button" id="signin-scan-cancel">Cancel scan</button>
+    </div>
     <div class="signin-or">or</div>
     <label>Admin PIN
       <input type="password" id="signin-pin">
@@ -968,10 +979,10 @@ body.replaying #menu-replay { display: none; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
 
-     <script src="js/map.js?v=21" defer></script>
+     <script src="js/map.js?v=22" defer></script>
      <script src="js/replay.js?v=5" defer></script>
      <script src="js/vendor/qrcode.js?v=1" defer></script>
-     <script src="js/devices.js?v=1" defer></script>
+     <script src="js/devices.js?v=2" defer></script>
     
     <!-- Register Service Worker -->
     <script>
