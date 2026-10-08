@@ -2,7 +2,7 @@
 // Bunmahon CGU PWA Service Worker (patched for alerts + freshness)
 // ------------------------------------------------------------
 
-const CACHE_NAME = "cgu-map-cache-v24";
+const CACHE_NAME = "cgu-map-cache-v25";
 
 // Where the app is served from: "/cgu-map-pwa/" on GitHub Pages, "/" on a
 // separate host such as the V2 test site.
