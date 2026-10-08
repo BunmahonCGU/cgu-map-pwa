@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V2.1";
+const APP_VERSION = "V2.2";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.

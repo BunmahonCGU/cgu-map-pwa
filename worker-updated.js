@@ -618,6 +618,9 @@ async function handleRequest(request, env, ctx) {
       const headers = { "Access-Control-Allow-Origin": DEFAULT_ORIGIN };
       try {
         const { pin, from, to } = await request.json();
+        if (!env.ADMIN_PIN) {
+          return Response.json({ status: "error", error: "This server has no ADMIN_PIN secret set" }, { status: 500, headers });
+        }
         if (!pinMatches(pin, env)) {
           return Response.json({ status: "error", error: "Invalid PIN" }, { status: 403, headers });
         }
