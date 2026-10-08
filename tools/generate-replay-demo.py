@@ -157,7 +157,9 @@ alpha_zone = post(ms(15), "Zone", "Alpha search area: beach to WR3", "Aoife", "A
 bravo_pts = [[52.13905, -7.35420], [52.13910, -7.34180], [52.13800, -7.34200], [52.13770, -7.35360]]
 post(ms(24), "Zone", "Bravo search area: ER1 to ER2", "Declan", "Bravo", points=bravo_pts,
      lat=52.13846, lng=-7.34790)
-post(ms(72), "Sighting", "Member of the public reports a black Labrador near the end of WR6, heading west.", "Control")
+wr6_end = ROUTES["WR6"][-1]
+post(ms(72), "Sighting", "Member of the public reports a black Labrador near the end of WR6, heading west.", "Control",
+     lat=round(wr6_end[0], 5), lng=round(wr6_end[1] - 0.0015, 5))  # ~100 m west of the route end
 delete(ms(100), alpha_zone)  # Alpha area searched and removed
 charlie_pts = [[52.13360, -7.39380], [52.13460, -7.38700], [52.13180, -7.38650], [52.13020, -7.39250]]
 post(ms(108), "Zone", "Charlie priority area: WR7 to WR8", "Grainne", "Charlie", points=charlie_pts,

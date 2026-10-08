@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V2.3";
+const APP_VERSION = "V2.4";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.
@@ -158,7 +158,9 @@ function getTeamColor(team) {
         for (let i = 0; i < team.length; i++) {
             hash = (hash * 31 + team.charCodeAt(i)) >>> 0;
         }
-        const hue = hash % 360;
+        let hue = hash % 360;
+        // Bright red is reserved for Sighting pins, so no team gets a red.
+        if (hue < 25 || hue > 335) hue = (hue + 180) % 360;
         teamColors[team] = `hsl(${hue}, 70%, 80%)`;
     }
 
@@ -553,6 +555,12 @@ layerGroups["LIVE_USERS"] = L.layerGroup();
 layerGroups["CLEARED"] = L.layerGroup();
 
 // ===============================
+// SIGHTINGS LAYER (bright red pins; red is kept off team colors)
+// ===============================
+const SIGHTING_COLOR = "#ff0000";
+layerGroups["SIGHTINGS"] = L.layerGroup();
+
+// ===============================
 // MARKED ZONES LAYER (shaded areas, colored by the poster's team)
 // ===============================
 layerGroups["ZONES"] = L.layerGroup();
@@ -824,6 +832,7 @@ oms.addListener('unspiderfy', function(markers) {
   [
     ["liveUsersToggle", "LIVE_USERS"],
     ["showClearedToggle", "CLEARED"],
+    ["showSightingsToggle", "SIGHTINGS"],
     ["showZonesToggle", "ZONES"],
   ].forEach(([id, layerKey]) => {
     const toggle = document.getElementById(id);
@@ -839,7 +848,6 @@ oms.addListener('unspiderfy', function(markers) {
     panel.classList.toggle("hidden", !e.target.checked);
     if (!panel.classList.contains("hidden")) {
       closeMenus(); // the panel opens where the menu was
-      enableAlertsOutsideClose();
       // Verbose is meant to reset every time the panel is reopened,
       // not persist across a close/reopen — only while it stays open.
       const verboseToggle = document.getElementById("alerts-verbose-toggle");
@@ -852,6 +860,13 @@ oms.addListener('unspiderfy', function(markers) {
 
   document.getElementById("alerts-verbose-toggle").addEventListener("change", () => {
     refreshAlerts();
+  });
+
+  // The updates box stays open until its own Close button (or the Show
+  // Updates box) closes it.
+  document.getElementById("alerts-close").addEventListener("click", () => {
+    document.getElementById("alerts-panel").classList.add("hidden");
+    document.getElementById("alerts-toggle").checked = false;
   });
 
   // ------------------------------------------------------------
@@ -1434,38 +1449,6 @@ startLocationUpdates();
     if (alertsPanel) alertsPanel.addEventListener(evt, stop, { passive: false });
     if (adminSubmit) adminSubmit.addEventListener(evt, stop, { passive: false });
   });
-}
-
-// ============================================================
-// ALERTS PANEL — TAP OUTSIDE TO CLOSE (SAFE, SCOPED)
-// *** CONSOLIDATED FIX: avoid accumulating click listeners ***
-// ============================================================
-let alertsOutsideHandler = null;
-
-function enableAlertsOutsideClose() {
-  if (alertsOutsideHandler) return;
-
-  alertsOutsideHandler = function handler(e) {
-    const panel = document.getElementById("alerts-panel");
-    if (!panel) {
-      document.removeEventListener("click", alertsOutsideHandler);
-      alertsOutsideHandler = null;
-      return;
-    }
-
-    // If click is outside the panel → close it
-    if (!panel.contains(e.target)) {
-      panel.classList.add("hidden");
-      // Uncheck the toggle
-      const toggle = document.getElementById("alerts-toggle");
-      if (toggle) toggle.checked = false;
-
-      document.removeEventListener("click", alertsOutsideHandler);
-      alertsOutsideHandler = null;
-    }
-  };
-
-  document.addEventListener("click", alertsOutsideHandler);
 }
 
 // ------------------------------------------------------------
@@ -2105,6 +2088,25 @@ function renderAlerts(updates, now, { readOnly = false } = {}) {
           { className: "custom-popup" }
         );
         layerGroups["CLEARED"].addLayer(marker);
+      });
+
+    // ===============================
+    // "Show Sightings" pins — same shape and elapsed-time label as Cleared,
+    // in bright red.
+    // ===============================
+    layerGroups["SIGHTINGS"].clearLayers();
+    recent
+      .filter(a => a.category === "Sighting" && typeof a.lat === "number" && typeof a.lng === "number")
+      .forEach(a => {
+        const marker = L.marker([a.lat, a.lng], {
+          icon: makeSvgIcon("circle-pin", SIGHTING_COLOR, formatElapsedTime(a.timestamp, now), { fontSize: 11, textColor: "black", halo: true }),
+          zIndexOffset: 1000 // sightings sit on top of Cleared pins at the same spot
+        });
+        marker.bindPopup(
+          `<strong>Sighting reported by ${escapeHtml(a.user || "Unknown")}</strong><br>${escapeHtml(a.message)}<br><small>${new Date(a.timestamp).toLocaleString()}</small>`,
+          { className: "custom-popup" }
+        );
+        layerGroups["SIGHTINGS"].addLayer(marker);
       });
 
     // ===============================
