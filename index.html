@@ -411,7 +411,7 @@ body.replaying #menu-replay { display: none; }
 /* Panel heading with a Close button on the right */
 .panel-head { display: flex; align-items: center; justify-content: space-between; }
 .panel-head h3 { margin: 4px 0 8px; }
-#alerts-close {
+#alerts-close, #users-close {
   padding: 4px 10px;
   border: none;
   border-radius: 4px;
@@ -716,7 +716,10 @@ body.replaying #menu-replay { display: none; }
 
 <!-- LIVE USERS PANEL -->
 <div id="users-panel" class="hidden">
-  <h3>Live Users</h3>
+  <div class="panel-head">
+    <h3>Live Users</h3>
+    <button type="button" id="users-close">Close</button>
+  </div>
   <ul id="users-list"></ul>
 </div>
 
@@ -996,7 +999,7 @@ body.replaying #menu-replay { display: none; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
 
-     <script src="js/map.js?v=23" defer></script>
+     <script src="js/map.js?v=24" defer></script>
      <script src="js/replay.js?v=6" defer></script>
      <script src="js/vendor/qrcode.js?v=1" defer></script>
      <script src="js/devices.js?v=3" defer></script>
