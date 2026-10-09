@@ -37,12 +37,17 @@ function showSignIn() {
 
 async function finishSignIn(path, body) {
   signinError.textContent = "";
+  // A name is required, whichever way the device signs in: it labels
+  // the device in Tools → Devices and becomes the Profile name.
   const name = signinName.value.trim();
-  if (name) {
-    localStorage.setItem("displayName", name);
-    const profileName = document.getElementById("displayNameInput");
-    if (profileName) profileName.value = name;
+  if (!name) {
+    signinError.textContent = "Enter your name first.";
+    signinName.focus();
+    return;
   }
+  localStorage.setItem("displayName", name);
+  const profileName = document.getElementById("displayNameInput");
+  if (profileName) profileName.value = name;
   try {
     const res = await fetch(WORKER_BASE + path, {
       method: "POST",
