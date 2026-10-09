@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V2.6";
+const APP_VERSION = "V2.7";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.
@@ -23,7 +23,7 @@ let replayMode = false;
 // DEVICE SIGN-IN
 // ===============================
 // Every Worker call carries this device's token. A device gets one by
-// scanning (or typing) an enrolment code from a signed-in device, or by
+// scanning (or typing) an enrolment code made by an admin, or by
 // entering the admin PIN. It's kept in localStorage, so app updates
 // don't sign anyone out; the Worker extends it 90 days from each use.
 let deviceToken = localStorage.getItem("deviceToken");
@@ -2009,30 +2009,19 @@ async function deleteZone(id) {
 // this app's popups block click bubbling — see the comment there)
 
 // ===============================
-// DELETE ANY ALERT ROW (list icon) — always PIN-only, unlike deleteZone()
-// above, regardless of the alert's own category or any token this device
-// already holds. Wired directly per-row in refreshAlerts(), since the
-// alerts panel is plain DOM (not a Leaflet popup), so a direct listener
-// sticks fine without needing the popupopen workaround.
+// DELETE ANY ALERT ROW (list icon) — always needs admin, unlike
+// deleteZone() above, regardless of the alert's own category. Wired
+// directly per-row in refreshAlerts(), since the alerts panel is plain
+// DOM (not a Leaflet popup), so a direct listener sticks fine without
+// needing the popupopen workaround.
 // ===============================
 function deleteAlertWithPin(id) {
-  askPin("Admin PIN to delete this update", async pinHash => {
-    try {
-      const res = await apiFetch("/alerts/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, pinHash, pinOnly: true })
-      });
-      const data = await res.json();
-      if (data.status === "error") {
-        alert("Failed to delete: " + data.error);
-        return;
-      }
-      refreshAlerts();
-    } catch (err) {
-      console.error("Failed to delete alert:", err);
-      alert("Failed to delete the alert — check your connection and try again.");
+  adminPost("Admin PIN to delete this update", "/alerts/delete", { id, pinOnly: true }, data => {
+    if (data.status === "error") {
+      alert("Failed to delete: " + data.error);
+      return;
     }
+    refreshAlerts();
   });
 }
 
@@ -2346,6 +2335,105 @@ document.getElementById("pin-cancel").addEventListener("click", () => {
   pinInput.blur();
   pinCallback = null;
 });
+
+// ------------------------------------------------------------
+// ADMIN UNLOCK — a correct PIN unlocks admin actions (Replay, Devices,
+// deleting updates) on this device for 10 minutes from entry. The
+// Worker keeps the real timer; the menu bar badge shows what's left,
+// and tapping it locks again straight away.
+// ------------------------------------------------------------
+const adminBadge = document.getElementById("admin-badge");
+let adminUntil = 0;
+let adminBadgeTimer = null;
+
+// msLeft comes from the Worker, so a wrong phone clock doesn't matter.
+function setAdminLeft(msLeft) {
+  adminUntil = msLeft > 0 ? Date.now() + msLeft : 0;
+  clearInterval(adminBadgeTimer);
+  renderAdminBadge();
+  if (adminUntil) adminBadgeTimer = setInterval(renderAdminBadge, 1000);
+}
+
+function renderAdminBadge() {
+  const left = adminUntil - Date.now();
+  if (left <= 0) {
+    adminUntil = 0;
+    clearInterval(adminBadgeTimer);
+    adminBadge.classList.add("hidden");
+    return;
+  }
+  const m = Math.floor(left / 60000);
+  const s = String(Math.floor(left / 1000) % 60).padStart(2, "0");
+  adminBadge.textContent = `🔓 Admin ${m}:${s}`;
+  adminBadge.classList.remove("hidden");
+}
+
+adminBadge.addEventListener("click", e => {
+  e.stopPropagation();
+  setAdminLeft(0);
+  apiFetch("/auth/admin-lock", { method: "POST" }).catch(() => {});
+});
+
+async function refreshAdminStatus() {
+  try {
+    const res = await apiFetch("/auth/admin-status");
+    const data = await res.json();
+    if (data.status === "ok") setAdminLeft(data.left);
+  } catch (err) {}
+}
+
+// Runs action() straight away while admin is unlocked, otherwise asks
+// for the PIN first.
+function requireAdmin(title, action) {
+  if (adminUntil > Date.now() + 2000) {
+    action();
+    return;
+  }
+  askPin(title, async pinHash => {
+    try {
+      const res = await apiFetch("/auth/admin-unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinHash })
+      });
+      const data = await res.json();
+      if (data.status !== "ok") {
+        alert(data.error || "Invalid PIN");
+        return;
+      }
+      setAdminLeft(data.left);
+      action();
+    } catch (err) {
+      console.error("Admin unlock failed:", err);
+      alert("Couldn't reach the server — check your connection and try again.");
+    }
+  });
+}
+
+// POSTs to an admin route and hands the reply to onData. If the Worker
+// says the unlock has ended (locked elsewhere, or the device was
+// terminated), it asks for the PIN and tries again.
+function adminPost(title, path, body, onData) {
+  requireAdmin(title, async () => {
+    try {
+      const res = await apiFetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {})
+      });
+      const data = await res.json();
+      if (data.admin && data.status !== "ok") {
+        setAdminLeft(0);
+        adminPost(title, path, body, onData);
+        return;
+      }
+      onData(data, res);
+    } catch (err) {
+      console.error("Admin request failed:", err);
+      alert("Couldn't reach the server — check your connection and try again.");
+    }
+  });
+}
 
 // ------------------------------------------------------------
 // CLOSE ADMIN PANEL (mobile‑safe)

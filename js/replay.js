@@ -140,7 +140,7 @@ document.addEventListener("replay-panel-opened", () => {
 replayFromInput.addEventListener("change", () => { replayFromPicked = true; });
 replayHoursSelect.addEventListener("change", () => { if (!replayFromPicked) defaultReplayFrom(); });
 
-document.getElementById("replay-archive-btn").addEventListener("click", async () => {
+document.getElementById("replay-archive-btn").addEventListener("click", () => {
   const from = new Date(replayFromInput.value).getTime();
   if (!Number.isFinite(from)) {
     alert("Pick a start time first.");
@@ -154,13 +154,9 @@ document.getElementById("replay-archive-btn").addEventListener("click", async ()
     alert("That start time is in the future.");
     return;
   }
-  try {
-    const res = await apiFetch("/archive/range", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pinHash: replayPinHash, from, to })
-    });
-    const history = await res.json();
+  // Recorded history needs admin (the PIN is asked again if the
+  // 10-minute unlock ended while this panel was open).
+  adminPost("Admin PIN for replay", "/archive/range", { from, to }, (history, res) => {
     if (!res.ok) {
       alert("Could not load history: " + (history.error || res.status));
       return;
@@ -174,10 +170,7 @@ document.getElementById("replay-archive-btn").addEventListener("click", async ()
     });
     closeReplayPanel();
     startReplay(history);
-  } catch (err) {
-    console.error("Could not load archived history:", err);
-    alert("Could not load history — check your connection and try again.");
-  }
+  });
 });
 
 document.getElementById("replay-demo-btn").addEventListener("click", async () => {

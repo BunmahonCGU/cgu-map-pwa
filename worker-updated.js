@@ -36,17 +36,25 @@ const pad = t => String(Math.max(0, Math.floor(t))).padStart(13, "0");
 // ===============================================================
 // DEVICE SIGN-IN
 // Every API call needs a device token (Authorization: Bearer ...). A
-// device gets one by scanning an enrolment QR made on a signed-in device,
-// or by entering the admin PIN. Tokens last DEVICE_TOKEN_TTL_MS from the
+// device gets one by scanning an enrolment QR made by an admin, or by
+// entering the admin PIN. Tokens last DEVICE_TOKEN_TTL_MS from the
 // device's last use. They live in a third instance of LiveUsersDO
 // ("auth"), stored only as SHA-256 hashes, so they survive redeploys.
 // The app never sends the PIN itself, only sha256(PIN_SALT + PIN).
 // ===============================================================
 const DEVICE_TOKEN_TTL_MS = 90 * DAY_MS;
-const ENROL_CODE_TTL_MS = 10 * 60 * 1000;
+// Enrolment codes: single-use (one device, 5 min) or group (10 devices
+// or 30 min, whichever comes first).
+const ENROL_CODES = {
+  single: { ttl: 5 * 60 * 1000, uses: 1 },
+  group: { ttl: 30 * 60 * 1000, uses: 10 }
+};
 const PIN_SALT = "cgu-map-pin:";
-const MAX_FAILED_ATTEMPTS = 5;           // wrong PINs or codes per IP...
+const MAX_FAILED = { pin: 5, code: 20 }; // wrong attempts per IP...
 const LOCKOUT_MS = 15 * 60 * 1000;       // ...before a 15-minute lockout
+// A correct PIN unlocks admin actions on that device for 10 minutes from
+// entry (it doesn't extend with use). Ends early on lock or termination.
+const ADMIN_UNLOCK_MS = 10 * 60 * 1000;
 const AUTH_CACHE_MS = 60 * 1000;         // revocations apply within a minute
 
 // tokenHash -> { device, until }: saves a Durable Object call per request.
@@ -98,11 +106,20 @@ async function pinProblem(request, env, pinHash) {
   }
   const ok = typeof pinHash === "string" &&
     pinHash === await sha256Hex(PIN_SALT + env.ADMIN_PIN.trim());
-  const attempt = await authCall(env, "/auth/attempt", { ip: clientIp(request), ok });
+  const attempt = await authCall(env, "/auth/attempt", { ip: clientIp(request), kind: "pin", ok });
   if (!attempt.allowed) {
     return { status: 429, error: "Too many wrong attempts. Try again in 15 minutes." };
   }
   return ok ? null : { status: 403, error: "Invalid PIN" };
+}
+
+// Admin routes need this device's 10-minute unlock (checked live, not
+// from authCache, so locking or terminating applies at once).
+async function adminProblem(env, device) {
+  const status = await authCall(env, "/auth/admin-status", { id: device.id });
+  return status.until > Date.now()
+    ? null
+    : { status: 403, error: "Admin is locked. Enter the PIN again.", admin: true };
 }
 
 function archiveStub(env) {
@@ -343,8 +360,9 @@ export class LiveUsersDO {
   // Devices, enrolment codes and the wrong-attempt limiter ("auth" instance).
   //   dev:<id>        { id, name, via, created, lastSeen, expires, revoked, tokenHash }
   //   tok:<tokenHash> device id
-  //   enr:<code>      { expires, by }
-  //   fail:<ip>       { count, first }
+  //   enr:<code>      { kind, expires, usesLeft, uses, by, created }
+  //   adm:<id>        admin unlock end time for that device
+  //   fail:<kind>:<ip> { count, first }  (kind is "pin" or "code")
   async handleAuth(url, request) {
     const storage = this.state.storage;
     const body = await request.json();
@@ -353,7 +371,7 @@ export class LiveUsersDO {
     const stateOf = d => d.revoked ? "terminated" : (d.expires <= now ? "expired" : "active");
     const publicView = ({ tokenHash, ...d }) => ({ ...d, state: stateOf(d) });
 
-    const createDevice = async (name, via) => {
+    const createDevice = async (name, via, joinedWith) => {
       const bytes = crypto.getRandomValues(new Uint8Array(32));
       const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
       const tokenHash = await sha256Hex(token);
@@ -361,6 +379,7 @@ export class LiveUsersDO {
         id: crypto.randomUUID(),
         name: String(name || "Unnamed device").slice(0, 60),
         via,
+        joinedWith: joinedWith || null,
         created: now,
         lastSeen: now,
         expires: now + DEVICE_TOKEN_TTL_MS,
@@ -371,12 +390,12 @@ export class LiveUsersDO {
       return { token, device: publicView(device) };
     };
 
-    // Wrong PINs and enrolment codes share one limiter per IP.
-    const attempt = async (ip, ok) => {
-      const key = "fail:" + ip;
+    // Wrong PINs and wrong enrolment codes each have their own limit per IP.
+    const attempt = async (kind, ip, ok) => {
+      const key = "fail:" + kind + ":" + ip;
       let fail = await storage.get(key);
       if (fail && now - fail.first > LOCKOUT_MS) fail = null;
-      if (fail && fail.count >= MAX_FAILED_ATTEMPTS) return false;
+      if (fail && fail.count >= MAX_FAILED[kind]) return false;
       if (ok) {
         if (fail) await storage.delete(key);
       } else {
@@ -384,6 +403,10 @@ export class LiveUsersDO {
       }
       return true;
     };
+
+    const codeView = (code, e) => ({
+      code, kind: e.kind, expires: e.expires, left: e.expires - now, usesLeft: e.usesLeft, uses: e.uses
+    });
 
     switch (url.pathname) {
       case "/auth/check": {
@@ -399,29 +422,68 @@ export class LiveUsersDO {
         return Response.json({ ok: true, device: publicView(device) });
       }
       case "/auth/attempt":
-        return Response.json({ allowed: await attempt(body.ip, body.ok) });
-      case "/auth/create":
-        return Response.json(await createDevice(body.name, body.via));
+        return Response.json({ allowed: await attempt(body.kind, body.ip, body.ok) });
+      case "/auth/create": {
+        const created = await createDevice(body.name, body.via);
+        if (body.admin) {
+          await storage.put("adm:" + created.device.id, now + ADMIN_UNLOCK_MS);
+          created.adminLeft = ADMIN_UNLOCK_MS;
+        }
+        return Response.json(created);
+      }
+      case "/auth/admin-unlock": {
+        const until = now + ADMIN_UNLOCK_MS;
+        await storage.put("adm:" + body.id, until);
+        return Response.json({ until, left: ADMIN_UNLOCK_MS });
+      }
+      case "/auth/admin-status": {
+        const until = await storage.get("adm:" + body.id);
+        if (until && until <= now) await storage.delete("adm:" + body.id);
+        // "left" lets the app count down without trusting the phone's clock.
+        return Response.json(until > now ? { until, left: until - now } : { until: 0, left: 0 });
+      }
+      case "/auth/admin-lock":
+        await storage.delete("adm:" + body.id);
+        return Response.json({ ok: true });
       case "/auth/new-code": {
+        const type = ENROL_CODES[body.kind] ? body.kind : "single";
         const old = await storage.list({ prefix: "enr:" });
         const stale = [...old].filter(([, v]) => v.expires <= now).map(([k]) => k);
         if (stale.length) await storage.delete(stale);
         const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
         const code = [...crypto.getRandomValues(new Uint8Array(8))].map(b => alphabet[b % alphabet.length]).join("");
-        const expires = now + ENROL_CODE_TTL_MS;
-        await storage.put("enr:" + code, { expires, by: body.by });
-        return Response.json({ code, expires });
+        const entry = {
+          kind: type,
+          expires: now + ENROL_CODES[type].ttl,
+          usesLeft: ENROL_CODES[type].uses,
+          uses: ENROL_CODES[type].uses,
+          by: body.by,
+          created: now
+        };
+        await storage.put("enr:" + code, entry);
+        return Response.json(codeView(code, entry));
       }
+      case "/auth/code-status": {
+        const entry = await storage.get("enr:" + body.code);
+        if (!entry || entry.expires <= now) return Response.json({ code: body.code, gone: true });
+        return Response.json(codeView(body.code, entry));
+      }
+      case "/auth/cancel-code":
+        await storage.delete("enr:" + body.code);
+        return Response.json({ ok: true });
       case "/auth/redeem": {
         const code = String(body.code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
         const entry = code && await storage.get("enr:" + code);
-        const valid = !!entry && entry.expires > now;
-        if (!(await attempt(body.ip, valid))) {
+        const valid = !!entry && entry.expires > now && entry.usesLeft > 0;
+        if (!(await attempt("code", body.ip, valid))) {
           return Response.json({ ok: false, status: 429, error: "Too many wrong attempts. Try again in 15 minutes." });
         }
-        if (!valid) return Response.json({ ok: false, status: 403, error: "That code is wrong or has expired" });
-        await storage.delete("enr:" + code); // one device per code
-        return Response.json({ ok: true, ...(await createDevice(body.name, "qr")) });
+        if (!valid) return Response.json({ ok: false, status: 403, error: "That code is wrong, used up or has expired" });
+        entry.usesLeft -= 1;
+        if (entry.usesLeft > 0) await storage.put("enr:" + code, entry);
+        else await storage.delete("enr:" + code);
+        const kind = entry.kind || "single";
+        return Response.json({ ok: true, ...(await createDevice(body.name, kind, { kind, code, at: now })) });
       }
       case "/auth/list": {
         const list = await storage.list({ prefix: "dev:" });
@@ -432,10 +494,11 @@ export class LiveUsersDO {
         const device = await storage.get("dev:" + body.id);
         if (!device) return Response.json({ ok: false, error: "No such device" });
         if (body.action === "remove") {
-          await storage.delete(["dev:" + device.id, "tok:" + device.tokenHash]);
+          await storage.delete(["dev:" + device.id, "tok:" + device.tokenHash, "adm:" + device.id]);
         } else if (body.action === "terminate") {
           device.revoked = true;
           await storage.put("dev:" + device.id, device);
+          await storage.delete("adm:" + device.id);
         } else if (body.action === "renew") {
           // Re-enlist: the device's existing token works again for 90 days.
           device.revoked = false;
@@ -500,7 +563,8 @@ async function handleRequest(request, env, ctx) {
       const { pinHash, name } = await request.json();
       const problem = await pinProblem(request, env, pinHash);
       if (problem) return json({ status: "error", error: problem.error }, problem.status);
-      return json({ status: "ok", ...(await authCall(env, "/auth/create", { name, via: "pin" })) });
+      // The PIN also unlocks admin on the new device for 10 minutes.
+      return json({ status: "ok", ...(await authCall(env, "/auth/create", { name, via: "pin", admin: true })) });
     }
     if (request.method === "POST" && url.pathname === "/auth/redeem") {
       const { code, name } = await request.json();
@@ -518,28 +582,49 @@ async function handleRequest(request, env, ctx) {
       return json({ status: "ok", device });
     }
 
-    // Lets the app check the admin PIN before opening Replay.
-    if (request.method === "POST" && url.pathname === "/auth/check-pin") {
+    // ADMIN UNLOCK: a correct PIN unlocks admin on this device for
+    // 10 minutes. Status and lock need no PIN.
+    if (request.method === "POST" && url.pathname === "/auth/admin-unlock") {
       const { pinHash } = await request.json();
       const problem = await pinProblem(request, env, pinHash);
-      return problem ? json({ status: "error", error: problem.error }, problem.status) : json({ status: "ok" });
+      if (problem) return json({ status: "error", error: problem.error }, problem.status);
+      return json({ status: "ok", ...(await authCall(env, "/auth/admin-unlock", { id: device.id })) });
+    }
+    if (request.method === "GET" && url.pathname === "/auth/admin-status") {
+      return json({ status: "ok", ...(await authCall(env, "/auth/admin-status", { id: device.id })) });
+    }
+    if (request.method === "POST" && url.pathname === "/auth/admin-lock") {
+      await authCall(env, "/auth/admin-lock", { id: device.id });
+      return json({ status: "ok" });
     }
 
-    // DEVICES: any signed-in device can make an enrolment code; the list
-    // and its actions need the admin PIN too.
-    if (request.method === "POST" && url.pathname === "/devices/enrol-code") {
-      return json({ status: "ok", ...(await authCall(env, "/auth/new-code", { by: device.id })) });
+    // An enrolment code's uses and time left, for the admin showing it.
+    // Not admin-gated, so a group code's countdown keeps going after the
+    // 10-minute unlock ends; you have to know the code to ask.
+    if (request.method === "POST" && url.pathname === "/devices/code-status") {
+      const { code } = await request.json();
+      return json({ status: "ok", ...(await authCall(env, "/auth/code-status", { code: String(code || "") })) });
     }
-    if (request.method === "POST" && (url.pathname === "/devices/list" || url.pathname === "/devices/action")) {
-      const { pinHash, action, id } = await request.json();
-      const problem = await pinProblem(request, env, pinHash);
-      if (problem) return json({ status: "error", error: problem.error }, problem.status);
+
+    // DEVICES: making codes, the list and its actions all need admin.
+    if (request.method === "POST" && url.pathname.startsWith("/devices/")) {
+      const problem = await adminProblem(env, device);
+      if (problem) return json({ status: "error", error: problem.error, admin: true }, problem.status);
+      const { action, id, kind, code } = await request.json();
+      if (url.pathname === "/devices/enrol-code") {
+        return json({ status: "ok", ...(await authCall(env, "/auth/new-code", { kind, by: device.id })) });
+      }
+      if (url.pathname === "/devices/cancel-code") {
+        return json({ status: "ok", ...(await authCall(env, "/auth/cancel-code", { code })) });
+      }
       if (url.pathname === "/devices/list") {
         return json({ status: "ok", ...(await authCall(env, "/auth/list")), you: device.id });
       }
-      const result = await authCall(env, "/auth/action", { action, id });
-      authCache.clear();
-      return result.ok ? json({ status: "ok" }) : json({ status: "error", error: result.error }, 400);
+      if (url.pathname === "/devices/action") {
+        const result = await authCall(env, "/auth/action", { action, id });
+        authCache.clear();
+        return result.ok ? json({ status: "ok" }) : json({ status: "error", error: result.error }, 400);
+      }
     }
 
     if (request.method === "GET" && url.pathname === "/alerts") {
@@ -616,18 +701,18 @@ async function handleRequest(request, env, ctx) {
 
     // DELETE AN ALERT BY ID. Two callers share this endpoint:
     //  - the "Delete Zone" button in a zone's map popup: any signed-in device.
-    //  - the per-row delete icon in the alerts list: also needs the admin
-    //    PIN (sends pinOnly: true with pinHash).
+    //  - the per-row delete icon in the alerts list: also needs admin
+    //    (sends pinOnly: true).
     if (request.method === "POST" && url.pathname === "/alerts/delete") {
       try {
-        const { id, pinHash, pinOnly } = await request.json();
+        const { id, pinOnly } = await request.json();
 
         if (!id) {
           return Response.json({ status: "error", error: "Missing id" }, { status: 400, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
         }
         if (pinOnly) {
-          const problem = await pinProblem(request, env, pinHash);
-          if (problem) return json({ status: "error", error: problem.error }, problem.status);
+          const problem = await adminProblem(env, device);
+          if (problem) return json({ status: "error", error: problem.error, admin: true }, problem.status);
         }
 
         let existing = { updates: [] };
@@ -762,9 +847,9 @@ async function handleRequest(request, env, ctx) {
     if (request.method === "POST" && url.pathname === "/archive/range") {
       const headers = { "Access-Control-Allow-Origin": DEFAULT_ORIGIN };
       try {
-        const { pinHash, from, to } = await request.json();
-        const problem = await pinProblem(request, env, pinHash);
-        if (problem) return json({ status: "error", error: problem.error }, problem.status);
+        const { from, to } = await request.json();
+        const problem = await adminProblem(env, device);
+        if (problem) return json({ status: "error", error: problem.error, admin: true }, problem.status);
         if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to - from > MAX_REPLAY_SPAN_MS) {
           return Response.json({ status: "error", error: "Choose a window of up to 24 hours" }, { status: 400, headers });
         }

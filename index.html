@@ -437,6 +437,18 @@ body.replaying #menu-replay { display: none; }
   box-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
 .menu { position: relative; flex: 1 1 0; }
+#admin-badge {
+  flex: none;
+  padding: 6px 6px;
+  border: none;
+  border-radius: 4px;
+  background: #d9822b;
+  color: black;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+#admin-badge.hidden { display: none; }
 .menu-btn {
   width: 100%;
   padding: 6px 4px;
@@ -512,6 +524,8 @@ body.replaying #menu-replay { display: none; }
 #enrol-code { font: 600 26px/1.2 monospace; letter-spacing: 2px; color: #003366; }
 #enrol-expiry { font-size: 12px; color: #555; }
 #enrol-box.expired #enrol-qr, #enrol-box.expired #enrol-code { opacity: 0.25; }
+#enrol-box.expired #enrol-cancel { display: none; }
+#enrol-cancel { margin-top: 6px; }
 #devices-list { list-style: none; padding: 0; margin: 6px 0; }
 .device-row { border-bottom: 1px solid #ddd; padding: 6px 0; }
 .device-detail { font-size: 12px; color: #555; margin: 2px 0 4px; }
@@ -627,6 +641,7 @@ body.replaying #menu-replay { display: none; }
           <button type="button" id="menu-devices">📱 Devices</button>
         </div>
       </div>
+      <button type="button" id="admin-badge" class="hidden" title="Admin unlocked. Tap to lock now."></button>
       <span id="app-version"></span>
     </nav>
 
@@ -793,19 +808,21 @@ body.replaying #menu-replay { display: none; }
 
 <!-- DEVICES PANEL (Tools → Devices; js/devices.js) -->
 <div id="devices-panel" class="sheet hidden">
-  <h3>Enrol a device</h3>
-  <p class="sheet-note">Scan this on the new phone or laptop, or type the code on its sign-in screen.
-    On an iPhone using the home-screen app, type the code in the app.</p>
-  <button id="enrol-btn" type="button" class="sheet-btn primary">Show enrolment code</button>
+  <h3>Enrol devices</h3>
+  <p class="sheet-note">Scan the QR on the new phone or laptop (in the app, use Scan QR on its sign-in
+    screen), or type the code there.</p>
+  <button id="enrol-single-btn" type="button" class="sheet-btn primary">Single-use code (1 device, 5 min)</button>
+  <button id="enrol-group-btn" type="button" class="sheet-btn primary">Group code (10 devices, 30 min)</button>
   <div id="enrol-box" class="hidden">
     <div id="enrol-qr"></div>
     <div id="enrol-code"></div>
     <div id="enrol-expiry"></div>
+    <button id="enrol-cancel" type="button" class="sheet-btn">Cancel code</button>
   </div>
 
   <h3>Signed-in devices</h3>
   <p class="sheet-note">Each device stays signed in for 90 days from when it was last used.</p>
-  <button id="devices-load-btn" type="button" class="sheet-btn">Show devices (admin PIN)</button>
+  <button id="devices-load-btn" type="button" class="sheet-btn">Refresh list</button>
   <ul id="devices-list"></ul>
 
   <button id="devices-close" type="button" class="sheet-close">Close</button>
@@ -979,10 +996,10 @@ body.replaying #menu-replay { display: none; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
 
-     <script src="js/map.js?v=22" defer></script>
-     <script src="js/replay.js?v=5" defer></script>
+     <script src="js/map.js?v=23" defer></script>
+     <script src="js/replay.js?v=6" defer></script>
      <script src="js/vendor/qrcode.js?v=1" defer></script>
-     <script src="js/devices.js?v=2" defer></script>
+     <script src="js/devices.js?v=3" defer></script>
     
     <!-- Register Service Worker -->
     <script>

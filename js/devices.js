@@ -1,9 +1,9 @@
 // ------------------------------------------------------------
-// DEVICE SIGN-IN, DEVICES PANEL AND REPLAY PANEL (V2.5)
+// DEVICE SIGN-IN, DEVICES PANEL AND REPLAY PANEL (V2.5, admin unlock V2.7)
 // ------------------------------------------------------------
 // A device without a token sees the sign-in screen: it can use an
-// enrolment code (from Tools → Devices on a signed-in device, as a QR
-// code or typed) or the admin PIN. apiFetch() in map.js reopens this
+// enrolment code (from Tools → Devices, shown by an admin as a QR code
+// or typed) or the admin PIN. apiFetch() in map.js reopens this
 // screen whenever the Worker answers 401.
 
 const signinOverlay = document.getElementById("signin-overlay");
@@ -56,6 +56,7 @@ async function finishSignIn(path, body) {
     }
     deviceToken = data.token;
     try { localStorage.setItem("deviceToken", deviceToken); } catch (err) {}
+    setAdminLeft(data.adminLeft || 0); // signing in with the PIN unlocks admin too
     signinOverlay.classList.add("hidden");
     signinCode.value = "";
     signinPin.value = "";
@@ -175,37 +176,92 @@ if (enrolParam) {
 } else if (!deviceToken) {
   showSignIn();
 }
+// Picks up an admin unlock still running from before a reload.
+if (deviceToken) refreshAdminStatus();
 
 // ------------------------------------------------------------
-// DEVICES PANEL (Tools → Devices)
+// DEVICES PANEL (Tools → Devices, admin)
 // ------------------------------------------------------------
 const devicesPanel = document.getElementById("devices-panel");
 const enrolBox = document.getElementById("enrol-box");
+const enrolStatus = document.getElementById("enrol-expiry");
 const devicesList = document.getElementById("devices-list");
 let enrolTimer = null;
-let devicesPinHash = null;
+let enrolPoll = null;
+let enrolCode = null; // the code on screen: { code, kind, usesLeft, uses, endsAt }
 
 document.getElementById("menu-devices").addEventListener("click", e => {
   e.stopPropagation();
-  closeMenus();
-  devicesPanel.classList.remove("hidden");
+  requireAdmin("Admin PIN for devices", () => {
+    closeMenus();
+    devicesPanel.classList.remove("hidden");
+    loadDevices();
+  });
 });
+
+function stopEnrolTimers() {
+  clearInterval(enrolTimer);
+  clearInterval(enrolPoll);
+  enrolTimer = enrolPoll = null;
+}
 
 function closeDevicesPanel() {
   devicesPanel.classList.add("hidden");
-  clearInterval(enrolTimer);
+  stopEnrolTimers();
+  enrolCode = null;
   enrolBox.classList.add("hidden");
   devicesList.innerHTML = "";
-  devicesPinHash = null;
 }
 document.getElementById("devices-close").addEventListener("click", closeDevicesPanel);
 
-document.getElementById("enrol-btn").addEventListener("click", async () => {
+const CODE_NAMES = { single: "Single-use code", group: "Group code" };
+
+function showEnrolStatus() {
+  if (!enrolCode) return;
+  const left = Math.max(0, enrolCode.endsAt - Date.now());
+  let ended = null;
+  if (enrolCode.cancelled) ended = "Cancelled.";
+  else if (enrolCode.usesLeft <= 0) ended = enrolCode.kind === "group" ? "All 10 uses taken." : "Used.";
+  else if (left === 0) ended = "Expired.";
+  if (ended) {
+    stopEnrolTimers();
+    enrolStatus.textContent = ended + " Make a new code if you need one.";
+    enrolBox.classList.add("expired");
+    return;
+  }
+  const m = Math.floor(left / 60000);
+  const s = String(Math.floor(left / 1000) % 60).padStart(2, "0");
+  enrolStatus.textContent = enrolCode.kind === "group"
+    ? `${CODE_NAMES.group}: ${enrolCode.usesLeft} of ${enrolCode.uses} uses left · ${m}:${s} left`
+    : `${CODE_NAMES.single}: 1 device · ${m}:${s} left`;
+}
+
+// Uses left, so the countdown drops as phones sign in.
+async function pollEnrolCode() {
+  if (!enrolCode) return;
   try {
-    const res = await apiFetch("/devices/enrol-code", { method: "POST" });
+    const res = await apiFetch("/devices/code-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: enrolCode.code })
+    });
     const data = await res.json();
+    if (data.status !== "ok" || !enrolCode || data.code !== enrolCode.code) return;
+    const before = enrolCode.usesLeft;
+    if (data.gone) {
+      if (Date.now() < enrolCode.endsAt - 1000) enrolCode.usesLeft = 0;
+    } else {
+      enrolCode.usesLeft = data.usesLeft;
+    }
+    if (enrolCode.usesLeft !== before) loadDevices();
+    showEnrolStatus();
+  } catch (err) {}
+}
+
+function makeEnrolCode(kind) {
+  adminPost("Admin PIN to make a code", "/devices/enrol-code", { kind }, data => {
     if (data.status !== "ok") {
-      alert("Couldn't make a code: " + (data.error || res.status));
+      alert("Couldn't make a code: " + data.error);
       return;
     }
     const link = location.origin + location.pathname + "?enrol=" + data.code;
@@ -214,29 +270,38 @@ document.getElementById("enrol-btn").addEventListener("click", async () => {
     qr.make();
     document.getElementById("enrol-qr").innerHTML = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
     document.getElementById("enrol-code").textContent = data.code.slice(0, 4) + "-" + data.code.slice(4);
-    enrolBox.classList.remove("hidden");
+    enrolBox.classList.remove("hidden", "expired");
 
-    const expiryLabel = document.getElementById("enrol-expiry");
-    const tick = () => {
-      const left = Math.max(0, data.expires - Date.now());
-      if (left === 0) {
-        clearInterval(enrolTimer);
-        expiryLabel.textContent = "Expired. Make a new code.";
-        enrolBox.classList.add("expired");
-        return;
-      }
-      const m = Math.floor(left / 60000);
-      const s = String(Math.floor(left / 1000) % 60).padStart(2, "0");
-      expiryLabel.textContent = `Works once, for ${m}:${s}`;
+    // Count down from the time left, not the server's clock time.
+    enrolCode = {
+      code: data.code,
+      kind: data.kind,
+      usesLeft: data.usesLeft,
+      uses: data.uses,
+      endsAt: Date.now() + data.left
     };
-    enrolBox.classList.remove("expired");
-    clearInterval(enrolTimer);
-    tick();
-    enrolTimer = setInterval(tick, 1000);
-  } catch (err) {
-    console.error("Enrolment code failed:", err);
-    alert("Couldn't make a code — check your connection and try again.");
-  }
+    stopEnrolTimers();
+    showEnrolStatus();
+    enrolTimer = setInterval(showEnrolStatus, 1000);
+    enrolPoll = setInterval(pollEnrolCode, 5000);
+  });
+}
+document.getElementById("enrol-single-btn").addEventListener("click", () => makeEnrolCode("single"));
+document.getElementById("enrol-group-btn").addEventListener("click", () => makeEnrolCode("group"));
+
+document.getElementById("enrol-cancel").addEventListener("click", () => {
+  if (!enrolCode) return;
+  const code = enrolCode.code;
+  adminPost("Admin PIN to cancel the code", "/devices/cancel-code", { code }, data => {
+    if (data.status !== "ok") {
+      alert("Couldn't cancel the code: " + data.error);
+      return;
+    }
+    if (enrolCode && enrolCode.code === code) {
+      enrolCode.cancelled = true;
+      showEnrolStatus();
+    }
+  });
 });
 
 const STATE_LABELS = { active: "Active", expired: "Expired", terminated: "Terminated" };
@@ -245,95 +310,82 @@ function formatDate(t) {
   return new Date(t).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-async function loadDevices() {
-  const res = await apiFetch("/devices/list", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pinHash: devicesPinHash })
-  });
-  const data = await res.json();
-  if (data.status !== "ok") {
-    devicesPinHash = null;
-    alert("Couldn't load devices: " + (data.error || res.status));
-    return;
-  }
-  devicesList.innerHTML = "";
-  data.devices.forEach(d => {
-    const li = document.createElement("li");
-    li.className = "device-row state-" + d.state;
-    const info = document.createElement("div");
-    info.className = "device-info";
-    const name = document.createElement("strong");
-    name.textContent = d.name + (d.id === data.you ? " (this device)" : "");
-    const detail = document.createElement("div");
-    detail.className = "device-detail";
-    detail.textContent =
-      `${STATE_LABELS[d.state]} · signed in by ${d.via === "pin" ? "PIN" : "code"} · last used ${formatDate(d.lastSeen)}` +
-      (d.state === "active" ? ` · expires ${formatDate(d.expires)}` : "");
-    info.append(name, detail);
-
-    const actions = document.createElement("div");
-    actions.className = "device-actions";
-    const addAction = (label, action, confirmText) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.textContent = label;
-      btn.className = "device-" + action;
-      btn.addEventListener("click", () => deviceAction(d, action, confirmText));
-      actions.appendChild(btn);
-    };
-    if (d.state === "active") addAction("Terminate", "terminate", `End ${d.name}'s sign-in? It stays on the list and can be re-enlisted.`);
-    else addAction("Re-enlist", "renew");
-    addAction("Remove", "remove", `Remove ${d.name} from the list? It will need a new code to sign in again.`);
-
-    li.append(info, actions);
-    devicesList.appendChild(li);
-  });
-  if (data.devices.length === 0) devicesList.textContent = "No devices yet.";
+function formatCode(code) {
+  return code ? code.slice(0, 4) + "-" + code.slice(4) : "";
 }
 
-async function deviceAction(device, action, confirmText) {
+// How the device signed in. Devices from before V2.7 just say "code".
+function joinedLabel(d) {
+  if (d.via === "pin") return "PIN";
+  if (d.via === "group") return "group code " + formatCode(d.joinedWith && d.joinedWith.code);
+  if (d.via === "single") return "single-use code";
+  return "code";
+}
+
+function loadDevices() {
+  adminPost("Admin PIN for devices", "/devices/list", {}, data => {
+    if (data.status !== "ok") {
+      alert("Couldn't load devices: " + data.error);
+      return;
+    }
+    devicesList.innerHTML = "";
+    data.devices.forEach(d => {
+      const li = document.createElement("li");
+      li.className = "device-row state-" + d.state;
+      const info = document.createElement("div");
+      info.className = "device-info";
+      const name = document.createElement("strong");
+      name.textContent = d.name + (d.id === data.you ? " (this device)" : "");
+      const detail = document.createElement("div");
+      detail.className = "device-detail";
+      detail.textContent =
+        `${STATE_LABELS[d.state]} · joined ${formatDate(d.created)} by ${joinedLabel(d)} · last used ${formatDate(d.lastSeen)}` +
+        (d.state === "active" ? ` · expires ${formatDate(d.expires)}` : "");
+      info.append(name, detail);
+
+      const actions = document.createElement("div");
+      actions.className = "device-actions";
+      const addAction = (label, action, confirmText) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = label;
+        btn.className = "device-" + action;
+        btn.addEventListener("click", () => deviceAction(d, action, confirmText));
+        actions.appendChild(btn);
+      };
+      if (d.state === "active") addAction("Terminate", "terminate", `End ${d.name}'s sign-in? It stays on the list and can be re-enlisted.`);
+      else addAction("Re-enlist", "renew");
+      addAction("Remove", "remove", `Remove ${d.name} from the list? It will need a new code to sign in again.`);
+
+      li.append(info, actions);
+      devicesList.appendChild(li);
+    });
+    if (data.devices.length === 0) devicesList.textContent = "No devices yet.";
+  });
+}
+
+function deviceAction(device, action, confirmText) {
   if (confirmText && !confirm(confirmText)) return;
-  const res = await apiFetch("/devices/action", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pinHash: devicesPinHash, action, id: device.id })
-  });
-  const data = await res.json();
-  if (data.status !== "ok") {
-    alert("That didn't work: " + (data.error || res.status));
-    return;
-  }
-  loadDevices();
-}
-
-document.getElementById("devices-load-btn").addEventListener("click", () => {
-  askPin("Admin PIN to manage devices", pinHash => {
-    devicesPinHash = pinHash;
+  adminPost("Admin PIN for devices", "/devices/action", { action, id: device.id }, data => {
+    if (data.status !== "ok") {
+      alert("That didn't work: " + data.error);
+      return;
+    }
     loadDevices();
   });
-});
+}
+
+document.getElementById("devices-load-btn").addEventListener("click", loadDevices);
 
 // ------------------------------------------------------------
-// REPLAY PANEL (Tools → Replay, admin PIN)
+// REPLAY PANEL (Tools → Replay, admin)
 // ------------------------------------------------------------
 const replayPanel = document.getElementById("replay-panel");
-let replayPinHash = null;
 
 document.getElementById("menu-replay").addEventListener("click", e => {
   e.stopPropagation();
-  askPin("Admin PIN for replay", async pinHash => {
-    const res = await apiFetch("/auth/check-pin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pinHash })
-    });
-    const data = await res.json();
-    if (data.status !== "ok") {
-      alert(data.error || "Invalid PIN");
-      return;
-    }
-    replayPinHash = pinHash;
+  requireAdmin("Admin PIN for replay", () => {
+    closeMenus();
     replayPanel.classList.remove("hidden");
     document.dispatchEvent(new Event("replay-panel-opened"));
   });
