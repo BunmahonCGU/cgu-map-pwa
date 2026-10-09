@@ -999,7 +999,7 @@ body.replaying #menu-replay { display: none; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
 
-     <script src="js/map.js?v=24" defer></script>
+     <script src="js/map.js?v=25" defer></script>
      <script src="js/replay.js?v=6" defer></script>
      <script src="js/vendor/qrcode.js?v=1" defer></script>
      <script src="js/devices.js?v=3" defer></script>
@@ -1007,7 +1007,15 @@ body.replaying #menu-replay { display: none; }
     <!-- Register Service Worker -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('service-worker.js');
+            navigator.serviceWorker.register('service-worker.js').then(reg => {
+                // Home-screen apps (iPhone especially) mostly resume rather
+                // than relaunch, so look for a new version whenever the app
+                // comes back on screen. A new one reloads the page itself
+                // (controllerchange below).
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') reg.update().catch(() => {});
+                });
+            });
         }
     </script> 
 <script>

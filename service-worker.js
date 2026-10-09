@@ -2,7 +2,7 @@
 // Bunmahon CGU PWA Service Worker (patched for alerts + freshness)
 // ------------------------------------------------------------
 
-const CACHE_NAME = "cgu-map-cache-v29";
+const CACHE_NAME = "cgu-map-cache-v30";
 
 // Where the app is served from: "/cgu-map-pwa/" on GitHub Pages, "/" on a
 // separate host such as the V2 test site.
@@ -29,7 +29,9 @@ const APP_SHELL = [
 self.addEventListener("install", event => {
   self.skipWaiting(); // activate immediately
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
+    // "reload" skips the browser's HTTP cache, so a new version never
+    // caches the previous version's files.
+    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL.map(url => new Request(url, { cache: "reload" }))))
   );
 });
 
