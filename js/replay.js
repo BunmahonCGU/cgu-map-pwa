@@ -133,14 +133,14 @@ function defaultReplayFrom() {
   replayFromInput.value = start.toISOString().slice(0, 16);
 }
 
-document.addEventListener("admin-opened", () => {
+document.addEventListener("replay-panel-opened", () => {
   replayFromPicked = false;
   defaultReplayFrom();
 });
 replayFromInput.addEventListener("change", () => { replayFromPicked = true; });
 replayHoursSelect.addEventListener("change", () => { if (!replayFromPicked) defaultReplayFrom(); });
 
-document.getElementById("replay-archive-btn").addEventListener("click", async () => {
+document.getElementById("replay-archive-btn").addEventListener("click", () => {
   const from = new Date(replayFromInput.value).getTime();
   if (!Number.isFinite(from)) {
     alert("Pick a start time first.");
@@ -154,13 +154,9 @@ document.getElementById("replay-archive-btn").addEventListener("click", async ()
     alert("That start time is in the future.");
     return;
   }
-  try {
-    const res = await fetch(WORKER_BASE + "/archive/range", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin: adminPin, from, to })
-    });
-    const history = await res.json();
+  // Recorded history needs admin (the PIN is asked again if the
+  // 10-minute unlock ended while this panel was open).
+  adminPost("Admin PIN for replay", "/archive/range", { from, to }, (history, res) => {
     if (!res.ok) {
       alert("Could not load history: " + (history.error || res.status));
       return;
@@ -172,19 +168,16 @@ document.getElementById("replay-archive-btn").addEventListener("click", async ()
     history.meta.name = "Recorded history from " + new Date(from).toLocaleString([], {
       weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
     });
-    closeAdminPanel();
+    closeReplayPanel();
     startReplay(history);
-  } catch (err) {
-    console.error("Could not load archived history:", err);
-    alert("Could not load history — check your connection and try again.");
-  }
+  });
 });
 
 document.getElementById("replay-demo-btn").addEventListener("click", async () => {
   try {
     const res = await fetch("data/replay-demo.json", { cache: "no-store" });
     if (!res.ok) throw new Error(res.status);
-    closeAdminPanel();
+    closeReplayPanel();
     startReplay(await res.json());
   } catch (err) {
     console.error("Could not load demo history:", err);

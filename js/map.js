@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V2.4";
+const APP_VERSION = "V2.10";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.
@@ -18,6 +18,34 @@ const WORKER_BASE = location.hostname === "bunmahoncgu.github.io" ? LIVE_WORKER 
 // True while an admin is replaying archived history on this device: live
 // polling stops, and nothing can be posted (see js/replay.js).
 let replayMode = false;
+
+// ===============================
+// DEVICE SIGN-IN
+// ===============================
+// Every Worker call carries this device's token. A device gets one by
+// scanning (or typing) an enrolment code made by an admin, or by
+// entering the admin PIN. It's kept in localStorage, so app updates
+// don't sign anyone out; the Worker extends it 90 days from each use.
+let deviceToken = localStorage.getItem("deviceToken");
+
+function apiFetch(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (deviceToken) headers.Authorization = "Bearer " + deviceToken;
+  return fetch(WORKER_BASE + path, { ...options, headers }).then(res => {
+    if (res.status === 401) showSignIn();
+    return res;
+  });
+}
+
+// The app never sends the admin PIN itself, only this hash of it.
+async function hashPin(pin) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("cgu-map-pin:" + pin.trim()));
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Updates in these categories are hidden from the non-verbose list and
+// don't play the alert sound.
+const NOISY_CATEGORIES = ["Team", "Zone", "Cleared"];
 
 // ===============================
 // SCREEN WAKE LOCK (keeps location updates flowing while sharing)
@@ -1208,7 +1236,7 @@ function buildLiveUserIcon(displayName, team, formattedTime) {
 async function refreshLiveUsers() {
     if (replayMode) return;
     try {
-        const res = await fetch(WORKER_BASE + "/location/all");
+        const res = await apiFetch("/location/all");
         const { users } = await res.json();
         renderLiveUsers(users, Date.now());
     } catch (err) {
@@ -1376,7 +1404,7 @@ function sendLocationUpdate(lat, lng) {
       teamValue = "";
   }
 
-  fetch(WORKER_BASE + "/location/update", {
+  apiFetch("/location/update", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -1474,8 +1502,7 @@ async function loadAlerts() {
    //   "https://raw.githubusercontent.com/BunmahonCGU/cgu-map-pwa/main/data/alerts.json?cb=" +
    //   Date.now();
    // const res = await fetch(url, { cache: "no-store" });
-const url = WORKER_BASE + "/alerts?cb=" + Date.now();
-const res = await fetch(url, { cache: "no-store" });
+const res = await apiFetch("/alerts?cb=" + Date.now(), { cache: "no-store" });
 
     if (!res.ok) {
       console.warn("Failed to load alerts.json:", res.status);
@@ -1574,7 +1601,7 @@ async function postAutoAlert(category, message, extra) {
     return false;
   }
   try {
-    const res = await fetch(WORKER_BASE + "/alerts", {
+    const res = await apiFetch("/alerts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1710,7 +1737,7 @@ async function handleLongPressClear(lat, lng) {
 
   let address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   try {
-    const res = await fetch(`${WORKER_BASE}/reverse-geocode?lat=${lat}&lng=${lng}`);
+    const res = await apiFetch(`/reverse-geocode?lat=${lat}&lng=${lng}`);
     const data = await res.json();
     if (data.status === "ok") {
       // Nominatim gives a nearby road / coarse Electoral Division; the
@@ -1957,7 +1984,7 @@ zoneDrawCancelBtn.addEventListener("click", e => {
 // ===============================
 async function deleteZone(id) {
   try {
-    const res = await fetch(WORKER_BASE + "/alerts/delete", {
+    const res = await apiFetch("/alerts/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, userId, token: localStorage.getItem("locationToken") || null })
@@ -1982,31 +2009,20 @@ async function deleteZone(id) {
 // this app's popups block click bubbling — see the comment there)
 
 // ===============================
-// DELETE ANY ALERT ROW (list icon) — always PIN-only, unlike deleteZone()
-// above, regardless of the alert's own category or any token this device
-// already holds. Wired directly per-row in refreshAlerts(), since the
-// alerts panel is plain DOM (not a Leaflet popup), so a direct listener
-// sticks fine without needing the popupopen workaround.
+// DELETE ANY ALERT ROW (list icon) — always needs admin, unlike
+// deleteZone() above, regardless of the alert's own category. Wired
+// directly per-row in refreshAlerts(), since the alerts panel is plain
+// DOM (not a Leaflet popup), so a direct listener sticks fine without
+// needing the popupopen workaround.
 // ===============================
-async function deleteAlertWithPin(id) {
-  const pin = prompt("Enter admin PIN to delete this alert:");
-  if (!pin || !pin.trim()) return;
-  try {
-    const res = await fetch(WORKER_BASE + "/alerts/delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, pin: pin.trim(), pinOnly: true, userId })
-    });
-    const data = await res.json();
+function deleteAlertWithPin(id) {
+  adminPost("Admin PIN to delete this update", "/alerts/delete", { id, pinOnly: true }, data => {
     if (data.status === "error") {
       alert("Failed to delete: " + data.error);
       return;
     }
     refreshAlerts();
-  } catch (err) {
-    console.error("Failed to delete alert:", err);
-    alert("Failed to delete the alert — check your connection and try again.");
-  }
+  });
 }
 
 async function refreshAlerts() {
@@ -2014,8 +2030,7 @@ async function refreshAlerts() {
   try {
     //const url = "data/alerts.json?cb=" + Date.now();
     //const url = "https://raw.githubusercontent.com/BunmahonCGU/cgu-map-pwa/main/data/alerts.json?cb=" + Date.now();
-    const url = WORKER_BASE + "/alerts?cb=" + Date.now();
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await apiFetch("/alerts?cb=" + Date.now(), { cache: "no-store" });
     if (!res.ok) return;
     const json = await res.json();
     const updates = json.updates || [];
@@ -2037,16 +2052,18 @@ async function refreshAlerts() {
     // writes, and if that write never sticks, the same "newest" alert
     // would otherwise re-trigger the sound on every single poll forever.
     // localStorage is only a best-effort way to remember across reloads.
-    if (recent.length > 0) {
-      const newestTimestamp = new Date(recent[0].timestamp).getTime();
-      if (lastSeenAlertTimestamp === null) {
-        lastSeenAlertTimestamp = newestTimestamp;
-        try { localStorage.setItem("lastSeenAlertTimestamp", String(newestTimestamp)); } catch (err) {}
-      } else if (newestTimestamp > lastSeenAlertTimestamp) {
-        playAlertSound();
-        lastSeenAlertTimestamp = newestTimestamp;
-        try { localStorage.setItem("lastSeenAlertTimestamp", String(newestTimestamp)); } catch (err) {}
-      }
+    // Only updates shown in the non-verbose list make a sound. The first
+    // check sets the baseline (0 when there's nothing yet), so the next
+    // update to arrive sounds even if it's the first of the day.
+    const notable = recent.filter(a => !NOISY_CATEGORIES.includes(a.category));
+    const newestTimestamp = notable.length > 0 ? new Date(notable[0].timestamp).getTime() : 0;
+    if (lastSeenAlertTimestamp === null) {
+      lastSeenAlertTimestamp = newestTimestamp;
+      try { localStorage.setItem("lastSeenAlertTimestamp", String(newestTimestamp)); } catch (err) {}
+    } else if (newestTimestamp > lastSeenAlertTimestamp) {
+      playAlertSound();
+      lastSeenAlertTimestamp = newestTimestamp;
+      try { localStorage.setItem("lastSeenAlertTimestamp", String(newestTimestamp)); } catch (err) {}
     }
 
     renderAlerts(updates, now);
@@ -2143,7 +2160,6 @@ function renderAlerts(updates, now, { readOnly = false } = {}) {
     // each time the panel is closed and reopened, not persist.
     const verboseToggle = document.getElementById("alerts-verbose-toggle");
     const isVerbose = !!(verboseToggle && verboseToggle.checked);
-    const NOISY_CATEGORIES = ["Team", "Zone", "Cleared"];
     const visibleAlerts = isVerbose
       ? recent
       : recent.filter(a => !NOISY_CATEGORIES.includes(a.category));
@@ -2205,8 +2221,6 @@ function renderAlerts(updates, now, { readOnly = false } = {}) {
 // ------------------------------------------------------------
 // Admin panel → Cloudflare Worker → GitHub alerts.json
 // ------------------------------------------------------------
-const ALERT_ENDPOINT = WORKER_BASE + "/update";
-let adminPin = null;
 // ------------------------------------------------------------
 // MENU BAR — one dropdown open at a time; tapping elsewhere closes it
 // ------------------------------------------------------------
@@ -2274,42 +2288,155 @@ document.getElementById("menu-users").addEventListener("click", e => {
   closeMenus();
   usersPanel.classList.toggle("hidden");
 });
+document.getElementById("users-close").addEventListener("click", () => {
+  usersPanel.classList.add("hidden");
+});
 
 // ------------------------------------------------------------
-// OPEN ADMIN PANEL (after a small PIN dialog)
+// POST UPDATE (no PIN: any signed-in device may post)
 // ------------------------------------------------------------
-// PIN is verified server-side by the Cloudflare Worker on submit
-// (see ADMIN_PIN check in the /alerts handler) — nothing here can
-// be a real security boundary since it ships in client JS.
-const pinDialog = document.getElementById("pin-dialog");
-const pinInput = document.getElementById("pin-input");
-
 document.getElementById("menu-admin").addEventListener("click", e => {
   e.stopPropagation();
   closeMenus();
+  document.getElementById("admin-panel").classList.remove("hidden");
+});
+
+// ------------------------------------------------------------
+// ADMIN PIN DIALOG — askPin(title, onOk) hands onOk the PIN's hash.
+// The Worker checks the hash, so a wrong PIN shows up as an error
+// from whatever onOk calls.
+// ------------------------------------------------------------
+const pinDialog = document.getElementById("pin-dialog");
+const pinInput = document.getElementById("pin-input");
+let pinCallback = null;
+
+function askPin(title, onOk) {
+  closeMenus();
+  pinCallback = onOk;
+  document.getElementById("pin-title").textContent = title;
   pinInput.value = "";
   pinDialog.classList.remove("hidden");
   pinInput.focus();
-});
+}
 
-pinDialog.addEventListener("submit", e => {
+pinDialog.addEventListener("submit", async e => {
   e.preventDefault();
   const pin = pinInput.value.trim();
   if (!pin) {
     pinInput.focus();
     return;
   }
-  adminPin = pin;
   pinDialog.classList.add("hidden");
   pinInput.blur();
-  document.getElementById("admin-panel").classList.remove("hidden");
-  document.dispatchEvent(new Event("admin-opened"));
+  const callback = pinCallback;
+  pinCallback = null;
+  if (callback) callback(await hashPin(pin));
 });
 
 document.getElementById("pin-cancel").addEventListener("click", () => {
   pinDialog.classList.add("hidden");
   pinInput.blur();
+  pinCallback = null;
 });
+
+// ------------------------------------------------------------
+// ADMIN UNLOCK — a correct PIN unlocks admin actions (Replay, Devices,
+// deleting updates) on this device for 10 minutes from entry. The
+// Worker keeps the real timer; the menu bar badge shows what's left,
+// and tapping it locks again straight away.
+// ------------------------------------------------------------
+const adminBadge = document.getElementById("admin-badge");
+let adminUntil = 0;
+let adminBadgeTimer = null;
+
+// msLeft comes from the Worker, so a wrong phone clock doesn't matter.
+function setAdminLeft(msLeft) {
+  adminUntil = msLeft > 0 ? Date.now() + msLeft : 0;
+  clearInterval(adminBadgeTimer);
+  renderAdminBadge();
+  if (adminUntil) adminBadgeTimer = setInterval(renderAdminBadge, 1000);
+}
+
+function renderAdminBadge() {
+  const left = adminUntil - Date.now();
+  if (left <= 0) {
+    adminUntil = 0;
+    clearInterval(adminBadgeTimer);
+    adminBadge.classList.add("hidden");
+    return;
+  }
+  const m = Math.floor(left / 60000);
+  const s = String(Math.floor(left / 1000) % 60).padStart(2, "0");
+  adminBadge.textContent = `🔓 Admin ${m}:${s}`;
+  adminBadge.classList.remove("hidden");
+}
+
+adminBadge.addEventListener("click", e => {
+  e.stopPropagation();
+  setAdminLeft(0);
+  apiFetch("/auth/admin-lock", { method: "POST" }).catch(() => {});
+});
+
+async function refreshAdminStatus() {
+  try {
+    const res = await apiFetch("/auth/admin-status");
+    const data = await res.json();
+    if (data.status === "ok") setAdminLeft(data.left);
+  } catch (err) {}
+}
+
+// Runs action() straight away while admin is unlocked, otherwise asks
+// for the PIN first.
+function requireAdmin(title, action) {
+  if (adminUntil > Date.now() + 2000) {
+    action();
+    return;
+  }
+  askPin(title, async pinHash => {
+    try {
+      const res = await apiFetch("/auth/admin-unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinHash })
+      });
+      const data = await res.json();
+      if (data.status !== "ok") {
+        alert(data.error || "Invalid PIN");
+        return;
+      }
+      setAdminLeft(data.left);
+      action();
+    } catch (err) {
+      console.error("Admin unlock failed:", err);
+      alert("Couldn't reach the server — check your connection and try again.");
+    }
+  });
+}
+
+// POSTs to an admin route and hands the reply to onData. If the Worker
+// says the unlock has ended (locked elsewhere, or the device was
+// terminated), it asks for the PIN and tries again.
+function adminPost(title, path, body, onData) {
+  requireAdmin(title, async () => {
+    try {
+      const res = await apiFetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {})
+      });
+      const data = await res.json();
+      if (data.admin && data.status !== "ok") {
+        setAdminLeft(0);
+        adminPost(title, path, body, onData);
+        return;
+      }
+      onData(data, res);
+    } catch (err) {
+      console.error("Admin request failed:", err);
+      alert("Couldn't reach the server — check your connection and try again.");
+    }
+  });
+}
 
 // ------------------------------------------------------------
 // CLOSE ADMIN PANEL (mobile‑safe)
@@ -2456,10 +2583,6 @@ adminSubmit.addEventListener("click", async e => {
   const category = document.getElementById("admin-category").value;
   const message = document.getElementById("admin-message").value.trim();
 
-  if (!adminPin) {
-    alert("PIN not set. Use the Admin button first.");
-    return;
-  }
   if (!category || !message) {
     alert("Category and message required");
     return;
@@ -2470,7 +2593,7 @@ adminSubmit.addEventListener("click", async e => {
   }
 
   try {
-    const res = await fetch(WORKER_BASE + "/alerts", {
+    const res = await apiFetch("/alerts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2478,7 +2601,6 @@ adminSubmit.addEventListener("click", async e => {
         message,
         user: localStorage.getItem("displayName") || "Unknown",
         team: localStorage.getItem("team") || "",
-        pin: adminPin,
         lat: pendingAlertLocation ? pendingAlertLocation.lat : null,
         lng: pendingAlertLocation ? pendingAlertLocation.lng : null
       })

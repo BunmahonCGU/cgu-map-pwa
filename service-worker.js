@@ -2,7 +2,7 @@
 // Bunmahon CGU PWA Service Worker (patched for alerts + freshness)
 // ------------------------------------------------------------
 
-const CACHE_NAME = "cgu-map-cache-v25";
+const CACHE_NAME = "cgu-map-cache-v31";
 
 // Where the app is served from: "/cgu-map-pwa/" on GitHub Pages, "/" on a
 // separate host such as the V2 test site.
@@ -16,6 +16,9 @@ const APP_SHELL = [
   BASE + "favicon.png",
   BASE + "js/map.js",
   BASE + "js/replay.js",
+  BASE + "js/devices.js",
+  BASE + "js/vendor/qrcode.js",
+  BASE + "js/vendor/jsqr.min.js",
   "https://unpkg.com/leaflet/dist/leaflet.css",
   "https://unpkg.com/leaflet/dist/leaflet.js"
 ];
@@ -26,7 +29,9 @@ const APP_SHELL = [
 self.addEventListener("install", event => {
   self.skipWaiting(); // activate immediately
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
+    // "reload" skips the browser's HTTP cache, so a new version never
+    // caches the previous version's files.
+    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL.map(url => new Request(url, { cache: "reload" }))))
   );
 });
 
@@ -57,7 +62,7 @@ self.addEventListener("fetch", event => {
 
   // The V2 test site is served by its own Worker, so its live API is
   // same-origin: never cache it.
-  const API_PATHS = ["/alerts", "/location/", "/archive/", "/reverse-geocode", "/token-health"];
+  const API_PATHS = ["/alerts", "/location/", "/archive/", "/reverse-geocode", "/auth/", "/devices/"];
   if (API_PATHS.some(p => reqUrl.pathname.startsWith(p))) return;
 
   // 🚫 Do NOT intercept cross-origin requests
