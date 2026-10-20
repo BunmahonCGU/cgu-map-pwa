@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V2.11";
+const APP_VERSION = "V2.12";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.
@@ -2341,7 +2341,7 @@ teamDialog.addEventListener("submit", e => {
     else if (!team) message = `Admin removed ${name} from ${oldTeam}`;
     else message = `Admin moved ${name} from ${oldTeam} to ${team}`;
     postAutoAlert("Team", message, { team });
-    refreshLiveUsers();
+    window.liveUsersApi.refreshLiveUsers();
   });
 });
 
