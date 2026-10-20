@@ -585,6 +585,8 @@ body.replaying #menu-replay { display: none; }
 #profile-panel input,
 #profile-panel select { width: 100%; box-sizing: border-box; margin-top: 3px; padding: 5px; }
 #pin-dialog { z-index: 10011; top: 30%; left: 50%; transform: translateX(-50%); }
+#team-dialog { z-index: 10010; top: 30%; left: 50%; transform: translateX(-50%); width: 220px; }
+#team-dialog select { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 8px; padding: 6px; font-size: 16px; }
 #pin-dialog input { display: block; width: 150px; box-sizing: border-box; margin: 6px 0 8px; padding: 6px; font-size: 16px; }
 .dialog-buttons { display: flex; gap: 6px; }
 .dialog-buttons button {
@@ -674,6 +676,16 @@ body.replaying #menu-replay { display: none; }
       </div>
     </form>
 
+    <!-- Set a live user's team (admin), opened from the Live Users panel -->
+    <form id="team-dialog" class="menu-dialog hidden" autocomplete="off">
+      <label for="team-dialog-select" id="team-dialog-title">Set team</label>
+      <select id="team-dialog-select"></select>
+      <div class="dialog-buttons">
+        <button type="submit" class="primary">Set</button>
+        <button type="button" id="team-dialog-cancel">Cancel</button>
+      </div>
+    </form>
+
     <!-- Historical replay controls (js/replay.js) -->
     <div id="replay-bar" class="hidden">
       <div class="replay-head">
@@ -731,6 +743,7 @@ body.replaying #menu-replay { display: none; }
   <select id="admin-category" style="width:100%; margin-bottom:6px;">
     <option value="">Select category...</option>
     <option value="Scenario">Scenario</option>
+    <option value="Advisory">Advisory</option>
     <option value="Description">Description</option>
     <option value="Sighting">Sighting</option>
     <option value="Cleared">Cleared</option>
@@ -999,7 +1012,7 @@ body.replaying #menu-replay { display: none; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
 
-     <script src="js/map.js?v=26" defer></script>
+     <script src="js/map.js?v=27" defer></script>
      <script src="js/replay.js?v=6" defer></script>
      <script src="js/vendor/qrcode.js?v=1" defer></script>
      <script src="js/devices.js?v=4" defer></script>
