@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V2.10";
+const APP_VERSION = "V2.11";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.
@@ -1344,7 +1344,7 @@ function renderLiveUsers(users, now) {
           li.className = "user-row";
             li.innerHTML = `
           <div class="user-name">${displayName}</div>
-          <div class="user-team">
+          <div class="user-team"${replayMode ? "" : ' title="Set team (admin)"'}>
               <span style="
                   display:inline-block;
                   width:12px;
@@ -1353,10 +1353,18 @@ function renderLiveUsers(users, now) {
                   background:${getTeamColor(team)};
                   margin-right:6px;
               "></span>
-              ${team || "(none)"}
+              ${team || "(none)"}${replayMode ? "" : " ✎"}
           </div>
           <div class="user-time">${new Date(timestamp).toLocaleTimeString()}</div>
       `;
+
+          // Tapping the team opens the admin "Set team" dialog (not in replay).
+          if (!replayMode) {
+              li.querySelector(".user-team").addEventListener("click", e => {
+                  e.stopPropagation();
+                  openTeamDialog(user);
+              });
+          }
 
           li.addEventListener("click", () => {
               const marker = liveUserMarkers[user.userId];
@@ -1423,6 +1431,12 @@ function sendLocationUpdate(lat, lng) {
       // so every later update can prove it's the same device.
       if (data && data.token) {
         localStorage.setItem("locationToken", data.token);
+      }
+      // An admin set this phone's team from Live Users: take it on as
+      // this phone's Profile team.
+      if (data && data.status === "ok" && typeof data.team === "string" &&
+          data.team !== (localStorage.getItem("team") || "")) {
+        applyTeamFromAdmin(data.team);
       }
       if (data && data.status === "error") {
         console.error("Location update rejected:", data.error);
@@ -2274,6 +2288,61 @@ teamSelect.addEventListener("change", () => {
   const newTeam = teamSelect.value;
   localStorage.setItem("team", newTeam);
   postTeamChangeAlert(oldTeam, newTeam);
+});
+
+// The phone's side of an admin team change: saved like a Profile change,
+// but the Team alert was already posted by the admin's device.
+function applyTeamFromAdmin(newTeam) {
+  localStorage.setItem("team", newTeam);
+  teamSelect.value = newTeam;
+  L.popup()
+    .setLatLng(map.getCenter())
+    .setContent(`Your team has been set to <strong>${escapeHtml(newTeam || "No Team")}</strong> by an admin.`)
+    .openOn(map);
+}
+
+// ------------------------------------------------------------
+// SET TEAM FROM LIVE USERS (admin) — the Worker updates the live record
+// straight away and hands the new team to the phone on its next update.
+// ------------------------------------------------------------
+const teamDialog = document.getElementById("team-dialog");
+const teamDialogSelect = document.getElementById("team-dialog-select");
+teamDialogSelect.innerHTML = teamSelect.innerHTML;
+let teamDialogUser = null;
+
+function openTeamDialog(user) {
+  teamDialogUser = user;
+  document.getElementById("team-dialog-title").textContent = "Set team for " + user.displayName;
+  teamDialogSelect.value = user.team || "";
+  teamDialog.classList.remove("hidden");
+}
+
+document.getElementById("team-dialog-cancel").addEventListener("click", () => {
+  teamDialog.classList.add("hidden");
+  teamDialogUser = null;
+});
+
+teamDialog.addEventListener("submit", e => {
+  e.preventDefault();
+  const user = teamDialogUser;
+  const team = teamDialogSelect.value;
+  teamDialog.classList.add("hidden");
+  teamDialogUser = null;
+  if (!user || team === (user.team || "")) return;
+  adminPost("Admin PIN to set teams", "/location/set-team", { userId: user.userId, team }, data => {
+    if (data.status !== "ok") {
+      alert(data.error || "Couldn't set the team");
+      return;
+    }
+    const name = data.displayName || user.displayName;
+    const oldTeam = data.oldTeam || "";
+    let message;
+    if (!oldTeam) message = `Admin added ${name} to ${team}`;
+    else if (!team) message = `Admin removed ${name} from ${oldTeam}`;
+    else message = `Admin moved ${name} from ${oldTeam} to ${team}`;
+    postAutoAlert("Team", message, { team });
+    refreshLiveUsers();
+  });
 });
 
 document.getElementById("markZoneBtn").addEventListener("click", e => {

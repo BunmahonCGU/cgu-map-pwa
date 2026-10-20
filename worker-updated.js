@@ -247,8 +247,21 @@ export class LiveUsersDO {
   // Allow deliberate change to No Team ("")
   // So we do NOT reject empty string.
 
+  // An admin set this user's team from Live Users (see /set-team). Until
+  // the phone sends that team back, its own Profile team is ignored and
+  // the reply tells it to switch.
+  let pendingTeam;
+  if (typeof existing.pendingTeam === "string") {
+    if (incomingTeam === existing.pendingTeam) {
+      delete existing.pendingTeam;
+    } else {
+      pendingTeam = existing.pendingTeam;
+      incomingTeam = pendingTeam;
+    }
+  }
+
   // Build safe record (never persist the token inside the location record itself)
-  const { token, ...dataWithoutToken } = data;
+  const { token, pendingTeam: _ignored, ...dataWithoutToken } = data;
   const safeRecord = {
     ...existing,
     ...dataWithoutToken,
@@ -264,8 +277,25 @@ export class LiveUsersDO {
 
   const responseBody = { status: "ok" };
   if (issuedToken) responseBody.token = issuedToken;
+  if (pendingTeam !== undefined) responseBody.team = pendingTeam;
   return cors(Response.json(responseBody));
 }
+
+    // Admin team change from Live Users. Only for someone on the map now,
+    // since the phone picks it up from the reply to its next update.
+    if (url.pathname.endsWith("/set-team")) {
+      const { userId, team } = await request.json();
+      const recordKey = "user:" + userId;
+      const record = await this.state.storage.get(recordKey);
+      if (!record || Date.now() - new Date(record.timestamp).getTime() > 120000) {
+        return Response.json({ status: "error", error: "That user isn't sharing their location now." }, { status: 404 });
+      }
+      const oldTeam = record.team || "";
+      record.team = team;
+      record.pendingTeam = team;
+      await this.state.storage.put(recordKey, record);
+      return Response.json({ status: "ok", oldTeam, displayName: record.displayName || "" });
+    }
 
 
 
@@ -774,6 +804,22 @@ async function handleRequest(request, env, ctx) {
           headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" }
         });
       }
+    }
+
+    // SET A USER'S TEAM from the Live Users panel (admin only).
+    if (request.method === "POST" && url.pathname === "/location/set-team") {
+      const problem = await adminProblem(env, device);
+      if (problem) return json({ status: "error", error: problem.error, admin: true }, problem.status);
+      const { userId, team } = await request.json();
+      if (!userId || typeof team !== "string" || team.length > 40) {
+        return json({ status: "error", error: "Missing user or team" }, 400);
+      }
+      const stub = env.LIVE_USERS_DO.get(env.LIVE_USERS_DO.idFromName("global"));
+      const res = await stub.fetch("https://internal/location/set-team", {
+        method: "POST",
+        body: JSON.stringify({ userId, team })
+      });
+      return json(await res.json(), res.status);
     }
 
     // LOCATION UPDATE
