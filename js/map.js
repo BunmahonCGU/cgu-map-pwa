@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V2.12";
+const APP_VERSION = "V2.13";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.
@@ -172,11 +172,24 @@ if(!userId) {
   localStorage.setItem('userId', userId);
 }
 
-const teamColors = {};
+// Fixed, well-separated colors for the standard teams (hashing the names
+// put 7 of the 8 in near-identical greens). None is red, which is kept
+// for Sighting pins; names stay readable in black on all of them.
+const teamColors = {
+    Alpha: "#4da3ff",   // blue
+    Bravo: "#ffa53d",   // orange
+    Charlie: "#5cd65c", // green
+    Delta: "#b388ff",   // purple
+    Echo: "#ffe14d",    // yellow
+    Foxtrot: "#ff8fd8", // pink
+    Golf: "#3fe0d0",    // teal
+    Hotel: "#c8a27a"    // tan
+};
 
 function getTeamColor(team) {
     if (!team) return "#ffffff"; // white for no-team
 
+    // Any other team name falls back to a hashed hue.
     if (!teamColors[team]) {
         // Deterministic hash of the team name -> hue, so every device shows
         // the same team the same color without needing to sync anything
