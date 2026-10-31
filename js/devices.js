@@ -327,6 +327,8 @@ function joinedLabel(d) {
   return "code";
 }
 
+let devicesYou = null; // this device's id, from the last list
+
 function loadDevices() {
   adminPost("Admin PIN for devices", "/devices/list", {}, data => {
     if (data.status !== "ok") {
@@ -334,13 +336,14 @@ function loadDevices() {
       return;
     }
     devicesList.innerHTML = "";
+    devicesYou = data.you;
     data.devices.forEach(d => {
       const li = document.createElement("li");
       li.className = "device-row state-" + d.state;
       const info = document.createElement("div");
       info.className = "device-info";
       const name = document.createElement("strong");
-      name.textContent = d.name + (d.id === data.you ? " (this device)" : "");
+      name.textContent = d.name + (d.id === data.you ? " (this device)" : "") + (d.admin ? " · ★ Admin" : "");
       const detail = document.createElement("div");
       detail.className = "device-detail";
       detail.textContent =
@@ -358,6 +361,10 @@ function loadDevices() {
         btn.addEventListener("click", () => deviceAction(d, action, confirmText));
         actions.appendChild(btn);
       };
+      // Permanent admin (V2.14): the device is admin whenever it's signed
+      // in, with no PIN. The PIN still unlocks any device for 10 minutes.
+      if (d.state === "active" && !d.admin) addAction("Make admin", "make-admin", `Make ${d.name} a permanent admin? It can then use all admin tools without the PIN.`);
+      if (d.admin) addAction("Remove admin", "remove-admin", `Remove admin from ${d.name}?`);
       if (d.state === "active") addAction("Terminate", "terminate", `End ${d.name}'s sign-in? It stays on the list and can be re-enlisted.`);
       else addAction("Re-enlist", "renew");
       addAction("Remove", "remove", `Remove ${d.name} from the list? It will need a new code to sign in again.`);
@@ -376,6 +383,8 @@ function deviceAction(device, action, confirmText) {
       alert("That didn't work: " + data.error);
       return;
     }
+    // Changing this device's own admin shows at once in the badge.
+    if (device.id === devicesYou) refreshAdminStatus();
     loadDevices();
   });
 }

@@ -402,8 +402,7 @@ body {
 }
 #replay-play { background: #d9822b; color: black; font-weight: 600; }
 #replay-exit { background: #c0392b; color: white; }
-/* Keep Refresh, Mark Zone and Admin out of the way during replay */
-body.replaying #refreshMapBtn,
+/* Keep Mark Zone and Admin out of the way during replay */
 body.replaying #markZoneBtn,
 body.replaying #menu-admin,
 body.replaying #menu-replay { display: none; }
@@ -530,7 +529,8 @@ body.replaying #menu-replay { display: none; }
 .device-row { border-bottom: 1px solid #ddd; padding: 6px 0; }
 .device-detail { font-size: 12px; color: #555; margin: 2px 0 4px; }
 .device-row.state-expired strong, .device-row.state-terminated strong { color: #888; }
-.device-actions { display: flex; gap: 6px; }
+.device-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.device-actions .device-make-admin { background: #003366; color: white; }
 .device-actions button { padding: 4px 10px; border: none; border-radius: 4px; font-size: 12px; background: #e8eef4; color: #003366; }
 .device-actions .device-terminate, .device-actions .device-remove { background: #c0392b; color: white; }
 .device-actions .device-renew { background: #d9822b; color: black; }
@@ -600,12 +600,44 @@ body.replaying #menu-replay { display: none; }
 }
 .dialog-buttons button.primary { background: #d9822b; color: black; font-weight: 600; }
 
-#refreshMapBtn:active,
-#refreshMapBtn.refreshing {
-  transform: scale(0.85);
-  opacity: 0.6;
-  transition: transform 1.15s ease, opacity 1.15s ease;
+/* ADMIN-ONLY MENU ITEMS (V2.14): shown only while this device is admin */
+body:not(.is-admin) .admin-only { display: none !important; }
+
+/* While picking a location or drawing a zone, taps go to the map, not
+   to the zones and pins underneath (they'd open their popups). */
+#map.map-picking .leaflet-interactive { pointer-events: none !important; }
+
+/* PHOTOS (V2.14) */
+.photo-buttons { display: flex; gap: 6px; margin-bottom: 6px; }
+.photo-buttons label {
+  flex: 1;
+  text-align: center;
+  background: #e8eef4;
+  color: #003366;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
 }
+.photo-buttons input { display: none; }
+#photo-pending { margin-bottom: 6px; font-size: 13px; }
+#photo-pending.hidden { display: none; }
+#photo-pending img { max-width: 120px; max-height: 120px; display: block; margin-bottom: 4px; border-radius: 4px; }
+#photo-pending .photo-actions button {
+  margin-right: 6px; padding: 4px 10px; border: none; border-radius: 4px;
+  background: #e8eef4; color: #003366; font-size: 13px;
+}
+#photo-note { color: #c0392b; margin-top: 4px; }
+.photo-link { color: #0078ff; text-decoration: underline; cursor: pointer; white-space: nowrap; }
+#photo-viewer {
+  position: fixed; inset: 0; z-index: 10010; background: rgba(0,0,0,0.92);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+}
+#photo-viewer.hidden { display: none; }
+#photo-viewer img { max-width: 100%; max-height: calc(100% - 70px); object-fit: contain; }
+#photo-viewer-status { color: white; font-size: 14px; margin: 8px 0; }
+#photo-viewer .dialog-buttons { margin-top: 10px; width: 100%; max-width: 360px; }
 </style>
   
 </head>
@@ -636,10 +668,10 @@ body.replaying #menu-replay { display: none; }
         <button type="button" class="menu-btn">Tools</button>
         <div class="menu-drop">
           <button type="button" id="menu-profile">👤 Profile</button>
-          <button type="button" id="markZoneBtn">✏️ Mark Zone</button>
-          <button type="button" id="menu-users">👥 Users</button>
+          <button type="button" id="markZoneBtn" class="admin-only">✏️ Mark Zone</button>
+          <button type="button" id="menu-users" class="admin-only">👥 Users</button>
           <button type="button" id="menu-admin">📝 Post Update</button>
-          <button type="button" id="menu-replay">⏪ Replay</button>
+          <button type="button" id="menu-replay" class="admin-only">⏪ Replay</button>
           <button type="button" id="menu-devices">📱 Devices</button>
         </div>
       </div>
@@ -710,21 +742,18 @@ body.replaying #menu-replay { display: none; }
     </div>
 
    
-<button id="refreshMapBtn" style="
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  z-index: 9999;
-  padding: 10px 14px;
-  background: #0078ff;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-">
-  Refresh Map Data
-</button>
+
+
+<!-- PHOTO VIEWER (V2.14): photos need the device token, so the app
+     fetches them and shows them here rather than opening a plain link -->
+<div id="photo-viewer" class="hidden">
+  <div id="photo-viewer-status"></div>
+  <img id="photo-viewer-img" alt="Photo">
+  <div class="dialog-buttons">
+    <button type="button" id="photo-viewer-save" class="primary">⬇ Save to device</button>
+    <button type="button" id="photo-viewer-close">Close</button>
+  </div>
+</div>
 
 <!-- LIVE USERS PANEL -->
 <div id="users-panel" class="hidden">
@@ -766,6 +795,19 @@ body.replaying #menu-replay { display: none; }
   <div id="admin-location-status"
        style="font-size: 12px; margin-bottom: 6px; color:#333; cursor:pointer;">
     No location set
+  </div>
+
+  <div class="photo-buttons">
+    <label>📷 Take photo<input type="file" id="photo-camera" accept="image/*" capture="environment"></label>
+    <label>🖼 Choose from device<input type="file" id="photo-choose" accept="image/*"></label>
+  </div>
+  <div id="photo-pending" class="hidden">
+    <img id="photo-pending-img" alt="Photo to send">
+    <div class="photo-actions">
+      <button type="button" id="photo-pending-save">⬇ Save to device</button>
+      <button type="button" id="photo-pending-remove">✕ Remove</button>
+    </div>
+    <div id="photo-note"></div>
   </div>
 
   <button id="admin-submit" style="width:100%; margin-top:8px;">Submit Update</button>
@@ -1012,10 +1054,10 @@ body.replaying #menu-replay { display: none; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
 
-     <script src="js/map.js?v=29" defer></script>
+     <script src="js/map.js?v=30" defer></script>
      <script src="js/replay.js?v=6" defer></script>
      <script src="js/vendor/qrcode.js?v=1" defer></script>
-     <script src="js/devices.js?v=4" defer></script>
+     <script src="js/devices.js?v=5" defer></script>
     
     <!-- Register Service Worker -->
     <script>

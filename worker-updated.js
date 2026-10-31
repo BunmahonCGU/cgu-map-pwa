@@ -57,6 +57,13 @@ const LOCKOUT_MS = 15 * 60 * 1000;       // ...before a 15-minute lockout
 const ADMIN_UNLOCK_MS = 10 * 60 * 1000;
 const AUTH_CACHE_MS = 60 * 1000;         // revocations apply within a minute
 
+// PHOTOS (V2.14): JPEGs attached to updates, kept in ALERTS_KV as
+// photo:<id> for 30 days (KV deletes them itself). The phone shrinks
+// them first, so they're usually 150-300 KB.
+const PHOTO_TTL_SECONDS = 30 * 24 * 60 * 60;
+const PHOTO_MAX_BYTES = 3 * 1024 * 1024;
+const PHOTO_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 // tokenHash -> { device, until }: saves a Durable Object call per request.
 const authCache = new Map();
 
@@ -113,11 +120,12 @@ async function pinProblem(request, env, pinHash) {
   return ok ? null : { status: 403, error: "Invalid PIN" };
 }
 
-// Admin routes need this device's 10-minute unlock (checked live, not
-// from authCache, so locking or terminating applies at once).
+// Admin routes need this device to be a permanent admin (set in
+// Devices) or within its 10-minute PIN unlock. Checked live, not from
+// authCache, so locking, removing admin or terminating applies at once.
 async function adminProblem(env, device) {
   const status = await authCall(env, "/auth/admin-status", { id: device.id });
-  return status.until > Date.now()
+  return status.permanent || status.until > Date.now()
     ? null
     : { status: 403, error: "Admin is locked. Enter the PIN again.", admin: true };
 }
@@ -388,7 +396,8 @@ export class LiveUsersDO {
   }
 
   // Devices, enrolment codes and the wrong-attempt limiter ("auth" instance).
-  //   dev:<id>        { id, name, via, created, lastSeen, expires, revoked, tokenHash }
+  //   dev:<id>        { id, name, via, created, lastSeen, expires, revoked, admin, tokenHash }
+  //                   (admin: true makes it a permanent admin, set in Devices)
   //   tok:<tokenHash> device id
   //   enr:<code>      { kind, expires, usesLeft, uses, by, created }
   //   adm:<id>        admin unlock end time for that device
@@ -467,6 +476,10 @@ export class LiveUsersDO {
         return Response.json({ until, left: ADMIN_UNLOCK_MS });
       }
       case "/auth/admin-status": {
+        const device = await storage.get("dev:" + body.id);
+        if (device && device.admin && stateOf(device) === "active") {
+          return Response.json({ permanent: true, until: 0, left: 0 });
+        }
         const until = await storage.get("adm:" + body.id);
         if (until && until <= now) await storage.delete("adm:" + body.id);
         // "left" lets the app count down without trusting the phone's clock.
@@ -527,6 +540,7 @@ export class LiveUsersDO {
           await storage.delete(["dev:" + device.id, "tok:" + device.tokenHash, "adm:" + device.id]);
         } else if (body.action === "terminate") {
           device.revoked = true;
+          device.admin = false; // re-enlisting doesn't bring admin back
           await storage.put("dev:" + device.id, device);
           await storage.delete("adm:" + device.id);
         } else if (body.action === "renew") {
@@ -534,6 +548,12 @@ export class LiveUsersDO {
           device.revoked = false;
           device.lastSeen = now;
           device.expires = now + DEVICE_TOKEN_TTL_MS;
+          await storage.put("dev:" + device.id, device);
+        } else if (body.action === "make-admin" || body.action === "remove-admin") {
+          if (body.action === "make-admin" && stateOf(device) !== "active") {
+            return Response.json({ ok: false, error: "Only an active device can be made admin" });
+          }
+          device.admin = body.action === "make-admin";
           await storage.put("dev:" + device.id, device);
         } else {
           return Response.json({ ok: false, error: "Unknown action" });
@@ -673,14 +693,19 @@ async function handleRequest(request, env, ctx) {
 
     if (request.method === "POST" && url.pathname === "/alerts") {
       try {
-        const { message, category, user, team, lat, lng, points } = await request.json();
+        const { message, category, user, team, lat, lng, points, photo } = await request.json();
 
         if (!message || !category) {
           return Response.json({ status: "error", error: "Missing message or category" }, { status: 400, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
         }
 
         // Any signed-in device may post any category (device sign-in
-        // replaced the admin PIN here in V2.5).
+        // replaced the admin PIN here in V2.5), except zones, which need
+        // admin (V2.14).
+        if (category === "Zone") {
+          const problem = await adminProblem(env, device);
+          if (problem) return json({ status: "error", error: problem.error, admin: true }, problem.status);
+        }
         let existing = { updates: [] };
         const raw = await env.ALERTS_KV.get("alerts.json");
         if (raw) {
@@ -719,6 +744,9 @@ async function handleRequest(request, env, ctx) {
         ) {
           update.points = points;
         }
+        if (typeof photo === "string" && PHOTO_ID.test(photo)) {
+          update.photo = photo;
+        }
         existing.updates.unshift(update);
         await env.ALERTS_KV.put("alerts.json", JSON.stringify(existing, null, 2));
         ctx.waitUntil(archiveEvent(env, { t: Date.now(), kind: "post", id: update.id, alert: update }));
@@ -729,21 +757,18 @@ async function handleRequest(request, env, ctx) {
       }
     }
 
-    // DELETE AN ALERT BY ID. Two callers share this endpoint:
-    //  - the "Delete Zone" button in a zone's map popup: any signed-in device.
-    //  - the per-row delete icon in the alerts list: also needs admin
-    //    (sends pinOnly: true).
+    // DELETE AN ALERT BY ID (admin only): the per-row delete icon in the
+    // updates list, and Delete/Edit Zone in a zone's popup. Its photo,
+    // if it has one, goes too.
     if (request.method === "POST" && url.pathname === "/alerts/delete") {
       try {
-        const { id, pinOnly } = await request.json();
+        const { id } = await request.json();
 
         if (!id) {
           return Response.json({ status: "error", error: "Missing id" }, { status: 400, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
         }
-        if (pinOnly) {
-          const problem = await adminProblem(env, device);
-          if (problem) return json({ status: "error", error: problem.error, admin: true }, problem.status);
-        }
+        const problem = await adminProblem(env, device);
+        if (problem) return json({ status: "error", error: problem.error, admin: true }, problem.status);
 
         let existing = { updates: [] };
         const raw = await env.ALERTS_KV.get("alerts.json");
@@ -754,17 +779,52 @@ async function handleRequest(request, env, ctx) {
           } catch (err) {}
         }
 
-        const beforeCount = existing.updates.length;
+        const target = existing.updates.find(u => u.id === id);
         existing.updates = existing.updates.filter(u => u.id !== id);
-        const deleted = existing.updates.length < beforeCount;
+        const deleted = !!target;
 
         await env.ALERTS_KV.put("alerts.json", JSON.stringify(existing, null, 2));
+        if (target && target.photo && PHOTO_ID.test(target.photo)) {
+          await env.ALERTS_KV.delete("photo:" + target.photo);
+        }
         if (deleted) ctx.waitUntil(archiveEvent(env, { t: Date.now(), kind: "delete", id }));
 
         return Response.json({ status: "ok", deleted }, { headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
       } catch (err) {
         return Response.json({ status: "error", error: err.toString() }, { status: 500, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
       }
+    }
+
+    // PHOTOS: any signed-in device may upload one (raw JPEG body) or
+    // view one. The app shows them in its own viewer, since a plain
+    // link can't carry the device token.
+    if (request.method === "POST" && url.pathname === "/photos") {
+      const buf = await request.arrayBuffer();
+      const bytes = new Uint8Array(buf, 0, Math.min(3, buf.byteLength));
+      if (buf.byteLength === 0 || buf.byteLength > PHOTO_MAX_BYTES) {
+        return json({ status: "error", error: "Photo is empty or larger than 3 MB" }, 400);
+      }
+      if (!(bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff)) {
+        return json({ status: "error", error: "Only JPEG photos are accepted" }, 400);
+      }
+      const id = crypto.randomUUID();
+      await env.ALERTS_KV.put("photo:" + id, buf, {
+        expirationTtl: PHOTO_TTL_SECONDS,
+        metadata: { by: device.id, created: Date.now() }
+      });
+      return json({ status: "ok", id });
+    }
+    if (request.method === "GET" && url.pathname.startsWith("/photos/")) {
+      const id = url.pathname.slice("/photos/".length);
+      const photo = PHOTO_ID.test(id) && await env.ALERTS_KV.get("photo:" + id, "arrayBuffer");
+      if (!photo) return json({ status: "error", error: "This photo has expired or been deleted" }, 404);
+      return new Response(photo, {
+        headers: {
+          "Content-Type": "image/jpeg",
+          "Access-Control-Allow-Origin": DEFAULT_ORIGIN,
+          "Cache-Control": "private, max-age=86400"
+        }
+      });
     }
 
     // REVERSE GEOCODE (used by the map's long-press-to-clear flow)
