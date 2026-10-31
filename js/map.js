@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V2.15";
+const APP_VERSION = "V2.16";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.
@@ -2565,6 +2565,9 @@ async function openPhotoViewer(id) {
   if (photoViewerImg.src) URL.revokeObjectURL(photoViewerImg.src);
   photoViewerImg.removeAttribute("src");
   photoViewerSave.disabled = true;
+  // Saving someone's posted photo is admin only (V2.16). A photo you're
+  // still sending can always be saved from Post Update.
+  photoViewerSave.classList.toggle("hidden", !isAdminNow());
   photoViewerStatus.textContent = "Loading photo…";
   photoViewer.classList.remove("hidden");
   try {
@@ -2586,7 +2589,7 @@ async function openPhotoViewer(id) {
 
 photoViewerSave.addEventListener("click", e => {
   e.stopPropagation();
-  if (photoViewerBlob) savePhotoToDevice(photoViewerBlob);
+  if (photoViewerBlob && isAdminNow()) savePhotoToDevice(photoViewerBlob);
 });
 document.getElementById("photo-viewer-close").addEventListener("click", e => {
   e.stopPropagation();
