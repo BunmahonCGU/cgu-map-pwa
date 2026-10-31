@@ -774,13 +774,8 @@ body:not(.is-admin) .admin-only { display: none !important; }
   <h3>Post Update</h3>
 
   <select id="admin-category" style="width:100%; margin-bottom:6px;">
+    <!-- Filled by fillCategoryOptions() in js/map.js -->
     <option value="">Select category...</option>
-    <option value="Scenario">Scenario</option>
-    <option value="Advisory">Advisory</option>
-    <option value="Description">Description</option>
-    <option value="Sighting">Sighting</option>
-    <option value="Cleared">Cleared</option>
-    <option value="Other">Other</option>
   </select>
 
   <textarea id="admin-message" placeholder="Message..."
@@ -1058,7 +1053,7 @@ body:not(.is-admin) .admin-only { display: none !important; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
 
-     <script src="js/map.js?v=33" defer></script>
+     <script src="js/map.js?v=34" defer></script>
      <script src="js/replay.js?v=6" defer></script>
      <script src="js/vendor/qrcode.js?v=1" defer></script>
      <script src="js/devices.js?v=5" defer></script>

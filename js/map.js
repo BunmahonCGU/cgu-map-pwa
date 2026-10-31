@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V2.17";
+const APP_VERSION = "V2.18";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.
@@ -1704,6 +1704,9 @@ function setupLongPressClear() {
   }
 
   function startPress(clientX, clientY) {
+    // No long-press Cleared while picking an update's location (V2.18):
+    // a slow tap there should just set the location.
+    if (pickLocationHandler) return;
     startX = clientX;
     startY = clientY;
     clearTimeout(pressTimer);
@@ -2417,9 +2420,33 @@ document.getElementById("users-close").addEventListener("click", () => {
 // ------------------------------------------------------------
 // POST UPDATE (no PIN: any signed-in device may post)
 // ------------------------------------------------------------
+// Categories, alphabetical (V2.18). Scenario and Description are only
+// offered to admins. Options are rebuilt rather than hidden, since
+// iPhones ignore hidden <option>s.
+const UPDATE_CATEGORIES = [
+  { value: "Advisory" },
+  { value: "Cleared" },
+  { value: "Description", adminOnly: true },
+  { value: "Other" },
+  { value: "Scenario", adminOnly: true },
+  { value: "Sighting" }
+];
+
+function fillCategoryOptions() {
+  const select = document.getElementById("admin-category");
+  const current = select.value;
+  const admin = isAdminNow();
+  select.innerHTML = '<option value="">Select category...</option>';
+  UPDATE_CATEGORIES
+    .filter(c => admin || !c.adminOnly)
+    .forEach(c => select.add(new Option(c.value, c.value)));
+  select.value = [...select.options].some(o => o.value === current) ? current : "";
+}
+
 document.getElementById("menu-admin").addEventListener("click", e => {
   e.stopPropagation();
   closeMenus();
+  fillCategoryOptions();
   document.getElementById("admin-panel").classList.remove("hidden");
 });
 
