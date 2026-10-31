@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V2.13";
+const APP_VERSION = "V2.14";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.
@@ -869,7 +869,8 @@ oms.addListener('unspiderfy', function(markers) {
     }
   });
 
-  // Each "Show ..." box adds or removes one map layer.
+  // Each "Show ..." box adds or removes one map layer. All four start
+  // ticked each time the app opens (V2.14).
   [
     ["liveUsersToggle", "LIVE_USERS"],
     ["showClearedToggle", "CLEARED"],
@@ -877,7 +878,8 @@ oms.addListener('unspiderfy', function(markers) {
     ["showZonesToggle", "ZONES"],
   ].forEach(([id, layerKey]) => {
     const toggle = document.getElementById(id);
-    toggle.checked = false;
+    toggle.checked = true;
+    map.addLayer(layerGroups[layerKey]);
     toggle.addEventListener("change", () => {
       if (toggle.checked) map.addLayer(layerGroups[layerKey]);
       else map.removeLayer(layerGroups[layerKey]);
@@ -1065,28 +1067,11 @@ oms.addListener('unspiderfy', function(markers) {
   }
 
   // ------------------------------------------------------------
-  // 12. Alerts refresh + refresh button
+  // 12. Alerts refresh (the Refresh Map Data button went in V2.14: the
+  // map file loads fresh on every start and updates poll every 15 s)
   // ------------------------------------------------------------
   refreshAlerts();
   setInterval(refreshAlerts, 15000);
-  // Refresh button click feedback
-const refreshBtn = document.getElementById("refreshMapBtn");
-if (refreshBtn) {
-
-  // ⭐ ADD THIS LINE
-  L.DomEvent.disableClickPropagation(refreshBtn);
-
-  refreshBtn.addEventListener("click", () => {
-    refreshBtn.classList.add("refreshing");
-    setTimeout(() => refreshBtn.classList.remove("refreshing"), 300);
-  });
-}
-
-  document.getElementById("refreshMapBtn")
-    .addEventListener("click", () => {
-      refreshUmapLayer();
-      refreshAlerts();
-    });
 
   // ------------------------------------------------------------
   // 13. Enable GPS tracking
@@ -1138,6 +1123,17 @@ if (refreshBtn) {
       popupEl.insertAdjacentHTML("afterbegin", "<div class='popup-grab'></div>");
     }
 
+    // Photo links in Sighting/Cleared popups open the in-app viewer.
+    popupEl.querySelectorAll(".photo-link").forEach(link => {
+      if (link._wired) return;
+      link._wired = true;
+      link.addEventListener("click", ev => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        openPhotoViewer(link.getAttribute("data-photo"));
+      });
+    });
+
     // Wire the "Delete Zone" button, if this popup has one. Must be a
     // direct listener on the button itself, not a document-level
     // delegated one — Leaflet calls L.DomEvent.disableClickPropagation()
@@ -1167,7 +1163,7 @@ if (refreshBtn) {
         const zoneData = e.popup._source && e.popup._source._zoneData;
         if (!zoneData) return;
         map.closePopup();
-        startZoneEdit(zoneData);
+        requireAdmin("Admin PIN to edit zones", () => startZoneEdit(zoneData));
       });
     }
 
@@ -1647,6 +1643,10 @@ async function postAutoAlert(category, message, extra) {
     }
     if (data.status === "error") {
       console.error(`Failed to post ${category} alert:`, data.error);
+      if (data.admin) {
+        setAdminLeft(0);
+        alert("Admin has ended on this device, so this wasn't posted. Unlock admin (Tools → Devices) and try again.");
+      }
       return false;
     }
     refreshAlerts();
@@ -1801,16 +1801,21 @@ const zoneDrawStatus = document.getElementById("zone-draw-status");
 const zoneDrawFinishBtn = document.getElementById("zone-draw-finish");
 const zoneDrawCancelBtn = document.getElementById("zone-draw-cancel");
 
+// While drawing, the shape is always black with white-centred points so
+// it shows up whatever the drawer's team (No Team is white). The
+// finished zone takes the colour of the team picked at the end.
+const ZONE_DRAW_COLOR = "#000000";
+
 function redrawZonePreview() {
   zonePreviewLayer.clearLayers();
-  const color = getTeamColor(localStorage.getItem("team"));
+  const color = ZONE_DRAW_COLOR;
   if (zonePoints.length >= 2) {
     zonePreviewLayer.addLayer(
-      L.polygon(zonePoints, { color, fillColor: color, fillOpacity: 0.25, weight: 2, dashArray: "6,6" })
+      L.polygon(zonePoints, { color, fillColor: color, fillOpacity: 0.15, weight: 3, dashArray: "6,6" })
     );
   }
   zonePoints.forEach(p => {
-    zonePreviewLayer.addLayer(L.circleMarker(p, { radius: 5, color, fillColor: color, fillOpacity: 1, weight: 1 }));
+    zonePreviewLayer.addLayer(L.circleMarker(p, { radius: 6, color, fillColor: "#ffffff", fillOpacity: 1, weight: 3 }));
   });
 }
 
@@ -1834,6 +1839,7 @@ function startZoneDrawing() {
   redrawZonePreview();
   updateZoneDrawStatus();
   zoneDrawBanner.classList.remove("hidden");
+  setMapPicking(true);
 
   zoneClickHandler = mapEvent => {
     zonePoints.push([mapEvent.latlng.lat, mapEvent.latlng.lng]);
@@ -1849,6 +1855,7 @@ function startZoneDrawing() {
 // team-selection dialog below is open.
 function stopZoneListening() {
   zoneDrawing = false;
+  setMapPicking(false);
   if (zoneClickHandler) {
     map.off("click", zoneClickHandler);
     zoneClickHandler = null;
@@ -1883,6 +1890,14 @@ function clearZoneEditState() {
     map.removeLayer(editingZoneGhost);
     editingZoneGhost = null;
   }
+}
+
+// While picking a location or drawing a zone, taps pass through zones
+// and pins to the map itself (see #map.map-picking in index.html), so
+// they don't open a zone's Edit/Delete popup by accident.
+function setMapPicking(on) {
+  map.getContainer().classList.toggle("map-picking", on);
+  if (on) map.closePopup();
 }
 
 function startZoneEdit(zone) {
@@ -2009,17 +2024,9 @@ zoneDrawCancelBtn.addEventListener("click", e => {
 // refreshAlerts() below). Delegated on document since Leaflet rebuilds
 // popup content fresh each time, so a direct listener would never stick.
 // ===============================
-async function deleteZone(id) {
-  try {
-    const res = await apiFetch("/alerts/delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, userId, token: localStorage.getItem("locationToken") || null })
-    });
-    const data = await res.json();
-    if (data.token) {
-      localStorage.setItem("locationToken", data.token);
-    }
+// Admin only since V2.14.
+function deleteZone(id) {
+  adminPost("Admin PIN to delete zones", "/alerts/delete", { id }, data => {
     if (data.status === "error") {
       console.error("Failed to delete zone:", data.error);
       alert("Failed to delete the zone: " + data.error);
@@ -2027,10 +2034,7 @@ async function deleteZone(id) {
     }
     map.closePopup();
     refreshAlerts();
-  } catch (err) {
-    console.error("Failed to delete zone:", err);
-    alert("Failed to delete the zone — check your connection and try again.");
-  }
+  });
 }
 // (the button itself is wired up in the popupopen handler above, since
 // this app's popups block click bubbling — see the comment there)
@@ -2128,7 +2132,7 @@ function renderAlerts(updates, now, { readOnly = false } = {}) {
           icon: makeSvgIcon("circle-pin", color, elapsedLabel, { fontSize: 11, textColor: "black", halo: true })
         });
         marker.bindPopup(
-          `<strong>Cleared by ${escapeHtml(a.user)}</strong><br>${escapeHtml(a.message)}<br><small>${new Date(a.timestamp).toLocaleString()}</small>`,
+          `<strong>Cleared by ${escapeHtml(a.user)}</strong><br>${escapeHtml(a.message)}${photoLinkHtml(a)}<br><small>${new Date(a.timestamp).toLocaleString()}</small>`,
           { className: "custom-popup" }
         );
         layerGroups["CLEARED"].addLayer(marker);
@@ -2147,7 +2151,7 @@ function renderAlerts(updates, now, { readOnly = false } = {}) {
           zIndexOffset: 1000 // sightings sit on top of Cleared pins at the same spot
         });
         marker.bindPopup(
-          `<strong>Sighting reported by ${escapeHtml(a.user || "Unknown")}</strong><br>${escapeHtml(a.message)}<br><small>${new Date(a.timestamp).toLocaleString()}</small>`,
+          `<strong>Sighting reported by ${escapeHtml(a.user || "Unknown")}</strong><br>${escapeHtml(a.message)}${photoLinkHtml(a)}<br><small>${new Date(a.timestamp).toLocaleString()}</small>`,
           { className: "custom-popup" }
         );
         layerGroups["SIGHTINGS"].addLayer(marker);
@@ -2170,9 +2174,11 @@ function renderAlerts(updates, now, { readOnly = false } = {}) {
         // attribute) so the Edit button can seed a redraw with the
         // existing team/label/points without needing a separate lookup.
         polygon._zoneData = a;
-        polygon.bindPopup(
-          `<strong>Zone marked by ${escapeHtml(a.user)}</strong><br>${escapeHtml(a.message)}<br><small>${new Date(a.timestamp).toLocaleString()}</small>` +
-          (readOnly ? "" :
+        // Built when it opens, so Edit/Delete follow the admin state then.
+        polygon.bindPopup(() =>
+          `<strong>${a.team ? "Team " + escapeHtml(a.team) : "No Team"}</strong><br>` +
+          `Marked by ${escapeHtml(a.user)}<br>${escapeHtml(a.message)}<br><small>${new Date(a.timestamp).toLocaleString()}</small>` +
+          (readOnly || !isAdminNow() ? "" :
           `<br><button class="zone-edit-btn" style="margin-top:6px; background:#0078ff; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer;">✏️ Edit Zone</button> ` +
           `<button class="zone-delete-btn" data-zone-id="${escapeHtml(a.id || "")}" style="margin-top:6px; background:#c0392b; color:white; border:none; padding:4px 10px; border-radius:4px; cursor:pointer;">🗑 Delete Zone</button>`),
           { className: "custom-popup" }
@@ -2218,7 +2224,7 @@ function renderAlerts(updates, now, { readOnly = false } = {}) {
         <div class="alert-time">${timeOnly}</div>
         <div class="alert-user">${escapeHtml(a.user)}</div>
         <div class="alert-category">${escapeHtml(a.category)}</div>
-        <div class="alert-body">${escapeHtml(a.message)}${hasLocation ? " 📍" : ""}</div>
+        <div class="alert-body">${escapeHtml(a.message)}${hasLocation ? " 📍" : ""}${photoLinkHtml(a)}</div>
         ${directionsLink}
         <div class="alert-delete">${deleteBtn}</div>
       `;
@@ -2230,6 +2236,15 @@ function renderAlerts(updates, now, { readOnly = false } = {}) {
         });
         li.querySelector(".alert-directions").addEventListener("click", e => {
           e.stopPropagation();
+        });
+      }
+
+      const photoLink = li.querySelector(".photo-link");
+      if (photoLink) {
+        photoLink.addEventListener("click", e => {
+          e.preventDefault();
+          e.stopPropagation();
+          openPhotoViewer(a.photo);
         });
       }
 
@@ -2361,7 +2376,7 @@ teamDialog.addEventListener("submit", e => {
 document.getElementById("markZoneBtn").addEventListener("click", e => {
   e.stopPropagation();
   closeMenus();
-  startZoneDrawing();
+  requireAdmin("Admin PIN to mark zones", startZoneDrawing);
 });
 
 const usersPanel = document.getElementById("users-panel");
@@ -2382,6 +2397,207 @@ document.getElementById("menu-admin").addEventListener("click", e => {
   closeMenus();
   document.getElementById("admin-panel").classList.remove("hidden");
 });
+
+// ------------------------------------------------------------
+// PHOTOS (V2.14) — Take photo / Choose from device in Post Update. The
+// phone shrinks the photo to 1280 px JPEG (about 150-300 KB, and that
+// drops its GPS/EXIF data), uploads it to the Worker (kept 30 days),
+// then posts the update with the photo's id. Until it's sent, the photo
+// is kept on this phone (IndexedDB), so no signal doesn't lose it.
+// ------------------------------------------------------------
+const PHOTO_MAX_SIDE = 1280;
+const PHOTO_QUALITY = 0.75;
+let pendingPhoto = null; // { blob, id } — id once uploaded
+
+function photoLinkHtml(a) {
+  return a && a.photo
+    ? ` <a href="#" class="photo-link" data-photo="${escapeHtml(a.photo)}">📷 Photo</a>`
+    : "";
+}
+
+// Tiny IndexedDB store for the one photo waiting to be sent.
+function photoDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("cgu-photos", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("pending");
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function photoDbDo(mode, fn) {
+  try {
+    const db = await photoDb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction("pending", mode);
+      const req = fn(tx.objectStore("pending"));
+      tx.oncomplete = () => resolve(req && req.result);
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn("Photo store unavailable:", err);
+    return null;
+  }
+}
+const savePendingPhoto = p => photoDbDo("readwrite", st => st.put({ blob: p.blob, id: p.id || null }, "photo"));
+const clearPendingPhoto = () => photoDbDo("readwrite", st => st.delete("photo"));
+const loadPendingPhoto = () => photoDbDo("readonly", st => st.get("photo"));
+
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Couldn't read that photo")); };
+    img.src = url;
+  });
+}
+
+async function shrinkPhoto(file) {
+  const img = await loadImage(file); // browsers apply the EXIF rotation here
+  const scale = Math.min(1, PHOTO_MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(img.naturalWidth * scale);
+  canvas.height = Math.round(img.naturalHeight * scale);
+  canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", PHOTO_QUALITY));
+  if (!blob) throw new Error("Couldn't process that photo");
+  return blob;
+}
+
+const photoPending = document.getElementById("photo-pending");
+const photoPendingImg = document.getElementById("photo-pending-img");
+const photoNote = document.getElementById("photo-note");
+
+function showPendingPhoto(note) {
+  if (photoPendingImg.src) URL.revokeObjectURL(photoPendingImg.src);
+  if (!pendingPhoto) {
+    photoPendingImg.removeAttribute("src");
+    photoPending.classList.add("hidden");
+    photoNote.textContent = "";
+    return;
+  }
+  photoPendingImg.src = URL.createObjectURL(pendingPhoto.blob);
+  photoNote.textContent = note || "";
+  photoPending.classList.remove("hidden");
+}
+
+async function onPhotoPicked(e) {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = ""; // lets the same photo be picked again
+  if (!file) return;
+  try {
+    pendingPhoto = { blob: await shrinkPhoto(file), id: null };
+    showPendingPhoto();
+    savePendingPhoto(pendingPhoto);
+  } catch (err) {
+    alert(err.message || "Couldn't use that photo");
+  }
+}
+document.getElementById("photo-camera").addEventListener("change", onPhotoPicked);
+document.getElementById("photo-choose").addEventListener("change", onPhotoPicked);
+
+document.getElementById("photo-pending-remove").addEventListener("click", e => {
+  e.stopPropagation();
+  pendingPhoto = null;
+  showPendingPhoto();
+  clearPendingPhoto();
+});
+document.getElementById("photo-pending-save").addEventListener("click", e => {
+  e.stopPropagation();
+  if (pendingPhoto) savePhotoToDevice(pendingPhoto.blob);
+});
+
+// A photo left unsent last time (no signal, app closed) comes back.
+loadPendingPhoto().then(saved => {
+  if (saved && saved.blob && !pendingPhoto) {
+    pendingPhoto = { blob: saved.blob, id: saved.id || null };
+    showPendingPhoto("Photo not sent yet: tap Submit Update when you have signal.");
+  }
+});
+
+// Uploads the pending photo (once) and returns its id, or throws.
+async function uploadPendingPhoto() {
+  if (pendingPhoto.id) return pendingPhoto.id;
+  const res = await apiFetch("/photos", {
+    method: "POST",
+    headers: { "Content-Type": "image/jpeg" },
+    body: pendingPhoto.blob
+  });
+  const data = await res.json();
+  if (data.status !== "ok") throw new Error(data.error || "Photo upload failed");
+  pendingPhoto.id = data.id;
+  savePendingPhoto(pendingPhoto);
+  return data.id;
+}
+
+// iPhones save through the share sheet ("Save Image"); everything else
+// downloads the file.
+function savePhotoToDevice(blob) {
+  const name = "cgu-photo-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + ".jpg";
+  const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const file = typeof File === "function" ? new File([blob], name, { type: "image/jpeg" }) : null;
+  if (isIos && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file] }).catch(() => {});
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+// Viewer: photos need the device token, so they're fetched, not linked.
+const photoViewer = document.getElementById("photo-viewer");
+const photoViewerImg = document.getElementById("photo-viewer-img");
+const photoViewerStatus = document.getElementById("photo-viewer-status");
+const photoViewerSave = document.getElementById("photo-viewer-save");
+let photoViewerBlob = null;
+
+async function openPhotoViewer(id) {
+  if (!id) return;
+  closeMenus();
+  photoViewerBlob = null;
+  if (photoViewerImg.src) URL.revokeObjectURL(photoViewerImg.src);
+  photoViewerImg.removeAttribute("src");
+  photoViewerSave.disabled = true;
+  photoViewerStatus.textContent = "Loading photo…";
+  photoViewer.classList.remove("hidden");
+  try {
+    const res = await apiFetch("/photos/" + encodeURIComponent(id));
+    if (!res.ok) {
+      let msg = "Couldn't load the photo";
+      try { msg = (await res.json()).error || msg; } catch (err) {}
+      photoViewerStatus.textContent = msg;
+      return;
+    }
+    photoViewerBlob = await res.blob();
+    photoViewerImg.src = URL.createObjectURL(photoViewerBlob);
+    photoViewerStatus.textContent = "";
+    photoViewerSave.disabled = false;
+  } catch (err) {
+    photoViewerStatus.textContent = "No signal: couldn't load the photo. Try again when you have signal.";
+  }
+}
+
+photoViewerSave.addEventListener("click", e => {
+  e.stopPropagation();
+  if (photoViewerBlob) savePhotoToDevice(photoViewerBlob);
+});
+document.getElementById("photo-viewer-close").addEventListener("click", e => {
+  e.stopPropagation();
+  photoViewer.classList.add("hidden");
+  if (photoViewerImg.src) URL.revokeObjectURL(photoViewerImg.src);
+  photoViewerImg.removeAttribute("src");
+  photoViewerBlob = null;
+});
+["click", "touchstart", "touchend"].forEach(evt =>
+  photoViewer.addEventListener(evt, e => e.stopPropagation(), { passive: true })
+);
 
 // ------------------------------------------------------------
 // ADMIN PIN DIALOG — askPin(title, onOk) hands onOk the PIN's hash.
@@ -2422,39 +2638,60 @@ document.getElementById("pin-cancel").addEventListener("click", () => {
 });
 
 // ------------------------------------------------------------
-// ADMIN UNLOCK — a correct PIN unlocks admin actions (Replay, Devices,
-// deleting updates) on this device for 10 minutes from entry. The
-// Worker keeps the real timer; the menu bar badge shows what's left,
-// and tapping it locks again straight away.
+// ADMIN — a device is admin either permanently (set in Tools → Devices,
+// badge shows ∞) or for 10 minutes after a correct PIN. Admin shows
+// Mark Zone, Users and Replay, and allows zone edits, deletes, Devices
+// and team changes. The Worker keeps the real state; the menu bar badge
+// shows what's left, and tapping a timed badge locks again at once.
 // ------------------------------------------------------------
 const adminBadge = document.getElementById("admin-badge");
 let adminUntil = 0;
+let adminPermanent = false;
 let adminBadgeTimer = null;
 
+function isAdminNow() {
+  return adminPermanent || adminUntil > Date.now() + 2000;
+}
+
 // msLeft comes from the Worker, so a wrong phone clock doesn't matter.
-function setAdminLeft(msLeft) {
-  adminUntil = msLeft > 0 ? Date.now() + msLeft : 0;
+function setAdminLeft(msLeft, permanent = false) {
+  adminPermanent = !!permanent;
+  adminUntil = !adminPermanent && msLeft > 0 ? Date.now() + msLeft : 0;
   clearInterval(adminBadgeTimer);
   renderAdminBadge();
   if (adminUntil) adminBadgeTimer = setInterval(renderAdminBadge, 1000);
 }
 
 function renderAdminBadge() {
+  if (adminPermanent) {
+    adminBadge.textContent = "🔓 Admin ∞";
+    adminBadge.title = "This device is a permanent admin (set in Tools → Devices).";
+    adminBadge.classList.remove("hidden");
+    document.body.classList.add("is-admin");
+    return;
+  }
   const left = adminUntil - Date.now();
   if (left <= 0) {
     adminUntil = 0;
     clearInterval(adminBadgeTimer);
     adminBadge.classList.add("hidden");
+    document.body.classList.remove("is-admin");
     return;
   }
   const m = Math.floor(left / 60000);
   const s = String(Math.floor(left / 1000) % 60).padStart(2, "0");
   adminBadge.textContent = `🔓 Admin ${m}:${s}`;
+  adminBadge.title = "Admin unlocked. Tap to lock now.";
   adminBadge.classList.remove("hidden");
+  document.body.classList.add("is-admin");
 }
 
 adminBadge.addEventListener("click", e => {
   e.stopPropagation();
+  if (adminPermanent) {
+    alert("This device is a permanent admin. Change that in Tools → Devices.");
+    return;
+  }
   setAdminLeft(0);
   apiFetch("/auth/admin-lock", { method: "POST" }).catch(() => {});
 });
@@ -2463,14 +2700,20 @@ async function refreshAdminStatus() {
   try {
     const res = await apiFetch("/auth/admin-status");
     const data = await res.json();
-    if (data.status === "ok") setAdminLeft(data.left);
+    if (data.status === "ok") setAdminLeft(data.left, data.permanent);
   } catch (err) {}
 }
 
-// Runs action() straight away while admin is unlocked, otherwise asks
-// for the PIN first.
+// Picks up admin being given or taken away while the app was in the
+// background.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && deviceToken) refreshAdminStatus();
+});
+
+// Runs action() straight away while this device is admin, otherwise
+// asks for the PIN first.
 function requireAdmin(title, action) {
-  if (adminUntil > Date.now() + 2000) {
+  if (isAdminNow()) {
     action();
     return;
   }
@@ -2486,7 +2729,7 @@ function requireAdmin(title, action) {
         alert(data.error || "Invalid PIN");
         return;
       }
-      setAdminLeft(data.left);
+      setAdminLeft(data.left, data.permanent);
       action();
     } catch (err) {
       console.error("Admin unlock failed:", err);
@@ -2552,6 +2795,7 @@ function cancelPickLocation() {
     pickLocationHandler = null;
   }
   pickLocationBanner.classList.add("hidden");
+  setMapPicking(false);
   adminPanel.classList.remove("hidden");
 }
 
@@ -2564,6 +2808,7 @@ pickLocationBtn.addEventListener("click", e => {
   resetLeafletTouchState();
   closeAdminPanel();
   pickLocationBanner.classList.remove("hidden");
+  setMapPicking(true);
 
   pickLocationHandler = mapEvent => {
     pendingAlertLocation = { lat: mapEvent.latlng.lat, lng: mapEvent.latlng.lng };
@@ -2571,6 +2816,7 @@ pickLocationBtn.addEventListener("click", e => {
       `Location set: ${pendingAlertLocation.lat.toFixed(5)}, ${pendingAlertLocation.lng.toFixed(5)} (tap to clear)`;
     pickLocationHandler = null;
     pickLocationBanner.classList.add("hidden");
+    setMapPicking(false);
     adminPanel.classList.remove("hidden");
   };
   map.once("click", pickLocationHandler);
@@ -2674,6 +2920,23 @@ adminSubmit.addEventListener("click", async e => {
     return;
   }
 
+  let photo = null;
+  if (pendingPhoto) {
+    try {
+      photo = await uploadPendingPhoto();
+    } catch (err) {
+      console.error("Photo upload failed:", err);
+      const offline = err instanceof TypeError; // fetch's network failure
+      showPendingPhoto(offline
+        ? "No signal: the photo is kept on this phone. Tap Submit Update again when you have signal, or save it to the device."
+        : "Photo not sent: " + err.message);
+      alert(offline
+        ? "No signal: the update wasn't sent. Your photo and message are kept here; try again when you have signal."
+        : "The photo couldn't be sent: " + err.message);
+      return;
+    }
+  }
+
   try {
     const res = await apiFetch("/alerts", {
       method: "POST",
@@ -2684,7 +2947,8 @@ adminSubmit.addEventListener("click", async e => {
         user: localStorage.getItem("displayName") || "Unknown",
         team: localStorage.getItem("team") || "",
         lat: pendingAlertLocation ? pendingAlertLocation.lat : null,
-        lng: pendingAlertLocation ? pendingAlertLocation.lng : null
+        lng: pendingAlertLocation ? pendingAlertLocation.lng : null,
+        photo
       })
     });
 
@@ -2699,13 +2963,16 @@ adminSubmit.addEventListener("click", async e => {
     document.getElementById("admin-category").value = "";
     document.getElementById("admin-message").value = "";
     pendingAlertLocation = null;
+    pendingPhoto = null;
+    showPendingPhoto();
+    clearPendingPhoto();
     locationStatus.textContent = "No location set";
     refreshAlerts();
     closeAdminPanel();
 
 } catch (e) {
     console.error(e);
-    alert("Network error");
+    alert("No signal: the update wasn't sent. Your message" + (pendingPhoto ? " and photo are" : " is") + " kept here; try again when you have signal.");
 }
 
 });

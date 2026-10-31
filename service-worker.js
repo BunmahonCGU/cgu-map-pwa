@@ -2,7 +2,7 @@
 // Bunmahon CGU PWA Service Worker (patched for alerts + freshness)
 // ------------------------------------------------------------
 
-const CACHE_NAME = "cgu-map-cache-v34";
+const CACHE_NAME = "cgu-map-cache-v35";
 
 // Where the app is served from: "/cgu-map-pwa/" on GitHub Pages, "/" on a
 // separate host such as the V2 test site.
@@ -62,7 +62,7 @@ self.addEventListener("fetch", event => {
 
   // The V2 test site is served by its own Worker, so its live API is
   // same-origin: never cache it.
-  const API_PATHS = ["/alerts", "/location/", "/archive/", "/reverse-geocode", "/auth/", "/devices/"];
+  const API_PATHS = ["/alerts", "/location/", "/archive/", "/reverse-geocode", "/auth/", "/devices/", "/photos"];
   if (API_PATHS.some(p => reqUrl.pathname.startsWith(p))) return;
 
   // 🚫 Do NOT intercept cross-origin requests
