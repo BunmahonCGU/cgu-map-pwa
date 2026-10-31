@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V2.16";
+const APP_VERSION = "V2.17";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.
@@ -602,6 +602,12 @@ const SIGHTING_COLOR = "#ff0000";
 layerGroups["SIGHTINGS"] = L.layerGroup();
 
 // ===============================
+// ADVISORIES LAYER (V2.17): black pins, off by default
+// ===============================
+const ADVISORY_COLOR = "#111111";
+layerGroups["ADVISORIES"] = L.layerGroup();
+
+// ===============================
 // MARKED ZONES LAYER (shaded areas, colored by the poster's team)
 // ===============================
 layerGroups["ZONES"] = L.layerGroup();
@@ -869,17 +875,18 @@ oms.addListener('unspiderfy', function(markers) {
     }
   });
 
-  // Each "Show ..." box adds or removes one map layer. All four start
-  // ticked each time the app opens (V2.14).
+  // Each "Show ..." box adds or removes one map layer. All start ticked
+  // each time the app opens (V2.14) except Show Advisories (V2.17).
   [
-    ["liveUsersToggle", "LIVE_USERS"],
-    ["showClearedToggle", "CLEARED"],
-    ["showSightingsToggle", "SIGHTINGS"],
-    ["showZonesToggle", "ZONES"],
-  ].forEach(([id, layerKey]) => {
+    ["liveUsersToggle", "LIVE_USERS", true],
+    ["showClearedToggle", "CLEARED", true],
+    ["showSightingsToggle", "SIGHTINGS", true],
+    ["showAdvisoriesToggle", "ADVISORIES", false],
+    ["showZonesToggle", "ZONES", true],
+  ].forEach(([id, layerKey, startOn]) => {
     const toggle = document.getElementById(id);
-    toggle.checked = true;
-    map.addLayer(layerGroups[layerKey]);
+    toggle.checked = startOn;
+    if (startOn) map.addLayer(layerGroups[layerKey]);
     toggle.addEventListener("change", () => {
       if (toggle.checked) map.addLayer(layerGroups[layerKey]);
       else map.removeLayer(layerGroups[layerKey]);
@@ -2155,6 +2162,24 @@ function renderAlerts(updates, now, { readOnly = false } = {}) {
           { className: "custom-popup" }
         );
         layerGroups["SIGHTINGS"].addLayer(marker);
+      });
+
+    // ===============================
+    // "Show Advisories" pins — same shape as Sightings, in black.
+    // ===============================
+    layerGroups["ADVISORIES"].clearLayers();
+    recent
+      .filter(a => a.category === "Advisory" && typeof a.lat === "number" && typeof a.lng === "number")
+      .forEach(a => {
+        const marker = L.marker([a.lat, a.lng], {
+          icon: makeSvgIcon("circle-pin", ADVISORY_COLOR, formatElapsedTime(a.timestamp, now), { fontSize: 11, textColor: "white" }),
+          zIndexOffset: 900
+        });
+        marker.bindPopup(
+          `<strong>Advisory from ${escapeHtml(a.user || "Unknown")}</strong><br>${escapeHtml(a.message)}${photoLinkHtml(a)}<br><small>${new Date(a.timestamp).toLocaleString()}</small>`,
+          { className: "custom-popup" }
+        );
+        layerGroups["ADVISORIES"].addLayer(marker);
       });
 
     // ===============================
