@@ -145,6 +145,32 @@ async function archiveEvent(env, event) {
   }
 }
 
+// ===============================================================
+// LIVE UPDATES STORE (V2.19)
+// The live updates list used to be one KV value (alerts.json) that each
+// post read, changed and wrote back. KV reads can be up to ~60 s stale,
+// so two posts close together could overwrite each other and an update
+// vanished from the live view (it was still in the archive). It now
+// lives in a fourth LiveUsersDO instance ("alerts"), which handles one
+// request at a time and always returns the latest list. Each update is
+// its own key, al:<time>:<id>, kept 24 hours.
+// ===============================================================
+const ALERTS_KEEP_MS = 24 * 60 * 60 * 1000;
+
+function alertsStub(env) {
+  return env.LIVE_USERS_DO.get(env.LIVE_USERS_DO.idFromName("alerts"));
+}
+
+async function alertsCall(env, path, body) {
+  const res = await alertsStub(env).fetch("https://internal" + path, {
+    method: "POST",
+    body: JSON.stringify(body || {})
+  });
+  return res.json();
+}
+
+const alertKey = u => `al:${pad(new Date(u.timestamp).getTime())}:${u.id}`;
+
 
 // ===============================================================
 // TOWNLAND LOOKUP (Tailte Eireann / OSi "Townland Boundaries
@@ -211,6 +237,9 @@ export class LiveUsersDO {
     }
     if (url.pathname.startsWith("/auth/")) {
       return this.handleAuth(url, request);
+    }
+    if (url.pathname.startsWith("/alerts/")) {
+      return this.handleAlerts(url, request);
     }
 
  if (url.pathname.endsWith("/update")) {
@@ -392,7 +421,98 @@ export class LiveUsersDO {
       return Response.json({ meta: { name: "Archive", start: from, end: to }, events, frames });
     }
 
+    // Posts and deletes since a time, without position frames (used once
+    // to rebuild the live updates list, see loadAlerts).
+    if (url.pathname === "/archive/events") {
+      const since = Number(url.searchParams.get("since"));
+      const events = [...(await storage.list({ start: `evt:${pad(since)}`, end: "evt;" })).values()];
+      return Response.json({ events });
+    }
+
     return Response.json({ status: "error", error: "Unknown archive route" }, { status: 404 });
+  }
+
+  // The live updates list ("alerts" instance). Kept in memory as well as
+  // storage, so the 15-second polls don't read storage each time.
+  async loadAlerts() {
+    const storage = this.state.storage;
+    if (!(await storage.get("alerts-seeded"))) {
+      // First run after the V2.19 update: start from the old KV list,
+      // add back any post in the last 24 h the archive has that KV lost,
+      // and drop anything the archive says was deleted.
+      const cutoff = Date.now() - ALERTS_KEEP_MS;
+      const byId = new Map();
+      try {
+        const raw = await this.env.ALERTS_KV.get("alerts.json");
+        const parsed = raw ? JSON.parse(raw) : null;
+        for (const u of (parsed && parsed.updates) || []) if (u && u.id) byId.set(u.id, u);
+      } catch (err) {}
+      try {
+        const res = await archiveStub(this.env).fetch(`https://internal/archive/events?since=${cutoff}`);
+        const { events } = await res.json();
+        for (const e of events || []) {
+          if (e.kind === "post" && e.alert && e.alert.id) byId.set(e.alert.id, e.alert);
+        }
+        for (const e of events || []) {
+          if (e.kind === "delete") byId.delete(e.id);
+        }
+      } catch (err) {
+        console.warn("Archive read failed while seeding alerts:", err);
+      }
+      const entries = {};
+      for (const u of byId.values()) {
+        const t = new Date(u.timestamp).getTime();
+        if (!isNaN(t) && t >= cutoff) entries[alertKey(u)] = u;
+      }
+      const keys = Object.keys(entries);
+      for (let i = 0; i < keys.length; i += 100) {
+        const chunk = {};
+        for (const k of keys.slice(i, i + 100)) chunk[k] = entries[k];
+        await storage.put(chunk);
+      }
+      await storage.put("alerts-seeded", Date.now());
+    }
+    this.alerts = new Map(await storage.list({ prefix: "al:" }));
+  }
+
+  async handleAlerts(url, request) {
+    if (!this.alerts) {
+      await this.state.blockConcurrencyWhile(async () => {
+        if (!this.alerts) await this.loadAlerts();
+      });
+    }
+    const storage = this.state.storage;
+    const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+
+    // Drop anything older than 24 h (memory and storage).
+    const cutoffKey = "al:" + pad(Date.now() - ALERTS_KEEP_MS);
+    const old = [...this.alerts.keys()].filter(k => k < cutoffKey);
+    if (old.length) {
+      for (const k of old) this.alerts.delete(k);
+      for (let i = 0; i < old.length; i += 128) await storage.delete(old.slice(i, i + 128));
+    }
+
+    if (url.pathname === "/alerts/list") {
+      // Newest first, as the old alerts.json was.
+      const updates = [...this.alerts.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).map(e => e[1]);
+      return Response.json({ updates });
+    }
+    if (url.pathname === "/alerts/add") {
+      const key = alertKey(body.update);
+      this.alerts.set(key, body.update);
+      await storage.put(key, body.update);
+      return Response.json({ ok: true });
+    }
+    if (url.pathname === "/alerts/delete") {
+      const key = [...this.alerts.keys()].find(k => k.endsWith(":" + body.id));
+      const target = key ? this.alerts.get(key) : null;
+      if (key) {
+        this.alerts.delete(key);
+        await storage.delete(key);
+      }
+      return Response.json({ deleted: !!target, target });
+    }
+    return Response.json({ ok: false, error: "Unknown alerts route" }, { status: 404 });
   }
 
   // Devices, enrolment codes and the wrong-attempt limiter ("auth" instance).
@@ -678,8 +798,7 @@ async function handleRequest(request, env, ctx) {
     }
 
     if (request.method === "GET" && url.pathname === "/alerts") {
-      const raw = await env.ALERTS_KV.get("alerts.json");
-      const text = raw || JSON.stringify({ updates: [] }, null, 2);
+      const text = JSON.stringify(await alertsCall(env, "/alerts/list"));
       return new Response(text, {
         headers: {
           "Content-Type": "application/json",
@@ -706,25 +825,8 @@ async function handleRequest(request, env, ctx) {
           const problem = await adminProblem(env, device);
           if (problem) return json({ status: "error", error: problem.error, admin: true }, problem.status);
         }
-        let existing = { updates: [] };
-        const raw = await env.ALERTS_KV.get("alerts.json");
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed && Array.isArray(parsed.updates)) { existing = parsed; }
-          } catch (err) {}
-        }
-
-        // Prune anything older than 24h before appending — this used to be
-        // a client-side-only display filter, so the stored file grew
-        // forever. This piggybacks on the write this endpoint already
-        // does, so it costs nothing extra.
-        const pruneCutoff = Date.now() - 24 * 60 * 60 * 1000;
-        existing.updates = existing.updates.filter(u => {
-          const t = new Date(u.timestamp).getTime();
-          return !isNaN(t) && t >= pruneCutoff;
-        });
-
+        // Stored in the "alerts" Durable Object (V2.19), which also drops
+        // anything older than 24 hours.
         const update = {
           id: crypto.randomUUID(),
           message,
@@ -747,8 +849,7 @@ async function handleRequest(request, env, ctx) {
         if (typeof photo === "string" && PHOTO_ID.test(photo)) {
           update.photo = photo;
         }
-        existing.updates.unshift(update);
-        await env.ALERTS_KV.put("alerts.json", JSON.stringify(existing, null, 2));
+        await alertsCall(env, "/alerts/add", { update });
         ctx.waitUntil(archiveEvent(env, { t: Date.now(), kind: "post", id: update.id, alert: update }));
 
         return Response.json({ status: "ok" }, { headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
@@ -770,20 +871,7 @@ async function handleRequest(request, env, ctx) {
         const problem = await adminProblem(env, device);
         if (problem) return json({ status: "error", error: problem.error, admin: true }, problem.status);
 
-        let existing = { updates: [] };
-        const raw = await env.ALERTS_KV.get("alerts.json");
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed && Array.isArray(parsed.updates)) { existing = parsed; }
-          } catch (err) {}
-        }
-
-        const target = existing.updates.find(u => u.id === id);
-        existing.updates = existing.updates.filter(u => u.id !== id);
-        const deleted = !!target;
-
-        await env.ALERTS_KV.put("alerts.json", JSON.stringify(existing, null, 2));
+        const { deleted, target } = await alertsCall(env, "/alerts/delete", { id });
         if (target && target.photo && PHOTO_ID.test(target.photo)) {
           await env.ALERTS_KV.delete("photo:" + target.photo);
         }

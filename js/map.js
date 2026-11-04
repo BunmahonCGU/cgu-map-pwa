@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 let tracking = true;
 let lastLocation = null;
 let map;
-const APP_VERSION = "V2.18";
+const APP_VERSION = "V2.19";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.
@@ -236,6 +236,19 @@ const blankIcon = L.icon({
 
 // Disable Leaflet HTML sanitization so <img> tags are not stripped
 L.Popup.prototype.options.sanitize = false;
+
+// Leaflet's map keyboard shortcuts listen on the whole page once the map
+// has been tapped, and treat "6" (as well as - + =) as zoom keys, so
+// those key presses never reached a text box (V2.19). Ignore any key
+// pressed while typing in a field.
+(function () {
+  const leafletKeyDown = L.Map.Keyboard.prototype._onKeyDown;
+  L.Map.Keyboard.prototype._onKeyDown = function (e) {
+    const t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    return leafletKeyDown.call(this, e);
+  };
+})();
 
 // Safely escape user-controlled text (displayName, alert message/category)
 // before inserting it via innerHTML.
