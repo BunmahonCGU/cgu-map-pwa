@@ -15,7 +15,7 @@
 
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 const DICTATION_LANG = "en-IE";
-const HOLD_MS = 350; // a press shorter than this is a tap: tap to start, tap to stop
+const HOLD_MS = 350; // a press shorter than this is a tap: nothing kept, just a hint
 
 function attachDictation(button, textarea, statusEl) {
   const say = text => { if (statusEl) statusEl.textContent = text || ""; };
@@ -23,7 +23,6 @@ function attachDictation(button, textarea, statusEl) {
   let base = "";       // text box contents when recording started
   let finalText = "";  // finished phrases so far
   let pressedAt = 0;
-  let tapMode = false; // started by a tap: keeps going until the next tap
 
   const show = interim => {
     const spoken = (finalText + interim).trim();
@@ -65,7 +64,6 @@ function attachDictation(button, textarea, statusEl) {
     rec.onend = () => {
       show("");
       rec = null;
-      tapMode = false;
       button.classList.remove("recording");
       if (statusEl && statusEl.textContent === "Listening…") say("Check the text, then post it.");
     };
@@ -75,7 +73,7 @@ function attachDictation(button, textarea, statusEl) {
       say("Listening…");
     } catch (err) {
       rec = null;
-      say("Couldn't start dictation. Try a tap instead of a hold, or use the keyboard's 🎤.");
+      say("Couldn't start dictation. Try again, or use the keyboard's 🎤.");
     }
   }
 
@@ -85,7 +83,6 @@ function attachDictation(button, textarea, statusEl) {
 
   button.addEventListener("pointerdown", e => {
     e.preventDefault();
-    if (rec && tapMode) { stop(); return; }
     pressedAt = Date.now();
     start();
   });
@@ -94,9 +91,15 @@ function attachDictation(button, textarea, statusEl) {
     const held = Date.now() - pressedAt;
     pressedAt = 0;
     if (!rec) return;
-    if (held < HOLD_MS) tapMode = true; // a quick tap: keep listening
-    else stop();
+    // Hold to record only (V2.21): letting go always stops it, so it
+    // can never be left listening by accident.
+    stop();
+    if (held < HOLD_MS) say("Keep holding the button while you speak, then let go.");
   };
+  // Switching away from the app also stops it.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") { pressedAt = 0; stop(); }
+  });
   button.addEventListener("pointerup", release);
   button.addEventListener("pointercancel", release);
   button.addEventListener("pointerleave", release);
