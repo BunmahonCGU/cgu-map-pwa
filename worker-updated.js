@@ -171,6 +171,38 @@ async function alertsCall(env, path, body) {
 
 const alertKey = u => `al:${pad(new Date(u.timestamp).getTime())}:${u.id}`;
 
+// ===============================================================
+// HANDOVER NOTES (V2.20)
+// Notes for handing a casualty over to the emergency services, in a
+// fifth LiveUsersDO instance ("handover"). Each casualty has a tab:
+//   hnt:<tabId>                 { id, name, created, firstNote, expires, by }
+//   hnn:<tabId>:<time>:<noteId> { id, tabId, t, text, author, deviceId, edited }
+// A tab and its notes go 24 hours after the tab's first note (24 hours
+// after it was made, if it never gets one). Anyone signed in can add a
+// tab or a note. A note is only sent to the device that wrote it and to
+// admins; the author and admins can edit or delete it; admins can close
+// a tab early. Every change also goes to the replay archive while
+// HANDOVER_IN_REPLAY is true (set false to keep them out of replay).
+// ===============================================================
+const HANDOVER_IN_REPLAY = true;
+const HANDOVER_KEEP_MS = 24 * 60 * 60 * 1000;
+const HANDOVER_MAX_TEXT = 2000;
+const HANDOVER_MAX_TABS = 20;
+
+function handoverStub(env) {
+  return env.LIVE_USERS_DO.get(env.LIVE_USERS_DO.idFromName("handover"));
+}
+
+async function handoverCall(env, path, body) {
+  const res = await handoverStub(env).fetch("https://internal" + path, {
+    method: "POST",
+    body: JSON.stringify(body || {})
+  });
+  return res.json();
+}
+
+const cleanText = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+
 
 // ===============================================================
 // TOWNLAND LOOKUP (Tailte Eireann / OSi "Townland Boundaries
@@ -240,6 +272,9 @@ export class LiveUsersDO {
     }
     if (url.pathname.startsWith("/alerts/")) {
       return this.handleAlerts(url, request);
+    }
+    if (url.pathname.startsWith("/handover/")) {
+      return this.handleHandover(url, request);
     }
 
  if (url.pathname.endsWith("/update")) {
@@ -513,6 +548,97 @@ export class LiveUsersDO {
       return Response.json({ deleted: !!target, target });
     }
     return Response.json({ ok: false, error: "Unknown alerts route" }, { status: 404 });
+  }
+
+  // Handover notes ("handover" instance). The Worker has already checked
+  // who's asking; "admin" in a body means it confirmed this device is admin.
+  async handleHandover(url, request) {
+    const storage = this.state.storage;
+    const body = await request.json().catch(() => ({}));
+    const now = Date.now();
+
+    // Drop expired tabs and their notes.
+    const tabs = new Map(await storage.list({ prefix: "hnt:" }));
+    for (const [key, tab] of tabs) {
+      if (tab.expires > now) continue;
+      tabs.delete(key);
+      for (;;) {
+        const old = await storage.list({ prefix: `hnn:${tab.id}:`, limit: 128 });
+        if (old.size === 0) break;
+        await storage.delete([...old.keys()]);
+      }
+      await storage.delete(key);
+    }
+
+    const findNote = async (tabId, id) => {
+      const list = await storage.list({ prefix: `hnn:${tabId}:` });
+      for (const [key, note] of list) if (note.id === id) return { key, note };
+      return null;
+    };
+    const mayChange = note => body.admin || note.deviceId === body.deviceId;
+
+    switch (url.pathname) {
+      case "/handover/state": {
+        const notes = [...(await storage.list({ prefix: "hnn:" })).values()];
+        return Response.json({ now, tabs: [...tabs.values()].sort((a, b) => a.created - b.created), notes });
+      }
+      case "/handover/tab": {
+        if (tabs.size >= HANDOVER_MAX_TABS) {
+          return Response.json({ ok: false, error: `There can be at most ${HANDOVER_MAX_TABS} casualty tabs` });
+        }
+        const tab = {
+          id: crypto.randomUUID(),
+          name: body.name,
+          created: now,
+          firstNote: null,
+          expires: now + HANDOVER_KEEP_MS,
+          by: body.author
+        };
+        await storage.put("hnt:" + tab.id, tab);
+        return Response.json({ ok: true, tab });
+      }
+      case "/handover/note": {
+        const tab = tabs.get("hnt:" + body.tabId);
+        if (!tab) return Response.json({ ok: false, error: "That casualty tab has expired or been closed" });
+        const note = {
+          id: crypto.randomUUID(),
+          tabId: tab.id,
+          t: now,
+          text: body.text,
+          author: body.author,
+          deviceId: body.deviceId
+        };
+        await storage.put(`hnn:${tab.id}:${pad(now)}:${note.id}`, note);
+        if (!tab.firstNote) {
+          tab.firstNote = now;
+          tab.expires = now + HANDOVER_KEEP_MS;
+          await storage.put("hnt:" + tab.id, tab);
+        }
+        return Response.json({ ok: true, note, tab });
+      }
+      case "/handover/edit":
+      case "/handover/delete": {
+        const found = await findNote(body.tabId, body.id);
+        if (!found) return Response.json({ ok: false, error: "That note has expired or been deleted" });
+        if (!mayChange(found.note)) return Response.json({ ok: false, notOwner: true });
+        if (url.pathname === "/handover/delete") {
+          await storage.delete(found.key);
+          return Response.json({ ok: true, note: found.note });
+        }
+        found.note.text = body.text;
+        found.note.edited = { t: now, by: body.author };
+        await storage.put(found.key, found.note);
+        return Response.json({ ok: true, note: found.note });
+      }
+      case "/handover/close-tab": {
+        const tab = tabs.get("hnt:" + body.tabId);
+        if (!tab) return Response.json({ ok: true, gone: true });
+        tab.expires = now; // the next request removes it and its notes
+        await storage.put("hnt:" + tab.id, tab);
+        return Response.json({ ok: true });
+      }
+    }
+    return Response.json({ ok: false, error: "Unknown handover route" }, { status: 404 });
   }
 
   // Devices, enrolment codes and the wrong-attempt limiter ("auth" instance).
@@ -881,6 +1007,88 @@ async function handleRequest(request, env, ctx) {
       } catch (err) {
         return Response.json({ status: "error", error: err.toString() }, { status: 500, headers: { "Access-Control-Allow-Origin": "https://bunmahoncgu.github.io" } });
       }
+    }
+
+    // HANDOVER NOTES (V2.20), see the HANDOVER NOTES section above.
+    if (url.pathname === "/handover" && request.method === "GET") {
+      const state = await handoverCall(env, "/handover/state");
+      // Only ask whether this device is admin when there are notes
+      // from other devices it might be shown.
+      const othersExist = state.notes.some(n => n.deviceId !== device.id);
+      const admin = othersExist && !(await adminProblem(env, device));
+      const hidden = {};
+      const notes = [];
+      for (const n of state.notes) {
+        const mine = n.deviceId === device.id;
+        if (!mine && !admin) {
+          hidden[n.tabId] = (hidden[n.tabId] || 0) + 1;
+          continue;
+        }
+        const { deviceId, ...rest } = n;
+        notes.push({ ...rest, mine });
+      }
+      const tabs = state.tabs.map(t => ({
+        id: t.id, name: t.name, created: t.created, firstNote: t.firstNote,
+        left: t.expires - state.now, hidden: hidden[t.id] || 0
+      }));
+      return json({ status: "ok", now: state.now, admin, tabs, notes });
+    }
+
+    if (request.method === "POST" && url.pathname.startsWith("/handover/")) {
+      const body = await request.json().catch(() => ({}));
+      const author = cleanText(body.author, 60) || "Unknown";
+      const fail = (error, status = 400) => json({ status: "error", error }, status);
+      const archive = event => {
+        if (HANDOVER_IN_REPLAY) ctx.waitUntil(archiveEvent(env, { t: Date.now(), id: crypto.randomUUID(), ...event }));
+      };
+
+      if (url.pathname === "/handover/tab") {
+        const name = cleanText(body.name, 40);
+        if (!name) return fail("Give the casualty tab a name");
+        const r = await handoverCall(env, "/handover/tab", { name, author });
+        if (!r.ok) return fail(r.error);
+        archive({ kind: "hn-tab", tab: r.tab });
+        return json({ status: "ok", tab: r.tab });
+      }
+
+      if (url.pathname === "/handover/note") {
+        const text = cleanText(body.text, HANDOVER_MAX_TEXT);
+        if (!text) return fail("The note is empty");
+        const r = await handoverCall(env, "/handover/note", { tabId: body.tabId, text, author, deviceId: device.id });
+        if (!r.ok) return fail(r.error, 404);
+        const { deviceId, ...note } = r.note;
+        archive({ kind: "hn-note", note });
+        return json({ status: "ok", note: { ...note, mine: true } });
+      }
+
+      if (url.pathname === "/handover/edit" || url.pathname === "/handover/delete") {
+        const isEdit = url.pathname === "/handover/edit";
+        const text = cleanText(body.text, HANDOVER_MAX_TEXT);
+        if (isEdit && !text) return fail("The note is empty. Use delete to remove it.");
+        const call = { tabId: body.tabId, id: body.id, text, author, deviceId: device.id };
+        let r = await handoverCall(env, url.pathname, call);
+        if (r.notOwner) {
+          // Not this device's note: allowed for admins only.
+          const problem = await adminProblem(env, device);
+          if (problem) return json({ status: "error", error: "Only the person who wrote this note, or an admin, can change it.", admin: true }, 403);
+          r = await handoverCall(env, url.pathname, { ...call, admin: true });
+        }
+        if (!r.ok) return fail(r.error, 404);
+        archive(isEdit
+          ? { kind: "hn-edit", noteId: body.id, tabId: body.tabId, text, by: author }
+          : { kind: "hn-delete", noteId: body.id, tabId: body.tabId, by: author });
+        return json({ status: "ok" });
+      }
+
+      if (url.pathname === "/handover/close-tab") {
+        const problem = await adminProblem(env, device);
+        if (problem) return json({ status: "error", error: problem.error, admin: true }, problem.status);
+        const r = await handoverCall(env, "/handover/close-tab", { tabId: body.tabId });
+        if (!r.gone) archive({ kind: "hn-close", tabId: body.tabId, by: author });
+        return json({ status: "ok" });
+      }
+
+      return fail("Unknown handover route", 404);
     }
 
     // PHOTOS: any signed-in device may upload one (raw JPEG body) or

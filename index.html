@@ -427,7 +427,7 @@ body.replaying #menu-replay { display: none; }
   top: 0;
   left: 0;
   right: 0;
-  z-index: 10000;
+  z-index: 10001; /* above the Handover Notes panel (10000), so menus open over it */
   display: flex;
   align-items: center;
   gap: 6px;
@@ -641,6 +641,84 @@ body:not(.is-admin) .admin-only { display: none !important; }
 #photo-viewer-status { color: white; font-size: 14px; margin: 8px 0; }
 #photo-viewer-save.hidden { display: none; }
 #photo-viewer .dialog-buttons { margin-top: 10px; width: 100%; max-width: 360px; }
+
+/* DICTATION (V2.20): hold-to-record buttons */
+.dictate-btn {
+  width: 100%; padding: 10px; border: none; border-radius: 4px;
+  background: #e8eef4; color: #003366; font-size: 15px;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  touch-action: none;
+}
+.dictate-btn.recording { background: #c0392b; color: white; }
+.dictate-status { font-size: 12px; color: #c0392b; min-height: 1em; margin: 4px 0 6px; }
+
+/* HANDOVER NOTES (V2.20): red, so it stands apart from Updates */
+.menu-drop label.handover-toggle { color: #ff6b6b; font-weight: 600; border-top: 1px solid rgba(255,255,255,0.2); margin-top: 4px; padding-top: 7px; }
+#handover-panel {
+  position: fixed;
+  top: calc(54px + env(safe-area-inset-top));
+  left: 8px; right: 8px;
+  max-width: 480px;
+  max-height: calc(100% - 140px);
+  overflow-y: auto;
+  background: rgba(255,255,255,0.97);
+  border: 3px solid #d00000;
+  border-radius: 6px;
+  padding: 8px 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  z-index: 10000; /* over the map's buttons, under the menu bar */
+  pointer-events: auto;
+  touch-action: pan-y;
+  font-size: 14px;
+}
+#handover-panel.hidden { display: none; }
+#handover-panel h3 { color: #b00000; }
+#handover-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.handover-tab {
+  border: 1px solid #d00000; background: white; color: #b00000;
+  border-radius: 4px; padding: 4px 8px; font-size: 13px; line-height: 1.2;
+}
+.handover-tab small { display: block; font-size: 10px; color: #777; }
+.handover-tab.selected { background: #d00000; color: white; }
+.handover-tab.selected small { color: #ffd6d6; }
+.handover-tab.add { border-style: dashed; }
+#handover-actions { display: flex; gap: 6px; margin-bottom: 4px; }
+#handover-actions:empty { display: none; }
+#handover-actions button {
+  padding: 4px 10px; border: none; border-radius: 4px; background: #e8eef4; color: #003366; font-size: 13px;
+}
+#handover-actions #handover-close-tab { background: #f8d7da; color: #8a0000; }
+#handover-list { list-style: none; margin: 0 0 6px; padding: 0; }
+.handover-note { border-bottom: 1px solid #eee; padding: 5px 0; }
+.handover-meta { font-size: 12px; color: #555; display: flex; align-items: center; }
+.handover-icons { margin-left: auto; display: flex; gap: 4px; }
+.handover-icons button { border: none; background: #f2f2f2; border-radius: 4px; padding: 2px 6px; font-size: 14px; }
+.handover-text { white-space: pre-wrap; color: #000; }
+.handover-edited { font-size: 11px; color: #888; font-style: italic; }
+.handover-note.deleted .handover-text { text-decoration: line-through; color: #888; }
+.handover-edit textarea, #handover-text {
+  width: 100%; box-sizing: border-box; min-height: 64px; font-size: 16px; font-family: inherit; padding: 6px; margin: 4px 0;
+}
+.handover-compose-row { display: flex; gap: 6px; }
+.handover-compose-row .dictate-btn { flex: 2; }
+#handover-send { flex: 1; border: none; border-radius: 4px; background: #d00000; color: white; font-weight: 600; font-size: 15px; }
+#handover-send:disabled { opacity: 0.5; }
+.handover-hint { font-size: 12px; color: #666; }
+.handover-hint:empty { display: none; }
+body.replaying #handover-compose { display: none; }
+#handover-crew-view {
+  position: fixed; inset: 0; z-index: 10010; background: white; color: black;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  overflow-y: auto; border: 6px solid #d00000; box-sizing: border-box;
+}
+#handover-crew-view.hidden { display: none; }
+#handover-crew-view h2 { margin: 0 0 10px; color: #b00000; }
+#handover-crew-list { list-style: none; padding: 0; margin: 0 0 12px; font-size: 20px; }
+#handover-crew-list li { padding: 8px 0; border-bottom: 1px solid #ddd; }
+#handover-crew-list li span { color: #555; font-size: 16px; }
+#handover-crew-list li p { margin: 4px 0 0; white-space: pre-wrap; }
+#handover-crew-note { color: #555; margin-bottom: 10px; font-size: 14px; }
+#handover-crew-view .dialog-buttons button { font-size: 16px; padding: 10px; }
 </style>
   
 </head>
@@ -666,6 +744,7 @@ body:not(.is-admin) .admin-only { display: none !important; }
           <label><input type="checkbox" id="showSightingsToggle">Show Sightings</label>
           <label><input type="checkbox" id="showAdvisoriesToggle">Show Advisories</label>
           <label><input type="checkbox" id="showZonesToggle">Show Zones</label>
+          <label class="handover-toggle"><input type="checkbox" id="handoverToggle">Handover Notes</label>
         </div>
       </div>
       <div class="menu">
@@ -781,6 +860,9 @@ body:not(.is-admin) .admin-only { display: none !important; }
   <textarea id="admin-message" placeholder="Message..."
             style="width:100%; height:80px; margin-bottom:6px;"></textarea>
 
+  <button type="button" id="admin-dictate" class="dictate-btn">🎙 Hold to record</button>
+  <div id="admin-dictate-status" class="dictate-status"></div>
+
   <button id="admin-pick-location" type="button" style="
     width:100%;
     margin-bottom:6px;
@@ -823,6 +905,38 @@ body:not(.is-admin) .admin-only { display: none !important; }
   ">
     Close
   </button>
+</div>
+
+<!-- HANDOVER NOTES PANEL (Display → Handover Notes; js/handover.js) -->
+<div id="handover-panel" class="hidden">
+  <div class="panel-head">
+    <h3 id="handover-title">Handover Notes</h3>
+    <button type="button" id="handover-close">Close</button>
+  </div>
+  <div id="handover-tabs"></div>
+  <div id="handover-actions"></div>
+  <ul id="handover-list"></ul>
+  <div id="handover-compose" class="hidden">
+    <textarea id="handover-text" placeholder="Hold 🎙 to dictate, or type the note"></textarea>
+    <div class="handover-compose-row">
+      <button type="button" id="handover-dictate" class="dictate-btn">🎙 Hold to record</button>
+      <button type="button" id="handover-send" class="primary">Post note</button>
+    </div>
+    <div id="handover-dictate-status" class="dictate-status"></div>
+  </div>
+  <div id="handover-hint" class="handover-hint"></div>
+  <div id="handover-status" class="handover-hint"></div>
+</div>
+
+<!-- SHOW CREW: one casualty's notes in large text -->
+<div id="handover-crew-view" class="hidden">
+  <h2 id="handover-crew-title"></h2>
+  <ul id="handover-crew-list"></ul>
+  <div id="handover-crew-note"></div>
+  <div class="dialog-buttons">
+    <button type="button" id="handover-crew-copy">Copy</button>
+    <button type="button" id="handover-crew-close" class="primary">Close</button>
+  </div>
 </div>
 
 <!-- REPLAY PANEL (Tools → Replay, admin PIN; js/devices.js + js/replay.js) -->
@@ -1053,10 +1167,11 @@ body:not(.is-admin) .admin-only { display: none !important; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
 
-     <script src="js/map.js?v=35" defer></script>
-     <script src="js/replay.js?v=6" defer></script>
+     <script src="js/map.js?v=36" defer></script>
+     <script src="js/replay.js?v=7" defer></script>
      <script src="js/vendor/qrcode.js?v=1" defer></script>
      <script src="js/devices.js?v=5" defer></script>
+     <script src="js/handover.js?v=1" defer></script>
     
     <!-- Register Service Worker -->
     <script>

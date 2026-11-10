@@ -63,6 +63,7 @@ function exitReplay() {
   liveUsersApi.clearLiveUserMarkers();
   refreshAlerts();
   liveUsersApi.refreshLiveUsers();
+  if (window.handoverApi) handoverApi.endReplay();
 }
 
 // Alerts standing at time t: every post up to t, minus anything deleted by then.
@@ -96,6 +97,7 @@ function replaySeek(t) {
   });
   renderAlerts(replayAlertsAt(replay.t), replay.t, { readOnly: true });
   liveUsersApi.renderLiveUsers(replayFrameAt(replay.t)?.users || [], replay.t);
+  if (window.handoverApi) handoverApi.showReplay(replay.events, replay.t);
 }
 
 function replayPlay() {
