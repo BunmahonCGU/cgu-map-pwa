@@ -2,7 +2,7 @@
 // Bunmahon CGU PWA Service Worker (patched for alerts + freshness)
 // ------------------------------------------------------------
 
-const CACHE_NAME = "cgu-map-cache-v44";
+const CACHE_NAME = "cgu-map-cache-v45";
 
 // Big files that rarely change (check cards PDF and PDF.js, ~3.4 MB) live in
 // their own cache, which version bumps above leave alone, so phones don't

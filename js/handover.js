@@ -268,6 +268,8 @@ function renderHandover() {
   handoverHint.textContent = composerTab && !admin ? "You see only your own notes here. Admins see everyone's." : "";
 
   if (!tab) {
+    handoverListEl.classList.remove("has-notes", "editing");
+    delete handoverListEl.dataset.key;
     handoverActions.innerHTML = "";
     handoverListEl.innerHTML = inReplay
       ? '<li class="handover-hint">No handover notes at this point in the replay.</li>'
@@ -312,7 +314,25 @@ function renderHandover() {
       <div class="handover-text">${escapeHtml(n.text)}</div>${edited}${deleted}
     </li>`;
   });
-  handoverListEl.innerHTML = html;
+  // V2.24: the list is a small scrolling box. Show the newest note when a
+  // tab is opened or a note arrives; otherwise keep the reader's place.
+  const list = handoverListEl;
+  const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 4;
+  const prevTop = list.scrollTop;
+  const prevKey = list.dataset.key;
+  const key = tab.id + ":" + tabNotes.length;
+  list.innerHTML = html;
+  list.classList.add("has-notes");
+  list.classList.toggle("editing", !!handover.editing);
+  list.dataset.key = key;
+  if (handover.editing) {
+    const box = list.querySelector(".handover-edit");
+    if (box) box.scrollIntoView({ block: "nearest" });
+  } else if (atBottom || prevKey !== key) {
+    list.scrollTop = list.scrollHeight;
+  } else {
+    list.scrollTop = prevTop;
+  }
 
   if (inReplay) return;
   document.getElementById("handover-crew").addEventListener("click", () => showCrewView(tab, tabNotes));

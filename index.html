@@ -689,6 +689,17 @@ body:not(.is-admin) .admin-only { display: none !important; }
 }
 #handover-actions #handover-close-tab { background: #f8d7da; color: #8a0000; }
 #handover-list { list-style: none; margin: 0 0 6px; padding: 0; }
+/* V2.24: the notes list stays about one note tall and scrolls (newest at
+   the bottom), so the tabs and the text box stay where they are. */
+#handover-list.has-notes {
+  max-height: 96px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  border: 1px solid #ddd; border-radius: 4px;
+  padding: 0 6px;
+}
+#handover-list.has-notes.editing { max-height: none; }
 .handover-note { border-bottom: 1px solid #eee; padding: 5px 0; }
 .handover-meta { font-size: 12px; color: #555; display: flex; align-items: center; }
 .handover-icons { margin-left: auto; display: flex; gap: 4px; }
@@ -708,7 +719,7 @@ body:not(.is-admin) .admin-only { display: none !important; }
 body.replaying #handover-compose { display: none; }
 #handover-crew-view {
   position: fixed; inset: 0; z-index: 10010; background: white; color: black;
-  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  padding: calc(16px + env(safe-area-inset-top)) 16px 0;
   overflow-y: auto; border: 6px solid #d00000; box-sizing: border-box;
 }
 #handover-crew-view.hidden { display: none; }
@@ -719,6 +730,12 @@ body.replaying #handover-compose { display: none; }
 #handover-crew-list li p { margin: 4px 0 0; white-space: pre-wrap; }
 #handover-crew-note { color: #555; margin-bottom: 10px; font-size: 14px; }
 #handover-crew-view .dialog-buttons button { font-size: 16px; padding: 10px; }
+/* V2.24: Copy / Close stay visible at the bottom while the notes scroll. */
+#handover-crew-view .dialog-buttons {
+  position: sticky; bottom: 0;
+  background: white;
+  padding: 8px 0 calc(16px + env(safe-area-inset-bottom));
+}
 
 /* IRCG TREATMENT CHECK CARDS (V2.22): PDF.js view behind the Handover Notes
    panel. Same z-index as the panel but earlier in the page, so it covers the
@@ -1210,12 +1227,12 @@ body.replaying #handover-compose { display: none; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
 
-     <script src="js/map.js?v=39" defer></script>
+     <script src="js/map.js?v=40" defer></script>
      <script src="js/replay.js?v=7" defer></script>
      <script src="js/vendor/qrcode.js?v=1" defer></script>
      <script src="js/devices.js?v=5" defer></script>
      <script src="js/checkcards.js?v=2" defer></script>
-     <script src="js/handover.js?v=3" defer></script>
+     <script src="js/handover.js?v=4" defer></script>
     
     <!-- Register Service Worker -->
     <script>
