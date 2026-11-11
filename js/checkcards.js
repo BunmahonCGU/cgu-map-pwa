@@ -1,6 +1,6 @@
 // ------------------------------------------------------------
 // IRCG TREATMENT CHECK CARDS (V2.22)
-// A scrollable PDF.js view of docs/ircg-treatment-check-cards.pdf that
+// A scrollable PDF.js view of cards/ircg-treatment-check-cards.pdf that
 // opens behind the Handover Notes panel whenever that panel is open
 // (js/handover.js calls checkCards.open / checkCards.close).
 //
@@ -9,7 +9,8 @@
 // scroll into view, and redrawn sharper when zoomed.
 // ------------------------------------------------------------
 
-const CHECKCARDS_PDF = "docs/ircg-treatment-check-cards.pdf";
+// Not under docs/: the test site's .assetsignore hides that folder (V2.23).
+const CHECKCARDS_PDF = "cards/ircg-treatment-check-cards.pdf";
 const CHECKCARDS_ZOOMS = [1, 1.5, 2, 3];
 
 const checkCards = (() => {
@@ -81,7 +82,11 @@ const checkCards = (() => {
   async function build() {
     statusEl.textContent = "Loading check cards…";
     const pdfjsLib = await loadLib();
-    const doc = await pdfjsLib.getDocument(CHECKCARDS_PDF).promise;
+    // Whole-file load: the service worker answers from its cache with the
+    // full file, which doesn't suit PDF.js's chunked (Range) loading.
+    const doc = await pdfjsLib.getDocument({
+      url: CHECKCARDS_PDF, disableRange: true, disableStream: true,
+    }).promise;
     observer = new IntersectionObserver(entries => {
       for (const e of entries) {
         if (e.isIntersecting) drawPage(pages[Number(e.target.dataset.index)]).catch(() => {});
