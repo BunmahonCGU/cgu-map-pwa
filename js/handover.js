@@ -175,6 +175,7 @@ async function refreshHandover() {
 function openHandover() {
   closeMenus();
   handoverPanel.classList.remove("hidden");
+  checkCards.open(); // IRCG check cards behind the panel (js/checkcards.js)
   handoverToggle.checked = true;
   clearInterval(handover.timer);
   handover.timer = setInterval(() => {
@@ -186,6 +187,7 @@ function openHandover() {
 
 function closeHandover() {
   handoverPanel.classList.add("hidden");
+  checkCards.close();
   handoverToggle.checked = false;
   clearInterval(handover.timer);
   handover.timer = null;
