@@ -177,14 +177,25 @@ const alertKey = u => `al:${pad(new Date(u.timestamp).getTime())}:${u.id}`;
 // fifth LiveUsersDO instance ("handover"). Each casualty has a tab:
 //   hnt:<tabId>                 { id, name, created, firstNote, expires, by }
 //   hnn:<tabId>:<time>:<noteId> { id, tabId, t, text, author, deviceId, edited }
+//   hnf:<tabId>:<field>         { tabId, field, value, t, by, history } (V2.25)
+// hnf: records are the boxes filled in on the IRCG check cards
+// (js/cardfields.js names the fields). Anyone signed in can fill or
+// change one; each change keeps the previous value in history.
 // A tab and its notes go 24 hours after the tab's first note (24 hours
 // after it was made, if it never gets one). Anyone signed in can add a
 // tab or a note. A note is only sent to the device that wrote it and to
-// admins; the author and admins can edit or delete it; admins can close
+// admins (everyone, while HANDOVER_OPEN is true); the author and admins can edit or delete it; admins can close
 // a tab early. Every change also goes to the replay archive while
 // HANDOVER_IN_REPLAY is true (set false to keep them out of replay).
 // ===============================================================
 const HANDOVER_IN_REPLAY = true;
+// V2.25: true = every signed-in device sees every note and card entry.
+// false = a note goes only to its author's device and to admins (V2.20).
+// Editing a typed note stays author + admin either way.
+const HANDOVER_OPEN = true;
+const HANDOVER_MAX_FIELD = 2000;
+const HANDOVER_FIELD_HISTORY = 20;
+const HANDOVER_FIELD_RE = /^[a-z0-9.]{1,40}$/;
 const HANDOVER_KEEP_MS = 24 * 60 * 60 * 1000;
 const HANDOVER_MAX_TEXT = 2000;
 const HANDOVER_MAX_TABS = 20;
@@ -562,10 +573,12 @@ export class LiveUsersDO {
     for (const [key, tab] of tabs) {
       if (tab.expires > now) continue;
       tabs.delete(key);
-      for (;;) {
-        const old = await storage.list({ prefix: `hnn:${tab.id}:`, limit: 128 });
-        if (old.size === 0) break;
-        await storage.delete([...old.keys()]);
+      for (const prefix of [`hnn:${tab.id}:`, `hnf:${tab.id}:`]) {
+        for (;;) {
+          const old = await storage.list({ prefix, limit: 128 });
+          if (old.size === 0) break;
+          await storage.delete([...old.keys()]);
+        }
       }
       await storage.delete(key);
     }
@@ -580,7 +593,8 @@ export class LiveUsersDO {
     switch (url.pathname) {
       case "/handover/state": {
         const notes = [...(await storage.list({ prefix: "hnn:" })).values()];
-        return Response.json({ now, tabs: [...tabs.values()].sort((a, b) => a.created - b.created), notes });
+        const fields = [...(await storage.list({ prefix: "hnf:" })).values()];
+        return Response.json({ now, tabs: [...tabs.values()].sort((a, b) => a.created - b.created), notes, fields });
       }
       case "/handover/tab": {
         if (tabs.size >= HANDOVER_MAX_TABS) {
@@ -615,6 +629,23 @@ export class LiveUsersDO {
           await storage.put("hnt:" + tab.id, tab);
         }
         return Response.json({ ok: true, note, tab });
+      }
+      case "/handover/field": {
+        const tab = tabs.get("hnt:" + body.tabId);
+        if (!tab) return Response.json({ ok: false, error: "That casualty tab has expired or been closed" });
+        const key = `hnf:${tab.id}:${body.field}`;
+        const old = await storage.get(key);
+        const rec = { tabId: tab.id, field: body.field, value: body.value, t: now, by: body.author, history: [] };
+        if (old) {
+          rec.history = [{ value: old.value, t: old.t, by: old.by }, ...(old.history || [])].slice(0, HANDOVER_FIELD_HISTORY);
+        }
+        await storage.put(key, rec);
+        if (!tab.firstNote) {
+          tab.firstNote = now;
+          tab.expires = now + HANDOVER_KEEP_MS;
+          await storage.put("hnt:" + tab.id, tab);
+        }
+        return Response.json({ ok: true, field: rec });
       }
       case "/handover/edit":
       case "/handover/delete": {
@@ -1013,14 +1044,15 @@ async function handleRequest(request, env, ctx) {
     if (url.pathname === "/handover" && request.method === "GET") {
       const state = await handoverCall(env, "/handover/state");
       // Only ask whether this device is admin when there are notes
-      // from other devices it might be shown.
+      // from other devices it might be shown (or, when open, might edit).
       const othersExist = state.notes.some(n => n.deviceId !== device.id);
       const admin = othersExist && !(await adminProblem(env, device));
+      const fields = (state.fields || []).map(f => ({ ...f, history: f.history || [] }));
       const hidden = {};
       const notes = [];
       for (const n of state.notes) {
         const mine = n.deviceId === device.id;
-        if (!mine && !admin) {
+        if (!mine && !admin && !HANDOVER_OPEN) {
           hidden[n.tabId] = (hidden[n.tabId] || 0) + 1;
           continue;
         }
@@ -1031,7 +1063,7 @@ async function handleRequest(request, env, ctx) {
         id: t.id, name: t.name, created: t.created, firstNote: t.firstNote,
         left: t.expires - state.now, hidden: hidden[t.id] || 0
       }));
-      return json({ status: "ok", now: state.now, admin, tabs, notes });
+      return json({ status: "ok", now: state.now, admin, open: HANDOVER_OPEN, tabs, notes, fields });
     }
 
     if (request.method === "POST" && url.pathname.startsWith("/handover/")) {
@@ -1059,6 +1091,16 @@ async function handleRequest(request, env, ctx) {
         const { deviceId, ...note } = r.note;
         archive({ kind: "hn-note", note });
         return json({ status: "ok", note: { ...note, mine: true } });
+      }
+
+      if (url.pathname === "/handover/field") {
+        const field = typeof body.field === "string" ? body.field : "";
+        if (!HANDOVER_FIELD_RE.test(field)) return fail("Unknown card box");
+        const value = cleanText(body.value, HANDOVER_MAX_FIELD); // "" clears the box
+        const r = await handoverCall(env, "/handover/field", { tabId: body.tabId, field, value, author });
+        if (!r.ok) return fail(r.error, 404);
+        archive({ kind: "hn-field", tabId: body.tabId, field, value, by: author });
+        return json({ status: "ok", field: r.field });
       }
 
       if (url.pathname === "/handover/edit" || url.pathname === "/handover/delete") {

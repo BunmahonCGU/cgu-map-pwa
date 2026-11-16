@@ -126,6 +126,8 @@ const handoverStatus = document.getElementById("handover-status");
 const handover = {
   tabs: [],
   notes: [],
+  fields: [],        // check card boxes (V2.25): { tabId, field, value, t, by, history }
+  open: false,       // everyone sees every note (Worker HANDOVER_OPEN)
   selected: localStorage.getItem("handoverTab") || null,
   editing: null,     // id of the note being edited
   timer: null,
@@ -165,6 +167,8 @@ async function refreshHandover() {
     if (data.status !== "ok") throw new Error(data.error);
     handover.tabs = data.tabs;
     handover.notes = data.notes;
+    handover.fields = data.fields || [];
+    handover.open = !!data.open;
     handoverStatus.textContent = "";
   } catch (err) {
     handoverStatus.textContent = "No signal: showing the notes as last loaded.";
@@ -201,8 +205,58 @@ document.addEventListener("visibilitychange", () => {
 
 // What to draw: live data, or the replay's notes at its current time.
 function handoverView() {
-  return handover.replay || { tabs: handover.tabs, notes: handover.notes };
+  return handover.replay || { tabs: handover.tabs, notes: handover.notes, fields: handover.fields };
 }
+
+// ------------------------------------------------------------
+// CHECK CARD BOXES (V2.25): js/checkcards.js reads and saves the boxes
+// for the selected casualty through this.
+// ------------------------------------------------------------
+function cardValues(tabId) {
+  const values = {};
+  for (const f of handoverView().fields || []) if (f.tabId === tabId && f.value) values[f.field] = f.value;
+  return values;
+}
+
+// TC / NTC for a tab: the newest monitoring reading, else Assessment 2.
+function tabCriticality(tabId) {
+  const values = cardValues(tabId);
+  return latestMonitoring(values, "tc") || values["a2.tc"] || "";
+}
+
+window.cardStore = {
+  selectedTab() {
+    const { tabs } = handoverView();
+    return tabs.find(t => t.id === handover.selected) || null;
+  },
+  values: cardValues,
+  record(tabId, field) {
+    return (handoverView().fields || []).find(f => f.tabId === tabId && f.field === field) || null;
+  },
+  readOnly: () => !!handover.replay,
+  async save(tabId, field, value) {
+    if (handover.replay) return false;
+    // Show it at once; put it back if the save fails.
+    const before = handover.fields.slice();
+    const old = handover.fields.find(f => f.tabId === tabId && f.field === field);
+    const rec = { tabId, field, value, t: Date.now(), by: myName(),
+      history: old ? [{ value: old.value, t: old.t, by: old.by }, ...(old.history || [])] : [] };
+    handover.fields = handover.fields.filter(f => f !== old).concat(rec);
+    renderHandover();
+    try {
+      const data = await handoverPost("/handover/field", { tabId, field, value });
+      handover.fields = handover.fields.map(f => (f === rec ? data.field : f));
+      return true;
+    } catch (err) {
+      handover.fields = before;
+      renderHandover();
+      alert(err.message === "Failed to fetch"
+        ? "No signal: that box wasn't saved. Try again when you have signal."
+        : err.message);
+      return false;
+    }
+  },
+};
 
 // The composer (text box + 🎙 + Post) is fixed in the page, so the
 // 15-second refresh never interrupts someone dictating or typing.
@@ -241,7 +295,9 @@ function renderHandover() {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "handover-tab" + (t.id === handover.selected ? " selected" : "");
-    b.innerHTML = `${escapeHtml(t.name)}<small>${inReplay ? "" : handoverLeft(t.left)}</small>`;
+    const crit = tabCriticality(t.id);
+    const badge = crit ? ` <span class="handover-crit ${crit === "TC" ? "tc" : "ntc"}">${crit}</span>` : "";
+    b.innerHTML = `${escapeHtml(t.name)}${badge}<small>${inReplay ? "" : handoverLeft(t.left)}</small>`;
     b.addEventListener("click", () => selectHandoverTab(t.id));
     handoverTabsEl.appendChild(b);
   });
@@ -265,9 +321,11 @@ function renderHandover() {
     document.getElementById("handover-dictate-status").textContent = "";
   }
   handoverCompose.classList.toggle("hidden", !composerTab);
-  handoverHint.textContent = composerTab && !admin ? "You see only your own notes here. Admins see everyone's." : "";
+  handoverHint.textContent = composerTab && !admin && !handover.open ? "You see only your own notes here. Admins see everyone's." : "";
+  checkCards.refresh(); // the cards follow the selected casualty
 
   if (!tab) {
+    checkCards.refresh();
     handoverListEl.classList.remove("has-notes", "editing");
     delete handoverListEl.dataset.key;
     handoverActions.innerHTML = "";
@@ -441,15 +499,20 @@ function closeHandoverTab(tab) {
 const crewView = document.getElementById("handover-crew-view");
 
 function crewPlainText(tab, notes) {
-  return tab.name + "\n" + notes.map(n => `${fmtTime(n.t)} ${n.author}: ${n.text}`).join("\n");
+  const card = cardSummaryLines(cardValues(tab.id));
+  return tab.name + "\n" + notes.map(n => `${fmtTime(n.t)} ${n.author}: ${n.text}`).join("\n") +
+    (card.length ? "\n\nCheck cards:\n" + card.map(l => `${l.label}: ${l.value}`).join("\n") : "");
 }
 
 function showCrewView(tab, notes) {
   document.getElementById("handover-crew-title").textContent = tab.name;
-  document.getElementById("handover-crew-list").innerHTML = notes.length
+  const card = cardSummaryLines(cardValues(tab.id));
+  document.getElementById("handover-crew-list").innerHTML = (notes.length
     ? notes.map(n => `<li><b>${fmtTime(n.t)}</b> <span>${escapeHtml(n.author)}</span><p>${escapeHtml(n.text)}</p></li>`).join("")
-    : "<li>No notes yet.</li>";
-  document.getElementById("handover-crew-note").textContent = isAdminNow()
+    : (card.length ? "" : "<li>No notes yet.</li>")) +
+    (card.length ? '<li class="crew-card-head"><b>Check cards</b></li>' +
+      card.map(l => `<li class="crew-card"><span>${escapeHtml(l.label)}</span><p>${escapeHtml(l.value)}</p></li>`).join("") : "");
+  document.getElementById("handover-crew-note").textContent = isAdminNow() || handover.open
     ? "" : "Only your own notes are shown. An admin's phone shows everyone's.";
   crewView.dataset.text = crewPlainText(tab, notes);
   crewView.classList.remove("hidden");
@@ -473,6 +536,7 @@ document.getElementById("handover-crew-close").addEventListener("click", () => c
 function handoverReplayAt(events, t) {
   const tabs = new Map();
   const notes = new Map();
+  const fields = new Map();
   for (const e of events) {
     if (e.t > t) break;
     if (e.kind === "hn-tab" && e.tab) {
@@ -485,6 +549,13 @@ function handoverReplayAt(events, t) {
       Object.assign(notes.get(e.noteId), { text: e.text, edited: { t: e.t, by: e.by } });
     } else if (e.kind === "hn-delete" && notes.has(e.noteId)) {
       notes.get(e.noteId).deleted = { t: e.t, by: e.by };
+    } else if (e.kind === "hn-field") {
+      const key = e.tabId + ":" + e.field;
+      const old = fields.get(key);
+      fields.set(key, { tabId: e.tabId, field: e.field, value: e.value, t: e.t, by: e.by,
+        history: old ? [{ value: old.value, t: old.t, by: old.by }, ...old.history] : [] });
+      const tab = tabs.get(e.tabId);
+      if (tab && !tab.firstNote) tab.firstNote = e.t;
     } else if (e.kind === "hn-close" && tabs.has(e.tabId)) {
       tabs.get(e.tabId).closed = true;
     }
@@ -492,7 +563,7 @@ function handoverReplayAt(events, t) {
   const live = [...tabs.values()].filter(tab =>
     !tab.closed && (tab.firstNote || tab.created) + 24 * 60 * 60 * 1000 > t
   ).sort((a, b) => a.created - b.created);
-  return { tabs: live, notes: [...notes.values()], t };
+  return { tabs: live, notes: [...notes.values()], fields: [...fields.values()], t };
 }
 
 window.handoverApi = {
