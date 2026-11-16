@@ -778,8 +778,8 @@ body.replaying #handover-compose { display: none; }
 /* CHECK CARD BOXES (V2.25): tappable fill-in boxes over the PDF
    (js/cardfields.js, js/checkcards.js). --pw = the page's width. */
 .checkcards-page { position: relative; }
-.cc-layer { position: absolute; inset: 0; }
-.cc-box {
+.ck-layer { position: absolute; inset: 0; }
+.ck-box {
   position: absolute; box-sizing: border-box; margin: 0; padding: 0 2px;
   border: 2px dashed rgba(0, 110, 255, 0.45); border-radius: 3px;
   background: rgba(0, 110, 255, 0.06);
@@ -789,18 +789,18 @@ body.replaying #handover-compose { display: none; }
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   touch-action: manipulation;
 }
-.cc-box.filled { background: rgba(255, 255, 255, 0.8); border-style: solid; border-color: rgba(0, 110, 255, 0.35); }
-.cc-box.cc-small { font-size: calc(var(--pw) * 0.032); }
-.cc-box.cc-line { font-size: calc(var(--pw) * 0.03); }
-.cc-box.cc-text {
+.ck-box.filled { background: rgba(255, 255, 255, 0.8); border-style: solid; border-color: rgba(0, 110, 255, 0.35); }
+.ck-box.ck-small { font-size: calc(var(--pw) * 0.032); }
+.ck-box.ck-line { font-size: calc(var(--pw) * 0.03); }
+.ck-box.ck-text {
   font-size: calc(var(--pw) * 0.026); font-weight: 500;
   align-items: flex-start; justify-content: flex-start; text-align: left;
   white-space: pre-wrap; padding: calc(var(--pw) * 0.03) 4px 2px;
 }
-.cc-box.cc-text.cc-line { padding-top: 1px; align-items: flex-end; white-space: nowrap; }
-.cc-box.auto { color: #666; font-style: italic; font-weight: 500; }
-.cc-box.cc-mark { background: transparent; color: #000; font-size: calc(var(--pw) * 0.05); justify-content: flex-end; }
-.cc-box.cc-mark.chosen { border: 3px solid #000; border-radius: 6px; }
+.ck-box.ck-text.ck-line { padding-top: 1px; align-items: flex-end; white-space: nowrap; }
+.ck-box.auto { color: #666; font-style: italic; font-weight: 500; }
+.ck-box.ck-mark { background: transparent; color: #000; font-size: calc(var(--pw) * 0.05); justify-content: flex-end; }
+.ck-box.ck-mark.chosen { border: 3px solid #000; border-radius: 6px; }
 #checkcards-banner {
   position: absolute; left: 8px; right: 112px; bottom: calc(12px + env(safe-area-inset-bottom));
   background: #d00000; color: white; font-weight: 700; font-size: 14px;
@@ -808,37 +808,37 @@ body.replaying #handover-compose { display: none; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 #checkcards-banner.none { background: rgba(0,0,0,0.7); font-weight: 500; }
-#checkcards-banner.flash { animation: cc-flash 0.4s 3; }
-@keyframes cc-flash { 50% { background: #ffd400; color: #000; } }
-#cc-sheet { position: fixed; inset: 0; z-index: 10030; background: rgba(0,0,0,0.35); display: flex; align-items: flex-end; justify-content: center; }
-#cc-sheet.hidden { display: none; }
-.cc-card {
+#checkcards-banner.flash { animation: ck-flash 0.4s 3; }
+@keyframes ck-flash { 50% { background: #ffd400; color: #000; } }
+#ck-sheet { position: fixed; inset: 0; z-index: 10030; background: rgba(0,0,0,0.35); display: flex; align-items: flex-end; justify-content: center; }
+#ck-sheet.hidden { display: none; }
+.ck-card {
   background: white; color: #000; width: 100%; max-width: 520px; box-sizing: border-box;
   border-top: 4px solid #d00000; border-radius: 12px 12px 0 0;
   padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
   max-height: 85vh; overflow-y: auto;
 }
-.cc-card h3 { margin: 2px 0 6px; font-size: 18px; }
-.cc-who { color: #d00000; font-weight: 700; font-size: 13px; }
-.cc-meta { color: #555; font-size: 13px; margin-bottom: 8px; }
-.cc-value { font-size: 22px; font-weight: 700; margin: 8px 0; }
-.cc-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 6px; margin-bottom: 8px; }
-.cc-opts.many { grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); }
-.cc-opt {
+.ck-card h3 { margin: 2px 0 6px; font-size: 18px; }
+.ck-who { color: #d00000; font-weight: 700; font-size: 13px; }
+.ck-meta { color: #555; font-size: 13px; margin-bottom: 8px; }
+.ck-value { font-size: 22px; font-weight: 700; margin: 8px 0; }
+.ck-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 6px; margin-bottom: 8px; }
+.ck-opts.many { grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); }
+.ck-opt {
   border: 2px solid var(--c, #999); color: var(--c, #222); background: white;
   border-radius: 8px; min-height: 48px; font-size: 18px; font-weight: 700; padding: 4px;
 }
-.cc-opt.on { background: var(--c, #333); color: white; }
-.cc-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
-.cc-row input[type=number], .cc-row input[type=time] { font-size: 22px; padding: 8px; width: 9em; border: 1px solid #999; border-radius: 6px; }
-.cc-now, .cc-stamp { font-size: 17px; padding: 10px 16px; border-radius: 8px; border: none; background: #e6eefb; color: #003a8c; font-weight: 700; }
-.cc-x6 { font-size: 15px; display: flex; align-items: center; gap: 6px; }
-.cc-x6 input { width: 22px; height: 22px; }
-#cc-text { width: 100%; box-sizing: border-box; font-size: 16px; padding: 8px; border: 1px solid #999; border-radius: 6px; margin-bottom: 8px; }
-.cc-row .dictate-btn { flex: 1; min-height: 44px; }
-.cc-hist { font-size: 14px; margin: 6px 0; }
-.cc-hist li span { color: #666; font-size: 12px; }
-.cc-card .dialog-buttons button { font-size: 16px; padding: 10px; }
+.ck-opt.on { background: var(--c, #333); color: white; }
+.ck-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.ck-row input[type=number], .ck-row input[type=time] { font-size: 22px; padding: 8px; width: 9em; border: 1px solid #999; border-radius: 6px; }
+.ck-now, .ck-stamp { font-size: 17px; padding: 10px 16px; border-radius: 8px; border: none; background: #e6eefb; color: #003a8c; font-weight: 700; }
+.ck-x6 { font-size: 15px; display: flex; align-items: center; gap: 6px; }
+.ck-x6 input { width: 22px; height: 22px; }
+#pick-words { width: 100%; box-sizing: border-box; font-size: 16px; padding: 8px; border: 1px solid #999; border-radius: 6px; margin-bottom: 8px; }
+.ck-row .dictate-btn { flex: 1; min-height: 44px; }
+.ck-hist { font-size: 14px; margin: 6px 0; }
+.ck-hist li span { color: #666; font-size: 12px; }
+.ck-card .dialog-buttons button { font-size: 16px; padding: 10px; }
 .handover-crit { font-size: 10px; font-weight: 800; padding: 1px 4px; border-radius: 3px; color: white; vertical-align: middle; }
 .handover-crit.tc { background: #d00000; }
 .handover-crit.ntc { background: #138a36; }
@@ -1303,12 +1303,12 @@ body.replaying #handover-compose { display: none; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
 
-     <script src="js/map.js?v=41" defer></script>
+     <script src="js/map.js?v=42" defer></script>
      <script src="js/replay.js?v=7" defer></script>
      <script src="js/vendor/qrcode.js?v=1" defer></script>
      <script src="js/devices.js?v=5" defer></script>
      <script src="js/cardfields.js?v=1" defer></script>
-     <script src="js/checkcards.js?v=3" defer></script>
+     <script src="js/checkcards.js?v=4" defer></script>
      <script src="js/handover.js?v=5" defer></script>
     
     <!-- Register Service Worker -->

@@ -92,11 +92,11 @@ const checkCards = (() => {
     const fields = CARD_FIELDS.filter(f => f.page === pageNo);
     if (!fields.length) return;
     const layer = document.createElement("div");
-    layer.className = "cc-layer";
+    layer.className = "ck-layer";
     for (const f of fields) {
       const el = document.createElement("button");
       el.type = "button";
-      el.className = "cc-box" + (f.type === "text" ? " cc-text" : "") + (f.line ? " cc-line" : "") + (f.small ? " cc-small" : "") + (f.mark ? " cc-mark" : "");
+      el.className = "ck-box" + (f.type === "text" ? " ck-text" : "") + (f.line ? " ck-line" : "") + (f.small ? " ck-small" : "") + (f.mark ? " ck-mark" : "");
       el.style.left = f.x * 100 + "%";
       el.style.top = f.y * 100 + "%";
       el.style.width = f.w * 100 + "%";
@@ -133,7 +133,7 @@ const checkCards = (() => {
 
   // ---- Picker ----
   const sheet = document.createElement("div");
-  sheet.id = "cc-sheet";
+  sheet.id = "ck-sheet";
   sheet.className = "hidden";
   document.body.appendChild(sheet);
   sheet.addEventListener("click", e => { if (e.target === sheet) closePicker(); });
@@ -175,47 +175,48 @@ const checkCards = (() => {
 
     const esc = escapeHtml;
     const hist = rec && rec.history && rec.history.length
-      ? `<details class="cc-hist"><summary>History (${rec.history.length})</summary><ul>${
+      ? `<details class="ck-hist"><summary>History (${rec.history.length})</summary><ul>${
           rec.history.map(h => `<li>${esc(h.value ? cardDisplay(f, h.value) : "(cleared)")} <span>${fmtTime(h.t)} ${esc(h.by || "")}</span></li>`).join("")
         }</ul></details>` : "";
     const meta = rec && rec.value
-      ? `<div class="cc-meta">Set ${fmtTime(rec.t)} by ${esc(rec.by || "")}</div>`
-      : (shown.auto ? `<div class="cc-meta">Filled in for you from the cards: ${esc(cardDisplay(f, shown.value))}. Pick a value to change it.</div>` : "");
+      ? `<div class="ck-meta">Set ${fmtTime(rec.t)} by ${esc(rec.by || "")}</div>`
+      : (shown.auto ? `<div class="ck-meta">Filled in for you from the cards: ${esc(cardDisplay(f, shown.value))}. Pick a value to change it.</div>` : "");
 
     let body = "";
-    const optBtn = (o, on) => `<button type="button" class="cc-opt${on ? " on" : ""}" data-v="${esc(o.v)}"${o.c ? ` style="--c:${o.c}"` : ""}>${esc(o.label || o.v)}</button>`;
+    const optBtn = (o, on) => `<button type="button" class="ck-opt${on ? " on" : ""}" data-v="${esc(o.v)}"${o.c ? ` style="--c:${o.c}"` : ""}>${esc(o.label || o.v)}</button>`;
     if (f.type === "choice") {
-      body = `<div class="cc-opts${f.options.length > 6 ? " many" : ""}">${f.options.map(o => optBtn(o, o.v === current)).join("")}</div>`;
+      body = `<div class="ck-opts${f.options.length > 6 ? " many" : ""}">${f.options.map(o => optBtn(o, o.v === current)).join("")}</div>`;
     } else if (f.type === "multi") {
       const on = current.split(", ").filter(Boolean);
-      body = `<div class="cc-opts">${f.options.map(o => optBtn(o, on.includes(o.v))).join("")}</div>`;
+      body = `<div class="ck-opts">${f.options.map(o => optBtn(o, on.includes(o.v))).join("")}</div>`;
     } else if (f.type === "number") {
-      body = (f.quick ? `<div class="cc-opts many">${f.quick.map(q => optBtn({ v: q, c: f.colour(q) }, q === current)).join("")}</div>` : "") +
-        `<div class="cc-row"><input type="number" inputmode="numeric" min="0" max="400" id="cc-num" placeholder="Rate${f.unit ? " " + f.unit : ""}" value="${/^\d+$/.test(current) ? esc(current) : ""}">` +
-        (f.x6 ? `<label class="cc-x6"><input type="checkbox" id="cc-x6"> 10-sec count ×6</label>` : "") + `</div>`;
+      body = (f.quick ? `<div class="ck-opts many">${f.quick.map(q => optBtn({ v: q, c: f.colour(q) }, q === current)).join("")}</div>` : "") +
+        `<div class="ck-row"><input type="number" inputmode="numeric" min="0" max="400" id="pick-rate" name="pick-rate" autocomplete="off" placeholder="Rate${f.unit ? " " + f.unit : ""}" value="${/^\d+$/.test(current) ? esc(current) : ""}">` +
+        (f.x6 ? `<label class="ck-x6"><input type="checkbox" id="ck-x6"> 10-sec count ×6</label>` : "") + `</div>`;
     } else if (f.type === "time") {
-      body = `<div class="cc-row"><button type="button" class="cc-now">Now</button><input type="time" id="cc-time" value="${/^\d\d:\d\d$/.test(current) ? current : ""}"></div>` +
-        (f.extra ? `<div class="cc-opts">${f.extra.map(v => optBtn({ v }, v === current)).join("")}</div>` : "");
+      body = `<div class="ck-row"><button type="button" class="ck-now">Now</button><input type="time" id="pick-clock" name="pick-clock" autocomplete="off" value="${/^\d\d:\d\d$/.test(current) ? current : ""}"></div>` +
+        (f.extra ? `<div class="ck-opts">${f.extra.map(v => optBtn({ v }, v === current)).join("")}</div>` : "");
     } else {
       let text = current;
       if (!text && f.prefill) text = cardTreatmentSummary(values);
-      body = (f.quick ? `<div class="cc-opts many">${f.quick.map(q => optBtn({ v: q }, q === current)).join("")}</div>` : "") +
-        `<textarea id="cc-text" rows="${f.line ? 2 : 4}">${esc(text)}</textarea>` +
-        `<div class="cc-row">${f.stamp ? '<button type="button" class="cc-stamp">+ time</button>' : ""}<button type="button" id="cc-dictate" class="dictate-btn">🎙 Hold to record</button></div>` +
-        `<div id="cc-dictate-status" class="dictate-status"></div>` +
-        (f.prefill && !current && text ? `<div class="cc-meta">Suggested from the cards. Check it and add to it before saving.</div>` : "");
+      body = (f.quick ? `<div class="ck-opts many">${f.quick.map(q => optBtn({ v: q }, q === current)).join("")}</div>` : "") +
+        `<textarea id="pick-words" name="pick-words" autocomplete="off" rows="${f.line ? 2 : 4}">${esc(text)}</textarea>` +
+        `<div class="ck-row">${f.stamp ? '<button type="button" class="ck-stamp">+ time</button>' : ""}<button type="button" id="ck-dictate" class="dictate-btn">🎙 Hold to record</button></div>` +
+        `<div id="ck-dictate-status" class="dictate-status"></div>` +
+        (f.prefill && !current && text ? `<div class="ck-meta">Suggested from the cards. Check it and add to it before saving.</div>` : "");
     }
 
-    sheet.innerHTML = `<div class="cc-card">
-      <div class="cc-who">${esc(tab.name)}</div>
+    sheet.innerHTML = `<div class="ck-card">
+      <div class="ck-who">${esc(tab.name)}</div>
       <h3>${esc(f.label)}</h3>
       ${meta}
-      ${readOnly ? `<div class="cc-value">${esc(cardDisplay(f, shown.value) || "Empty")}</div>` : body}
+      ${readOnly ? `<div class="ck-value">${esc(cardDisplay(f, shown.value) || "Empty")}</div>` : body}
       ${hist}
       <div class="dialog-buttons">
-        ${readOnly ? "" : `<button type="button" class="cc-clear"${current ? "" : " disabled"}>Clear</button>`}
-        <button type="button" class="cc-cancel">${readOnly ? "Close" : "Cancel"}</button>
-        ${readOnly || f.type === "choice" ? "" : `<button type="button" class="primary cc-save">Save</button>`}
+        ${readOnly ? "" : `<button type="button" class="ck-clear"${current ? "" : " disabled"}>Clear</button>`}
+        <button type="button" class="ck-cancel">${readOnly ? "Close" : "Cancel"}</button>
+        ${!readOnly && f.page === 6 && nextInRow(f, Object.assign({}, values, { [f.id]: "x" })) ? `<button type="button" class="ck-skip">Skip ›</button>` : ""}
+        ${readOnly || f.type === "choice" ? "" : `<button type="button" class="primary ck-save">Save</button>`}
       </div>
     </div>`;
     sheet.classList.remove("hidden");
@@ -232,14 +233,21 @@ const checkCards = (() => {
       if (next) openPicker(next);
     };
 
-    sheet.querySelector(".cc-cancel").addEventListener("click", closePicker);
+    sheet.querySelector(".ck-cancel").addEventListener("click", closePicker);
+    // Monitoring: leave this box empty and go on to the next one in the row.
+    const skipBtn = sheet.querySelector(".ck-skip");
+    if (skipBtn) skipBtn.addEventListener("click", () => {
+      const next = nextInRow(f, Object.assign({}, store.values(tab.id), { [f.id]: "x" }));
+      closePicker();
+      if (next) openPicker(next);
+    });
     if (readOnly) return;
-    sheet.querySelector(".cc-clear").addEventListener("click", () => save(""));
+    sheet.querySelector(".ck-clear").addEventListener("click", () => save(""));
 
-    const opts = [...sheet.querySelectorAll(".cc-opt")];
-    const num = sheet.querySelector("#cc-num");
-    const time = sheet.querySelector("#cc-time");
-    const text = sheet.querySelector("#cc-text");
+    const opts = [...sheet.querySelectorAll(".ck-opt")];
+    const num = sheet.querySelector("#pick-rate");
+    const time = sheet.querySelector("#pick-clock");
+    const text = sheet.querySelector("#pick-words");
     opts.forEach(b => b.addEventListener("click", () => {
       const v = b.dataset.v;
       if (f.type === "choice") return save(v);
@@ -263,22 +271,22 @@ const checkCards = (() => {
     if (num) num.addEventListener("input", () => { opts.forEach(o => o.classList.remove("on")); pending = ""; });
     if (time) {
       time.addEventListener("input", () => opts.forEach(o => o.classList.remove("on")));
-      sheet.querySelector(".cc-now").addEventListener("click", () => { time.value = nowHM(); opts.forEach(o => o.classList.remove("on")); });
+      sheet.querySelector(".ck-now").addEventListener("click", () => { time.value = nowHM(); opts.forEach(o => o.classList.remove("on")); });
     }
     if (text) {
-      attachDictation(sheet.querySelector("#cc-dictate"), text, sheet.querySelector("#cc-dictate-status"));
-      const stamp = sheet.querySelector(".cc-stamp");
+      attachDictation(sheet.querySelector("#ck-dictate"), text, sheet.querySelector("#ck-dictate-status"));
+      const stamp = sheet.querySelector(".ck-stamp");
       if (stamp) stamp.addEventListener("click", () => {
         text.value = (text.value.trim() ? text.value.trim() + " " : "") + nowHM() + " ";
         text.focus();
       });
     }
-    const saveBtn = sheet.querySelector(".cc-save");
+    const saveBtn = sheet.querySelector(".ck-save");
     if (saveBtn) saveBtn.addEventListener("click", () => {
       let v = pending;
       if (f.type === "number" && num && num.value !== "") {
         let n = Math.round(+num.value);
-        if (sheet.querySelector("#cc-x6") && sheet.querySelector("#cc-x6").checked) n *= 6;
+        if (sheet.querySelector("#ck-x6") && sheet.querySelector("#ck-x6").checked) n *= 6;
         v = String(Math.max(0, n));
       } else if (f.type === "time") {
         const on = opts.find(o => o.classList.contains("on"));
