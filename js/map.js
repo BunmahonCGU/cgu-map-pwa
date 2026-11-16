@@ -7,8 +7,9 @@ document.addEventListener("DOMContentLoaded", () => { initMap(); });
 
 let tracking = true;
 let lastLocation = null;
+let lastLocationAt = 0; // when lastLocation was last updated (ms)
 let map;
-const APP_VERSION = "V2.26";
+const APP_VERSION = "V2.27";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.
@@ -970,6 +971,7 @@ oms.addListener('unspiderfy', function(markers) {
   // ------------------------------------------------------------
   map.on("locationfound", (e) => {
     lastLocation = e.latlng;
+    lastLocationAt = Date.now();
     if (!tracking) return;
 
     // User marker
@@ -1785,6 +1787,13 @@ async function handleLongPressClear(lat, lng) {
 
   if (!proceed) return;
 
+  postAutoAlert("Cleared", await describePlace(lat, lng), { lat, lng });
+}
+
+// A place as words: nearby road / area plus townland when the Worker
+// finds them, else the coordinates. Used by Cleared and by the Handover
+// panel's casualty location note (V2.27).
+async function describePlace(lat, lng) {
   let address = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   try {
     const res = await apiFetch(`/reverse-geocode?lat=${lat}&lng=${lng}`);
@@ -1802,8 +1811,7 @@ async function handleLongPressClear(lat, lng) {
   } catch (err) {
     console.warn("Reverse geocode failed, using coordinates instead:", err);
   }
-
-  postAutoAlert("Cleared", address, { lat, lng });
+  return address;
 }
 
 // ===============================

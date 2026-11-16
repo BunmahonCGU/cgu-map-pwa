@@ -369,7 +369,7 @@ function renderHandover() {
     const deleted = n.deleted ? `<div class="handover-edited">deleted ${fmtTime(n.deleted.t)} by ${escapeHtml(n.deleted.by)}</div>` : "";
     html += `<li class="handover-note${n.deleted ? " deleted" : ""}" data-id="${n.id}">
       <div class="handover-meta">${meta}${icons}</div>
-      <div class="handover-text">${escapeHtml(n.text)}</div>${edited}${deleted}
+      <div class="handover-text">${escapeHtml(n.text)}${n.loc ? ` <a class="handover-maps" href="${mapsLink(n.loc)}" target="_blank" rel="noopener" title="Directions in Google Maps">🧭</a>` : ""}</div>${edited}${deleted}
     </li>`;
   });
   // V2.24: the list is a small scrolling box. Show the newest note when a
@@ -415,8 +415,50 @@ async function addHandoverTab() {
     handover.selected = data.tab.id;
     try { localStorage.setItem("handoverTab", data.tab.id); } catch (err) {}
     await refreshHandover();
+    await postCasualtyLocation(data.tab.id);
   } catch (err) {
     alert(err.message === "Failed to fetch" ? "No signal: couldn't add the tab. Try again when you have signal." : err.message);
+  }
+}
+
+// V2.27: a new casualty tab starts with a note of the time and where
+// this phone is (the person adding the casualty is with them).
+const mapsLink = loc => `https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`;
+
+function phonePosition() {
+  if (lastLocation && Date.now() - lastLocationAt < 2 * 60 * 1000) {
+    return Promise.resolve({ lat: lastLocation.lat, lng: lastLocation.lng });
+  }
+  return new Promise(resolve => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  });
+}
+
+async function postCasualtyLocation(tabId) {
+  handoverStatus.textContent = "Adding the casualty's location…";
+  const time = fmtTime(Date.now());
+  const pos = await phonePosition();
+  let text, loc = null;
+  if (pos) {
+    loc = pos;
+    const place = await describePlace(pos.lat, pos.lng);
+    const coords = `${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}`;
+    text = `${time} Casualty location: ${place}${place.includes(coords) ? "" : ` (${coords})`}`;
+  } else {
+    text = `${time} Casualty location: location not available (no GPS fix). Add it by hand.`;
+  }
+  try {
+    await handoverPost("/handover/note", { tabId, text, loc });
+    handoverStatus.textContent = "";
+    await refreshHandover();
+  } catch (err) {
+    handoverStatus.textContent = "Couldn't post the casualty's location: " +
+      (err.message === "Failed to fetch" ? "no signal." : err.message);
   }
 }
 
@@ -500,7 +542,7 @@ const crewView = document.getElementById("handover-crew-view");
 
 function crewPlainText(tab, notes) {
   const card = cardSummaryLines(cardValues(tab.id));
-  return tab.name + "\n" + notes.map(n => `${fmtTime(n.t)} ${n.author}: ${n.text}`).join("\n") +
+  return tab.name + "\n" + notes.map(n => `${fmtTime(n.t)} ${n.author}: ${n.text}${n.loc ? " " + mapsLink(n.loc) : ""}`).join("\n") +
     (card.length ? "\n\nCheck cards:\n" + card.map(l => `${l.label}: ${l.value}`).join("\n") : "");
 }
 
@@ -508,7 +550,7 @@ function showCrewView(tab, notes) {
   document.getElementById("handover-crew-title").textContent = tab.name;
   const card = cardSummaryLines(cardValues(tab.id));
   document.getElementById("handover-crew-list").innerHTML = (notes.length
-    ? notes.map(n => `<li><b>${fmtTime(n.t)}</b> <span>${escapeHtml(n.author)}</span><p>${escapeHtml(n.text)}</p></li>`).join("")
+    ? notes.map(n => `<li><b>${fmtTime(n.t)}</b> <span>${escapeHtml(n.author)}</span><p>${escapeHtml(n.text)}${n.loc ? ` <a href="${mapsLink(n.loc)}" target="_blank" rel="noopener" title="Directions in Google Maps">🧭</a>` : ""}</p></li>`).join("")
     : (card.length ? "" : "<li>No notes yet.</li>")) +
     (card.length ? '<li class="crew-card-head"><b>Check cards</b></li>' +
       card.map(l => `<li class="crew-card"><span>${escapeHtml(l.label)}</span><p>${escapeHtml(l.value)}</p></li>`).join("") : "");

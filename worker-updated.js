@@ -622,6 +622,7 @@ export class LiveUsersDO {
           author: body.author,
           deviceId: body.deviceId
         };
+        if (body.loc) note.loc = body.loc; // V2.27: where the casualty is
         await storage.put(`hnn:${tab.id}:${pad(now)}:${note.id}`, note);
         if (!tab.firstNote) {
           tab.firstNote = now;
@@ -1086,7 +1087,11 @@ async function handleRequest(request, env, ctx) {
       if (url.pathname === "/handover/note") {
         const text = cleanText(body.text, HANDOVER_MAX_TEXT);
         if (!text) return fail("The note is empty");
-        const r = await handoverCall(env, "/handover/note", { tabId: body.tabId, text, author, deviceId: device.id });
+        // Optional location (V2.27), e.g. the new-casualty location note.
+        const lat = Number(body.loc && body.loc.lat), lng = Number(body.loc && body.loc.lng);
+        const loc = Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+          ? { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 } : null;
+        const r = await handoverCall(env, "/handover/note", { tabId: body.tabId, text, author, deviceId: device.id, loc });
         if (!r.ok) return fail(r.error, 404);
         const { deviceId, ...note } = r.note;
         archive({ kind: "hn-note", note });
