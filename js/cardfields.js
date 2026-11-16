@@ -50,8 +50,8 @@ const addField = f => { CARD_FIELDS.push(f); return f; };
 addField({ id: "a1.time", page: 2, x: .7903, y: .0452, w: .1510, h: .1012, label: "Assessment time", type: "time" });
 addField({ id: "a1.avpu", page: 2, x: .7953, y: .1738, w: .1409, h: .0571, label: "AVPU (first)", type: "choice", options: AVPU });
 addField({ id: "a1.cat", page: 2, x: .7886, y: .3298, w: .1527, h: .0643, label: "Tourniquet (CAT) time", type: "time", extra: ["Not applied"] });
-addField({ id: "a1.ht", page: 2, x: .7903, y: .4893, w: .1510, h: .0643, label: "Airway (HT / JT / OP)", type: "multi",
-  options: [{ v: "HT" }, { v: "None" }] }); // JT / OP left out for now (Mike, V2.28)
+addField({ id: "a1.ht", page: 2, x: .7903, y: .4893, w: .1510, h: .0643, label: "Airway: Head Tilt (HT)", type: "choice",
+  options: [{ v: "HT", label: "HT (Head Tilt)" }, { v: "None" }] }); // JT / OP left out for now (Mike, V2.28)
 // The Non-Time Critical / Time Critical headings at the top of
 // Assessment 1 share the a2.tc answer with Assessment 2 (V2.28).
 addField({ id: "a2.tc", page: 2, x: .4966, y: .081, w: .1359, h: .068, label: "Time Critical?", type: "choice", options: TCNTC, mark: "NTC", alias: true });
