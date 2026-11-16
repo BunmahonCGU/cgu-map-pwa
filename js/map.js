@@ -9,7 +9,7 @@ let tracking = true;
 let lastLocation = null;
 let lastLocationAt = 0; // when lastLocation was last updated (ms)
 let map;
-const APP_VERSION = "V2.27";
+const APP_VERSION = "V2.28";
 
 // The live site (GitHub Pages) talks to the live Worker. The V2 test site
 // is served by its own Worker (wrangler.jsonc), so it talks to itself.
